@@ -1,0 +1,122 @@
+The terms Microservice and API are related but refer to different concepts in software architecture. Here's a clear comparison:
+
+
+
+| Term                                        | Description                                                                                                                                                     |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Microservice**                            | An independent, deployable service that performs a specific business function as part of a larger system. It's an **architectural style**.                      |
+| **API (Application Programming Interface)** | A **contract/interface** that defines how different software components or services communicate. An API is how you **talk to** a microservice (or any service). |
+
+
+
+| Aspect         | Microservice                                            | API                                                   |
+| -------------- | ------------------------------------------------------- | ----------------------------------------------------- |
+| Type           | Architectural unit                                      | Interface (method of communication)                   |
+| Scope          | Contains business logic, data access, and often an API  | Just defines operations/methods (like REST endpoints) |
+| Responsibility | Implements and exposes APIs                             | Describes how to consume functionality                |
+| Deployment     | Independently deployable unit (e.g., a container or VM) | Not deployed separately; part of a service            |
+| Example        | `OrderService` handling orders                          | `GET /orders/{id}` endpoint                           |
+
+
+
+
+💬 Analogy
+Microservice = Restaurant
+
+API = Menu
+
+The restaurant (microservice) prepares food (business logic), and the menu (API) shows what you can order (available operations).
+
+
+| Feature                                 | Microservice | API |
+| --------------------------------------- | ------------ | --- |
+| Has independent runtime                 | ✅            | ❌   |
+| Has its own database                    | ✅ (often)    | ❌   |
+| Defines contract for communication      | ✅ (via API)  | ✅   |
+| Used to implement a business capability | ✅            | ❌   |
+| Can be reused across services           | ✅            | ✅   |
+
+
+
+➕ In Practice
+In a microservices architecture, each microservice exposes APIs for other services or clients to consume.
+
+If you're designing a system:
+
+Microservices define how the system is structured.
+
+APIs define how parts of the system communicate.
+
+
+
+🔗 What are REST Endpoints?
+REST endpoints are specific URLs that represent resources in a RESTful web service. Each endpoint corresponds to a particular operation (CRUD) on a resource using HTTP methods like GET, POST, PUT, DELETE.
+
+🧱 Components of a REST Endpoint
+A typical REST endpoint looks like:
+
+
+HTTP_METHOD /resource/{id}
+
+
+
+HTTP_METHOD: Action type (GET, POST, etc.)
+
+/resource: Collection name (e.g., /users)
+
+{id}: Optional path parameter for a specific resource
+
+
+
+
+📋 Common REST Endpoints (CRUD Example for User)
+
+| Action         | HTTP Method | Endpoint      | Description              |
+| -------------- | ----------- | ------------- | ------------------------ |
+| Create User    | `POST`      | `/users`      | Create a new user        |
+| Get All Users  | `GET`       | `/users`      | Retrieve a list of users |
+| Get User by ID | `GET`       | `/users/{id}` | Retrieve a specific user |
+| Update User    | `PUT`       | `/users/{id}` | Update an existing user  |
+| Delete User    | `DELETE`    | `/users/{id}` | Delete a user            |
+
+
+
+🛠️ Example in Spring Boot (Java)
+
+@RestController
+@RequestMapping("/users")
+public class UserController {
+
+    @GetMapping
+    public List<User> getAllUsers() { ... }
+
+    @GetMapping("/{id}")
+    public User getUser(@PathVariable Long id) { ... }
+
+    @PostMapping
+    public User createUser(@RequestBody User user) { ... }
+
+    @PutMapping("/{id}")
+    public User updateUser(@PathVariable Long id, @RequestBody User user) { ... }
+
+    @DeleteMapping("/{id}")
+    public void deleteUser(@PathVariable Long id) { ... }
+}
+
+
+✅ REST Endpoint Best Practices
+Use nouns, not verbs (e.g., /orders, not /getOrders)
+
+Use plural names for collections (e.g., /products)
+
+Use HTTP status codes (e.g., 200 OK, 404 Not Found, 201 Created)
+
+Keep URLs predictable and hierarchical
+
+Use query parameters for filtering/sorting (GET /users?age=25)
+
+
+
+REST: Representational State Transfer Protocol
+
+
