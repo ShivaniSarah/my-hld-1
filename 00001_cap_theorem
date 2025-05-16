@@ -6,7 +6,7 @@ Consistency  | Availability |  Partition Tolerance
 
 Due to network issues, partition tolerance cannot be avoided.
 
-So we can improve consistency and availability
+So we can improve consistency or availability either CP (consistency, Partition Tolernce) or AP (Availability, Partition Tolernce)
 
 Consistency
 
