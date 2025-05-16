@@ -19,3 +19,56 @@ Availability:
 
 Keeping replicas / slaves 
 
+
+
+
+-----------------
+
+
+The CAP Theorem is a fundamental concept in distributed systems, introduced by Eric Brewer. It states that a distributed system cannot simultaneously guarantee all three of the following properties:
+
+
+
+🧱 The Three Properties
+
+| Property                    | Description                                                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **C – Consistency**         | Every read receives the most recent write or an error. All nodes see the same data at the same time.                              |
+| **A – Availability**        | Every request receives a (non-error) response — without guarantee that it contains the most recent write.                         |
+| **P – Partition Tolerance** | The system continues to operate despite arbitrary partitioning (i.e., network failures that split the system into disjoint sets). |
+
+
+
+🚫 The Trade-Off
+A distributed system can only guarantee two of the three properties at the same time.
+
+This gives rise to three possible system types:
+
+| System Type                                 | Guarantees                                      | Sacrifices                                                           |
+| ------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------- |
+| **CP** (Consistency + Partition tolerance)  | Strong consistency and resilience to partitions | Might be unavailable during partitions                               |
+| **AP** (Availability + Partition tolerance) | Always responsive and tolerates partitions      | May serve stale data (inconsistent)                                  |
+| **CA** (Consistency + Availability)         | Always returns fresh data                       | Doesn’t handle partitions — **not realistic in distributed systems** |
+
+
+
+🧪 Real-World Examples
+| System                     | Type   | Explanation                                                                               |
+| -------------------------- | ------ | ----------------------------------------------------------------------------------------- |
+| **MongoDB (default)**      | **CP** | Prioritizes consistency by sacrificing availability during partitions (with replica sets) |
+| **Cassandra, Couchbase**   | **AP** | Always available, but may serve older values during partitions                            |
+| **RDBMS on a single node** | **CA** | No network partition to worry about (not distributed), so can be consistent and available |
+
+
+✅ Summary
+In real-world distributed systems, Partition Tolerance (P) is a must.
+
+So you typically choose between:
+
+Consistency (C) and Availability (A) under partition conditions.
+
+Your choice depends on your business needs:
+
+Banking apps → prefer Consistency
+
+Social media feeds → prefer Availability
