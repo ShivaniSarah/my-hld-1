@@ -91,15 +91,15 @@ horizontal or vertical sharding based on rows or columns
 ⚖️ Considerations
 Query routing: The system must know where to find the data.
 
-Joins across shards are hard and slow.
-
 Resharding is complex (when load grows or skew happens).
+
+Joins across shards are hard and slow.
 
 High availability and replication are needed per shard.
 
 Consistency is needed
 
-Consistent Hashing is needed to soolve the problem of increasing or decresing the size of shards
+Consistent Hashing is needed to solve the problem of increasing or decreasing the size of shards
 Memcached + consistent hashing can solve it. 
 Memcached is for larger datasets while Redis works well is higher performant with smaller datasets.
 
