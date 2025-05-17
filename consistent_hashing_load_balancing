@@ -16,4 +16,4 @@ only k/n keys need to be remapped on average, where k is the number of keys, and
 In contrast, in most traditional hash tables, a change in the number of array slots causes nearly all keys to be remapped.
 
 
-
+Refer to alex xu volume I , to understand more about consistent hashing.
