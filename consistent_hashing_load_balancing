@@ -1,0 +1,15 @@
+what is load balacing
+balancing  no of request on each server
+
+why load balacing?
+so that one server  doesnt  get hot and fail 
+
+Hashing before?
+When a new server is added , a part of request from server's quota was shifted to rest of each of the servers
+which makes it ridiculous to maintain cache for each server.
+
+Consistent Hashing?
+Consistent Hashing solves the problem by shifting a part of load from one server to the new server. This helps to maintain cache.
+
+
+
