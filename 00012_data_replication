@@ -38,6 +38,11 @@ Algorithms: 2PC(Phase Commit), 3PC, MVCC(Multi Version Concurrency Control) (mul
 SAGA(long transaction -> lock funds until it is complete accordingly commit or rollback )
 
 
+A Write-Ahead Log (WAL) is a critical technique used in databases and file systems to ensure durability and crash recovery. It ensures that no data is lost even if the system crashes unexpectedly.
+🔥 Core Idea of WAL
+Before any changes are made to the actual data on disk:
+✅ The changes are first written to a log (WAL) on disk.
+Only after the WAL entry is safely stored, the database applies the actual change to the data file.
 
 💾 How Write Ahead Log ( WAL )  Works (Step-by-Step)
 Client requests to write data
@@ -46,6 +51,40 @@ WAL is flushed to disk to ensure it's durable
 The change is then applied to the in-memory data structures
 Later, the updated data is persisted to the main database file
 If a crash happens before step 5, the WAL can be replayed to recover.
+
+🧠 Why WAL?
+Feature	Benefit
+Durability	Guarantees data survives crashes
+Crash Recovery	Replay the WAL to restore to a consistent state
+Performance	Appending to WAL is fast (sequential I/O)
+
+🔁 During Recovery
+After a crash:
+WAL is read in order
+Changes are reapplied to the database
+Ensures no committed transaction is lost
+
+📦 Real-World Usage
+System	WAL Used For
+PostgreSQL	Transaction durability & crash recovery
+SQLite	Journal mode uses WAL
+RocksDB/LevelDB	Log-structured storage engine
+HDFS	Logs edits to NameNode
+Kafka	Internally uses log segments similar to WAL
+
+✨ Key Characteristics
+Append-only file
+Stored on durable disk
+Supports atomicity and durability in ACID
+Often rotated or compacted once data is flushed to disk
+
+🔄 Relationship to Checkpointing
+WAL handles recent changes
+Checkpointing creates consistent snapshots
+
+During recovery: Checkpoint + WAL is used to rebuild the latest state
+
+
 
 To check data inconsistency
 A Merkle Tree is a specialized hash tree used to efficiently verify the integrity of large datasets. In databases, it's employed for data replication, detecting inconsistencies, and verifying data integrity, particularly in distributed and NoSQL systems. 
