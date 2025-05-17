@@ -1,0 +1,9 @@
+sql  database is read intensive 
+no sql database is write intensive
+
+columnar  - cassandra, snowfalke, bigQuery, Redshift
+key value - redis , dynamo DB
+coordinate wise -  PostGIS 
+documnet db -  mongo db
+graph db - neo4js
+hybrid - combo of sql and nosql - clickhouse
