@@ -1,8 +1,17 @@
 Indexing in NoSQL is based on sort key combination of composite key
 
-HashMap + Red Black tree ( height balanced BST )  can help in indexing
+Design a database with very efficient access times?
+
+HashMap + Red Black tree can help in indexing
 
 B and B+ trees also help in indexing used in SQL 
 
+BST can get skewed to avoid it AVL and Red Black Trees are there.
+
 An AVL tree defined as a self-balancing Binary Search Tree (BST) 
 where the difference between heights of left and right subtrees for any node cannot be more than one.
+
+Red Black tree
+A Red-Black Tree is a self-balancing binary search tree where each node has an additional attribute:
+a color, which can be either red or black. The primary objective of these trees is to maintain balance during
+insertions and deletions, ensuring efficient data retrieval and manipulation.
