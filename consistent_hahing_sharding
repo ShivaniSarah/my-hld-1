@@ -1,0 +1,210 @@
+🧩 Building a Scalable, Highly Available Sharded System: A Complete Architecture Story
+In large-scale distributed databases, sharding is a critical technique used to horizontally scale systems by dividing data across multiple machines (shards). However, sharding introduces new challenges that must be carefully addressed to maintain performance, availability, and consistency.
+
+🚧 The Challenge with Joins Across Shards
+One of the core limitations of sharding is that joins across shards are inherently complex and inefficient. Since data is spread across multiple machines:
+
+Cross-shard joins require broadcasting or fan-out queries, which increase latency and resource usage.
+
+Transactions across shards are hard to maintain and often violate ACID guarantees.
+
+As a result, systems must design schemas and access patterns carefully to minimize the need for cross-shard joins, often by co-locating related data within the same shard.
+
+🛡️ Ensuring High Availability per Shard
+Each shard is a single point of failure unless it's protected. To ensure high availability:
+
+We use replication within each shard — typically in a master-slave (or primary-replica) model.
+
+The master handles writes, while replicas serve reads and act as failover targets.
+
+This setup avoids downtime and provides resilience against hardware failure.
+
+This leads to a resilient architecture where each shard is internally fault-tolerant.
+
+🔄 Maintaining Consistency
+In a distributed system:
+
+We must choose a consistency model: strong consistency, eventual consistency, or tunable consistency.
+
+Systems like Redis Cluster offer eventual consistency, while relational databases like Citus/PostgreSQL can enforce stronger consistency with coordination protocols.
+
+It's crucial to ensure atomicity within shards and design idempotent operations across shards.
+
+🧭 The Role of Consistent Hashing
+A key problem in sharded systems is changing the number of shards dynamically (adding/removing machines). Without proper planning, this would require re-sharding nearly all the data.
+
+To solve this, we use consistent hashing, which:
+
+Maps keys to positions on a virtual ring.
+
+Minimizes data movement when nodes are added or removed.
+
+Enables smooth rebalancing and high elasticity.
+
+🚀 Memcached + Consistent Hashing for Distributed Caching
+In cache systems like Memcached, consistent hashing is especially powerful:
+
+It enables a scalable distributed cache with minimal disruption when scaling.
+
+Memcached is great for larger datasets and simple key-value storage.
+
+Redis, on the other hand, is higher-performing and supports advanced data types and commands, making it ideal for smaller, more interactive workloads.
+
+🏗️ Multi-Level Sharding for Elastic Scalability
+A fixed number of shards limits long-term scalability. Enter multi-level sharding, where:
+
+Data is first sharded by a high-level attribute (e.g., region or tenant).
+
+Then further sharded using consistent hashing or range sharding.
+
+This creates a hierarchical sharding strategy:
+
+
+Global Level → Region Shard → Hash Slot → Replica Set
+
+
+
+It enables systems to scale infinitely by adding layers, while still keeping shards manageable and small.
+
+🔍 Indexing Within Each Shard
+To maintain fast queries, each shard should build and maintain its own indexes:
+
+Local indexes optimize lookups and range scans within that shard.
+
+Sharded systems may use global indexes (costly) or rely on indexing only within relevant shards.
+
+🧱 Architecture Summary
+
+
+                    +----------------+
+                    |   Query Router  |
+                    +----------------+
+                           |
+              +------------+-------------+
+              |                          |
+     +--------+--------+        +--------+--------+
+     |   Shard 1 (US)   |        |   Shard 2 (EU)   |
+     +--------+--------+        +--------+--------+
+              |                          |
+   +----------+----------+    +----------+----------+
+   |  Master (Read/Write) |    |  Master (Read/Write) |
+   |  Slave (Read/Backup) |    |  Slave (Read/Backup) |
+   +----------------------+    +----------------------+
+
+ - Consistent Hashing used by router for key-to-shard mapping
+ - Each shard is replicated for high availability
+ - Each shard maintains its own indexes
+ - Shards may be further divided (multi-level) for future scaling
+
+
+
+✅ Key Takeaways
+Joins and transactions across shards are hard: minimize them.
+
+Replicate per shard using master-slave to prevent single-point failure.
+
+Use consistent hashing to make scaling dynamic and efficient.
+
+Apply multi-level sharding to avoid fixed limits.
+
+Combine with Memcached or Redis depending on performance/dataset needs.
+
+Index per shard to retain fast query performance locally.
+
+Let me know if you want this turned into a presentation or a diagram!
+
+
+🧠 What is Memcached?
+Memcached is:
+
+A high-performance, in-memory key-value store.
+
+Used for caching data to reduce database load and improve speed.
+
+Stateless – no persistence; if a node crashes, data is lost.
+
+Optimized for simple key-value pairs with no complex queries or data structures.
+
+🔹 Core Features:
+Extremely fast (access in microseconds).
+
+Scalable across machines.
+
+Ideal for storing:
+
+Session data
+
+API responses
+
+Expensive computation results
+
+🧩 Problem: Scaling Memcached
+When you scale Memcached by adding more servers (nodes), the challenge is:
+
+🔴 How do we distribute keys across these nodes in a way that’s stable and efficient, even when nodes are added or removed?
+
+❌ Naive Approach: Modulo Hashing
+Example:
+
+text
+Copy
+Edit
+server_index = hash(key) % N
+If N = 4, then a key might go to server 2.
+
+But if you add a 5th server (N = 5), all keys are remapped, causing massive cache invalidation.
+
+Almost everything in the cache becomes useless → poor performance.
+
+🔄 Solution: Consistent Hashing
+Consistent Hashing is a hashing technique that minimizes remapping when nodes are added/removed.
+
+🧭 How It Works:
+All servers are placed on a hash ring based on a hash of their name/IP.
+
+Each key is hashed and mapped to a point on the ring.
+
+A key is stored in the first server clockwise from its hash.
+
+When a node is added or removed, only a small portion of keys are remapped.
+
+🔄
+
+🔄 Example
+Let’s say we have a ring with 3 nodes:
+[Node A] ---- [Node B] ---- [Node C] ---- (wraps around to Node A)
+
+
+key1 hashes to a point between B and C → goes to C.
+
+Now if Node B goes down, only the keys between A and B are reassigned, not everything.
+
+➕ Virtual Nodes
+To ensure better load balancing:
+
+Each physical node is assigned multiple virtual positions on the ring.
+
+This prevents uneven distribution due to bad hash clustering.
+
+🚀 Memcached + Consistent Hashing = Scalable Distributed Cache
+By combining Memcached and consistent hashing:
+
+You get a scalable, fault-tolerant cache.
+
+Cache availability and hit rate remain high even during scaling events.
+
+Facebook, Twitter, and others use this architecture to cache billions of items with high performance.
+
+
+
+| Feature     | **Memcached**                       | **Redis**                                 |
+| ----------- | ----------------------------------- | ----------------------------------------- |
+| Data types  | Strings (key-value only)            | Strings, Lists, Sets, Hashes, Bitmaps…    |
+| Persistence | No (memory only)                    | Optional (AOF, RDB)                       |
+| Performance | Very fast for large data sets       | Faster for smaller, complex operations    |
+| Scalability | Uses client-side consistent hashing | Redis Cluster or Sentinel                 |
+| Use case    | Simple cache (API, session)         | Real-time counters, pub/sub, leaderboards |
+
+
+
+
