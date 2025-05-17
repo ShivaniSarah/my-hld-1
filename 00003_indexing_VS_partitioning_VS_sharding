@@ -97,6 +97,16 @@ Resharding is complex (when load grows or skew happens).
 
 High availability and replication are needed per shard.
 
+Consistency is needed
+
+Consistent Hashing is needed to soolve the problem of increasing or decresing the size of shards
+Memcached + consistent hashing can solve it. 
+Memcached is for larger datasets while Redis works well is higher performant with smaller datasets.
+
+Multi level sharding solves the problem of fixed no of shards
+create index on each shard
+Master slave to avoid single point of failure
+
 🆚 Comparison Table
 
 | Feature                     | Indexing                   | Partitioning              | Sharding             |
