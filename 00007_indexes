@@ -2,7 +2,7 @@ Indexing in NoSQL is based on sort key combination of composite key
 
 Design a database with very efficient access times?
 
-HashMap + Red Black tree can help in indexing
+HashMap + Red Black tree can help in indexing in O(1)
 
 B and B+ trees also help in indexing used in SQL 
 
