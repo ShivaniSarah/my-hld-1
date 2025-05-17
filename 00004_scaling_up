@@ -19,14 +19,19 @@ Distributed Systems: Fault Tolerance and quicker response
 
 CDN close to each geographical region and we keeep static content like unstructured data like video and images which deal UDP connectionless protocol.
 
-Cache at the server client database
+Cache at the server client database, L1 L2 cache based on eviction policy like LRU, LFU
+cache policy : read through cache , write back and write through
+Redis Cache (Cluster) when we dont want to use in memory cache as it is dependent on service up or down.
 
-
-Rate Limiter at customer facing to avoid DDOS attacks/ Reverse Proxy (Nginx) at the server side
+Rate Limiter at clientr facing to avoid DDOS attacks/ Reverse Proxy (Nginx) at the server side
 
 Middleware that does basic request checks 
 
 Proxy at the client side
+
+API gateway vs router: 
+Router routes within same group of network. Gateway routes among dissimilar group of network.
+
 
 Separation of Concerns / Decoupling and high Cohesion
 
