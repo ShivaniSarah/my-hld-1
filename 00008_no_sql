@@ -47,7 +47,7 @@ if multiple records for same key, use timestamp to send latest data
 SST => Sorted String Table => immutable
 Compaction of multiple SSTs => to prevent large memorage usage on updation , have duplicate keys
 use tombstone => dead record => dont updatethe record
-Tim sort -> fastest sorting algorithm
+Tim sort -> fastest sorting algorithm is used for compaction
 
 (Read about cassandra on datastax)
 
