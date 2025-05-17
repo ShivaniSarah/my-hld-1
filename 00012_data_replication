@@ -1,1 +1,54 @@
+Data Replication is done to avoid single point of failure
+But consistency needed to be maintained
+
+Any DB which is accepting write operation is a Master.
+Any DB which is accepting read operation is a Slave.
+
+Now the replica of DB is there but data transfer can be done synchronously or asynchronously
+Master keeps updating the slave after each write operation on the master. Command logs are sent. Write Ahead log.
+Serially the slave needs to run the command to be in the same consistent state as master.
+If master failes before updating slave then slave is inconsistent.
+That should be okay if asynchronous ways of updation is followed.
+📌 Result: The promoted master is missing some data → eventual inconsistency, unless recovery is done.
+This is acceptable in many systems like:
+Log analytics, Notification delivery, Eventual sync file storage
+But not acceptable in Financial systems, Real-time booking systems.
+Or Kafka or Message Queue can be helpful to recover logs by pushing WAL to queue before commiting,
+assuming both failure of master and queue will not happen same time.
+and then slave levels up and becomes master after reading from queue.
+
+Otherwise look for synchronous ways.
+Others support semi-synchronous replication: the master proceeds after at least 1 replica confirms, balancing performance and durability.
+
+When the slave gets update/ write operation command from a server
+One way is to not accept the query from the server.
+Other way is to accept. Then the slave becomes master and it is a master- master architecture.( peer-to-peer )
+
+When A and B are master - master
+and one of them or network failes , They will again become inconsistent. This is split brain problem.
+Adding the third master node to the network of A and B solves the split brain problem based on assumption 2 connections will disrupt.
+Now C as a master joins A and B in the network.
+So when A-B  router fails, A and B keep themselves consistent with upcoming multiple transactions.
+When B gets a write query, it updates C and says it is writing from state S0 to S5 while C is in state S3.
+So C says Im not in state S0 means further updates happened after your S0 state , so you rollback and B rolls back.
+And also B updates itself with C's state S3 from S0. Therefore all three are in consistent state now.
+Similarly likewise can happen with any node A or C.
+This is heading to Distributed Consensus.
+Algorithms: 2PC(Phase Commit), 3PC, MVCC(Multi Version Concurrency Control) (multi versions with dirty read, serializable read or phantom read or lock ),
+SAGA(long transaction -> lock funds until it is complete accordingly commit or rollback )
+
+
+
+💾 How Write Ahead Log ( WAL )  Works (Step-by-Step)
+Client requests to write data
+System writes the change to the WAL (append-only, sequential write)
+WAL is flushed to disk to ensure it's durable
+The change is then applied to the in-memory data structures
+Later, the updated data is persisted to the main database file
+If a crash happens before step 5, the WAL can be replayed to recover.
+
+To check data inconsistency
+A Merkle Tree is a specialized hash tree used to efficiently verify the integrity of large datasets. In databases, it's employed for data replication, detecting inconsistencies, and verifying data integrity, particularly in distributed and NoSQL systems. 
+
+a version vector is a mechanism for tracking changes to data across multiple nodes or replicas, particularly in scenarios with eventual consistency. 
 
