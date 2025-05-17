@@ -2,8 +2,8 @@ Estimate
 
 1. QPS
 2. storage
-3. cache
-4. processors needed
+3. no of cache nodes needed
+4. no of processors needed
 
 
 Example: Estimate Twitter QPS and storage requirements
