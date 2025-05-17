@@ -1,1 +1,100 @@
-asdsadad
+Q. How to optimise scaled up writes in database?
+
+Ans. B+ Trees like BST (not binary)
+
+
+
+
+
+
+
+
+------------
+
+NoSQL databases are optimized for performance, scalability, and flexibility—especially for modern use cases involving large-scale, unstructured, or semi-structured data. Unlike traditional relational databases, NoSQL systems trade off strict consistency and complex transactions for speed and scalability.
+
+🔧 Key Optimization Strategies in NoSQL Databases
+1. Data Model-Based Optimization
+Different NoSQL databases are optimized for different use cases based on their data model:
+| Type            | Optimized For                         | Example DBs           |
+| --------------- | ------------------------------------- | --------------------- |
+| **Key-Value**   | Fast lookups by key                   | Redis, DynamoDB, Riak |
+| **Document**    | Flexible, nested JSON-like structures | MongoDB, Couchbase    |
+| **Wide-Column** | Time-series & analytical workloads    | Cassandra, HBase      |
+| **Graph**       | Relationship traversals               | Neo4j, JanusGraph     |
+
+Each is internally optimized for the kinds of queries and access patterns it expects.
+
+2. Denormalization and Data Duplication
+NoSQL favors embedding over joining.
+Related data is often stored together to avoid expensive joins.
+In document and wide-column stores, entire entities or time ranges are stored together.
+Benefit: Improves read performance and simplifies data retrieval.
+
+3. Partitioning (Sharding)
+Data is horizontally partitioned across many servers:
+Enables scaling out instead of scaling up.
+Partitions often based on a consistent hash of a key or range.
+Cassandra example:
+Partitions are distributed across a ring using consistent hashing.
+Each node is responsible for a range of tokens.
+
+4. Replication for High Availability and Performance
+Data is replicated across multiple nodes.
+Allows:
+Read replicas to offload read load
+Failover if a node crashes
+Geographical distribution
+Trade-off: Requires consistency models (see: CAP theorem) like eventual consistency or quorum-based consistency.
+
+5. In-Memory Storage and Caching
+Databases like Redis and Aerospike store all or most data in memory.
+Even disk-based NoSQL systems (like MongoDB) use memory-mapped files and caching layers.
+Result: Ultra-low-latency reads and writes.
+
+6. Write Optimization
+Most NoSQL databases are write-optimized by design.
+
+Techniques:
+Log-structured storage: Writes are append-only, minimizing disk seek.
+Write-ahead logging (WAL): Ensures durability while batching writes.
+Memtables + SSTables (Cassandra): Data written in-memory first, then flushed as immutable disk files.
+
+7. Indexing Strategies
+Secondary indexes are supported in many NoSQL systems but are used carefully due to write amplification.
+Indexes may be local (per shard) or global, with trade-offs in write/read speed and consistency.
+
+8. Compression
+Data is often column-compressed in wide-column stores.
+Reduces disk usage and improves I/O throughput.
+
+9. Eventual Consistency and Tunable Consistency
+Sacrifice strict consistency for availability and partition tolerance (CAP theorem).
+Tunable consistency (e.g., Cassandra’s QUORUM, ONE, ALL) allows per-query trade-offs.
+
+10. Write Batching and Compaction
+Writes are batched and compacted in background processes.
+Reduces write amplification and improves throughput.
+Used by: Cassandra, LevelDB, RocksDB (underlying engine in many NoSQL systems)
+
+🔍 Example: MongoDB Optimizations
+Document embedding reduces joins
+Indexes (compound, text, geo) for fast lookups
+WiredTiger engine with compression and caching
+Replica sets for HA
+Sharding via hashed or range-based keys
+
+Summary
+| Technique              | Optimization Benefit                       |
+| ---------------------- | ------------------------------------------ |
+| Data model design      | Schema-less or semi-structured flexibility |
+| Denormalization        | Faster reads, fewer joins                  |
+| Sharding               | Horizontal scalability                     |
+| Replication            | Availability and read performance          |
+| In-memory caching      | Low-latency access                         |
+| Log-structured storage | Fast sequential writes                     |
+| Compression            | Efficient storage and bandwidth use        |
+| Tunable consistency    | Custom trade-offs per workload             |
+
+
+
