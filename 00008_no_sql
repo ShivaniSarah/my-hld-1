@@ -40,17 +40,19 @@ Replication => reads are not failing in case of fault/ failure
 
 Replication factor
 
-Distributed Consensus :
+Distributed Consensus : paxos , gossip protocol
 Qorum : 2
 Qorum / replication factor whatever says
-
-SST => Sorted String Table
-Compaction
-
-LSM tree
-
+if multiple records for same key, use timestamp to send latest data
+SST => Sorted String Table => immutable
+Compaction of multiple SSTs => to prevent large memorage usage on updation , have duplicate keys
+use tombstone => dead record => dont updatethe record
 Tim sort -> fastest sorting algorithm
 
 (Read about cassandra on datastax)
 
+Read LSM tree
+
+Elastic Search
+DynamoDB
 
