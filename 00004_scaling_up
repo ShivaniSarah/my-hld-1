@@ -17,7 +17,7 @@ based on the incoming traffic requirement.
 
 Distributed Systems: Fault Tolerance and quicker response
 
-CDN close to each geographical region
+CDN close to each geographical region and we keeep static content like unstructured data like video and images which deal UDP connectionless protocol.
 
 Cache at the server client database
 
