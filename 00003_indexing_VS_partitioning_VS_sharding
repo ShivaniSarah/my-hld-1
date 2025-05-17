@@ -198,6 +198,11 @@ File groups (SQL Server)
 
 Files on disk (MySQL Partitioned Table → separate .ibd files)
 
+
+📌 Note: If range based partitioning , binary search is used check which partition to fall in based on query
+or hashing is used or lookup table to find the partition
+
+
 📌 3. Sharding – Internal Implementation
 Sharding is implemented above the storage layer, often in a routing and coordination layer that handles:
 
