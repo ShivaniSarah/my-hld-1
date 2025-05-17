@@ -14,6 +14,8 @@ Index maps column values to row locations
 
 Index lookup is O(log N) (for B-Tree) vs. O(N) for full scan
 
+horizontal or vertical indexing based on rows or columns
+
 💡 Types of Indexes
 | Type              | Description                                               |
 | ----------------- | --------------------------------------------------------- |
@@ -41,6 +43,8 @@ Improve query performance
 Simplify archival and purging
 
 Better data management and indexing
+
+horizontal or vertical partitioning based on rows or columns
 
 🧱 Types of Partitioning
 
@@ -70,6 +74,8 @@ Avoid single-node bottlenecks
 
 🔄 Shard Key
 The column/attribute used to determine which shard a record belongs to.
+
+horizontal or vertical sharding based on rows or columns
 
 📦 Types of Sharding
 
