@@ -64,3 +64,5 @@ The working set strategy starts by looking at how many frames a process is actua
 
 The locality model states that, as a process executes, it moves from locality to locality. A locality is a set of pages that are actively used together. It also states that all programs will exhibit a basic memory reference structure. 
 
+
+
