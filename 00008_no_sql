@@ -1,4 +1,6 @@
-sql  database is read intensive 
+sql  database is read intensive and transaction oriented : OLTP
+
+datawarehouse / OLAP
 no sql database is write intensive
 
 columnar  - cassandra, snowfalke, bigQuery, Redshift
@@ -7,3 +9,41 @@ coordinate wise -  PostGIS
 documnet db -  mongo db
 graph db - neo4js
 hybrid - combo of sql and nosql - clickhouse
+
+
+adv:
+
+insertions/ retrievals
+schema is easily changebale
+built for scale
+built for analysis/ aggregation
+
+disadv:
+
+not built for updates
+read times are slower like filter
+relations are not implicit
+joins are hard
+
+
+
+cassandra:  
+
+Cyclic clockwise hashing is done and next node has the replica of previous one.
+hash function has to be good like may be round robin fashion
+multi level hashing or multi level sharding 
+
+2 features:
+
+load balancing => writes are balanced over different nodes
+Replication => reads are not failing in case of fault/ failure
+
+
+Distributed Consensus :
+
+
+
+
+
+
+(Read about cassandra on datastax)
