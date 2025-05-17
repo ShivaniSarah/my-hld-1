@@ -1,0 +1,36 @@
+Vertical Scaling : Adding more CPU / RAM to single machine or instance
+
+Preprocesing/ Cron Job / Pipeline Runs
+
+Keep Backup : Master Slave Architecture : It also avoids Single Point of failure : read from many slaves. balancing read loads.
+
+Horizontal Scaling : Increasig no of machines for better load balancing and fast deliveries.
+
+Microservice Architecture : Route to each service based on its CPU or RAM remaining and service it provides and scale them up independently
+based on the incoming traffic requirement.
+
+Distributed Systems: Fault Tolerance and quicker response
+
+CDN close to each geographical region
+
+Cache at the server client database
+
+Load Balancing
+
+Rate Limiter at customer facing to avoid DDOS attacks/ Reverse Proxy (Nginx) at the server side
+
+Middleware that does basic request checks 
+
+Proxy at the client side
+
+Separation of Concerns / Decoupling and high Cohesion
+
+Logging errors metrics / Analytics / Machine Learning / Auditing
+
+Extensible
+
+
+
+
+
+
