@@ -38,12 +38,19 @@ multi level hashing or multi level sharding
 load balancing => writes are balanced over different nodes
 Replication => reads are not failing in case of fault/ failure
 
+Replication factor
 
 Distributed Consensus :
+Qorum : 2
+Qorum / replication factor whatever says
 
+SST => Sorted String Table
+Compaction
 
+LSM tree
 
-
-
+Tim sort -> fastest sorting algorithm
 
 (Read about cassandra on datastax)
+
+
