@@ -4,9 +4,13 @@ Preprocesing/ Cron Job / Pipeline Runs
 
 Keep Backup : Master Slave Architecture : It also avoids Single Point of failure : read from many slaves. balancing read loads.
 
-Horizontal Scaling : Increasig no of machines for fast deliveries and handle more requests
+Horizontal Scaling : Increasig no of machines.  It also avoids Single Point of failure. Fast deliveries and handle more requests
 
 Load Balancing is needed to handle multiple machines
+
+Communication is no longer Inter process communication but more of RPCs - Remote Procedure Calls
+
+Maintain data consistency is a need 
 
 Microservice Architecture : Route to each service based on its CPU or RAM remaining and service it provides and scale them up independently
 based on the incoming traffic requirement.
