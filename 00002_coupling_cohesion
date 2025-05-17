@@ -1,0 +1,144 @@
+High Cohesion + Low Coupling = robust, modular, and maintainable code.
+
+Cohesion is a measure of how well the elements inside a module/class belong together. 
+High cohesion means that the components of the module are strongly related to each other 
+and serve a single, well-defined purpose.
+
+Low Cohesion:
+
+public class Utility {
+    public void parseXml() {}
+    public void sendEmail() {}
+    public void calculateSalary() {}
+}
+
+
+High Cohesion:
+
+public class XmlParser {
+    public void parseXml() {}
+}
+public class EmailSender {
+    public void sendEmail() {}
+}
+public class SalaryCalculator {
+    public void calculateSalary() {}
+}
+
+
+
+
+Coupling is a measure of how tightly connected different modules are. If a change in one module requires changes in another, they are said to be tightly coupled.
+
+High Coupling:
+
+public class OrderService {
+    private PaymentService paymentService = new PaymentService();
+
+    public void placeOrder() {
+        paymentService.processCreditCard();  // tightly coupled
+    }
+}
+
+
+Low Coupling:
+
+public class OrderService {
+    private PaymentProcessor paymentProcessor;
+
+    public OrderService(PaymentProcessor paymentProcessor) {
+        this.paymentProcessor = paymentProcessor;
+    }
+
+    public void placeOrder() {
+        paymentProcessor.process();  // loosely coupled to interface
+    }
+}
+
+public interface PaymentProcessor {
+    void process();
+}
+
+public class CreditCardProcessor implements PaymentProcessor {
+    public void process() { /* implementation */ }
+}
+Now OrderService doesn't care about the implementation, only the interface. You can easily inject a different processor without changing OrderService.
+
+
+🔄 Relation to Cohesion:
+
+Cohesion is within a module (internal consistency).
+
+Coupling is between modules (interdependency).
+
+Best design = High Cohesion + Low Coupling
+
+
+📉 Types of Coupling (from high to low/good):
+
+Content Coupling (worst) – One module directly accesses the internals of another.
+
+Common Coupling – Modules share global data.
+
+External Coupling – Dependence on external systems (e.g., APIs, hardware).
+
+Control Coupling – One module controls the logic of another by passing control flags.
+
+Stamp (Data-structure) Coupling – Modules share a composite data structure but use only parts of it.
+
+Data Coupling – Modules share only the necessary data (best).
+
+Message Coupling – Modules communicate via public interfaces, like in OOP or microservices (ideal in many modern systems).
+
+✅ Low Coupling:
+Modules are independent.
+
+Easier to test, reuse, and modify independently.
+
+Promotes scalability and flexibility.
+
+❌ High Coupling:
+Tight interdependencies.
+
+Fragile system — a small change can ripple across modules.
+
+Harder to maintain and scale.
+
+
+📈 Types of Cohesion (from low to high):
+Coincidental Cohesion – Random collection of functions (worst).
+
+Logical Cohesion – Similar category (e.g., all input functions), but no functional relation.
+
+Temporal Cohesion – Grouped by time of execution (e.g., init functions).
+
+Procedural Cohesion – Elements follow a specific sequence.
+
+Communicational Cohesion – Operate on the same data set.
+
+Functional Cohesion – All parts contribute to a single well-defined task.
+
+Informational Cohesion – Each function works on its own data but within a single class or module context.
+
+✅ High Cohesion:
+Easier to understand.
+
+More maintainable.
+
+Better for reuse.
+
+Fewer side effects or unintended consequences when modifying code.
+
+❌ Low Cohesion:
+Hard to understand and test.
+
+Likely to require changes in multiple places for a single functionality.
+
+Often signals the need for refactoring.
+
+
+
+
+
+
+
