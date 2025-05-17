@@ -1,1 +1,8 @@
 Indexing in NoSQL is based on sort key combination of composite key
+
+HashMap + Red Black tree ( height balanced BST )  can help in indexing
+
+B and B+ trees also help in indexing used in SQL 
+
+An AVL tree defined as a self-balancing Binary Search Tree (BST) 
+where the difference between heights of left and right subtrees for any node cannot be more than one.
