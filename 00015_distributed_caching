@@ -1,3 +1,6 @@
+Distributed Cache is not a problem -> we have distribute consensus => paxos, raft to handle it
+
+
 Caching solves:
 
 Avoid network calls
