@@ -153,3 +153,76 @@ When written data is unlikely to be read soon (e.g., logging, telemetry),
 
 Useful in read-heavy systems where cache space is at a premium.
 
+
+# Replacement Policies:
+
+LRU , LFU, 
+
+Cache replacement policies determine which cache block to evict when a new block needs to be loaded and the cache is already full. Choosing the right policy is crucial for maximizing cache hit rate and performance.
+
+
+
+🔁 Common Cache Replacement Policies
+1. LRU (Least Recently Used)
+Evicts the least recently accessed block.
+
+Assumes that recently used data is likely to be reused soon.
+
+Pros: Good for general-purpose workloads.
+Cons: Requires tracking usage history (can be costly in hardware).
+
+2. FIFO (First-In, First-Out)
+Evicts the oldest loaded block, regardless of usage.
+
+Pros: Simple to implement.
+Cons: May evict frequently used data if it was loaded early.
+
+3. LFU (Least Frequently Used)
+Evicts the block with the fewest accesses over time.
+
+Pros: Works well for highly skewed access patterns.
+Cons: Requires access counters; poor with changing access patterns (can be solved using aging techniques).
+
+4. Random Replacement
+Evicts a randomly selected block.
+
+Pros: Very simple, sometimes surprisingly effective.
+Cons: Doesn't adapt to access patterns.
+
+5. MRU (Most Recently Used)
+Evicts the most recently accessed block.
+
+Pros: Useful in specific workloads (e.g., some stack-based access patterns).
+Cons: Usually worse than LRU for general workloads.
+
+6. Clock (Second-Chance) Algorithm
+Approximation of LRU using a circular buffer and a "reference bit".
+
+Gives blocks a second chance if recently used.
+
+Pros: Efficient in hardware, commonly used in virtual memory.
+Cons: Not perfectly accurate like LRU.
+
+
+
+| Policy     | Tracks Usage    | Complexity | Adaptivity | Notes                           |
+| ---------- | --------------- | ---------- | ---------- | ------------------------------- |
+| **LRU**    | Recent use      | Moderate   | High       | Common and effective            |
+| **FIFO**   | Insertion order | Low        | Low        | Simple but may evict hot data   |
+| **LFU**    | Frequency       | High       | Medium     | Good for stable access patterns |
+| **Random** | None            | Very low   | None       | Low overhead                    |
+| **MRU**    | Recent use      | Moderate   | Low        | Useful for LIFO-like patterns   |
+| **Clock**  | Reference bit   | Low        | Medium     | Used in OS page replacement     |
+
+
+🧠 When to Use Which
+General-purpose CPUs: LRU or approximations like pseudo-LRU or Clock.
+
+Embedded systems: FIFO or Random (due to simplicity).
+
+Workloads with strong reuse: LFU (with aging).
+
+Virtual memory/page replacement: Clock algorithm.
+
+Would you like C++/Java code to simulate these or visualize their behavior on a sequence of memory accesses?
+
