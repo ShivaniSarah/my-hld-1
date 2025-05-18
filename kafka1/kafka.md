@@ -1,10 +1,359 @@
 https://www.interviewbit.com/kafka-interview-questions/
 
-
+Kafka broker has its own cpu, memory and disk storage (where queues are there)
 
 From one consumer group , only one consumer can consume from one partition in a topic.
 Because of partitions in a topic parallel processing can be done in  a consumer group.
 
-When consumer send ACK to kafka , it increments the offset. 
+When consumer send ACK/commit to kafka , it increments the offset and commits the offset.
 Retention Policy is by default 7 days for deletion withn which period offset can be reset and data consumed again.
+
+Producer can publish messages into a Topic in 3 ways:
+Random partition
+All partitions
+Specific partition
+
+In a cluster of multiple brokers, few partitions can be on one broker and few can be other.
+Likewise replicas can be also distributed on each other.
+Zookeeper keeps information about  which topic exists in which broker. 
+So that when one broker is down. It can find another topic replica on other brokers.
+
+kafka
+
+------------------------
+
+can I specify a partition from which consumer can consume from within a topic
+ChatGPT said:
+Yes, you can specify a partition from which a Kafka consumer should consume messages within a topic, but this is a manual operation and bypasses Kafka’s consumer group balancing mechanism.
+
+Here are the two primary ways to consume from specific partitions:
+
+✅ 1. Assigning partitions manually
+If you want a Kafka consumer to consume only from a specific partition, you can use the assign() method instead of subscribe().
+
+Example in Java:
+
+KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
+
+// Assign to a specific partition
+TopicPartition partition = new TopicPartition("my-topic", 2); // partition 2
+consumer.assign(Arrays.asList(partition));
+
+while (true) {
+    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+    for (ConsumerRecord<String, String> record : records) {
+        System.out.println(record.offset() + ": " + record.value());
+    }
+}
+assign() bypasses Kafka's automatic partition assignment and rebalancing.
+
+Use this when you want explicit control, such as reading from a specific partition for debugging or data replay.
+
+⚠️ 2. Using subscribe() with consumer groups
+If you use subscribe() instead, Kafka handles partition assignment automatically, distributing partitions among consumers in the group.
+
+
+consumer.subscribe(Arrays.asList("my-topic")); // automatic partition assignment
+You cannot control the specific partition a consumer will consume from using subscribe() — Kafka decides this based on the number of consumers and partitions.
+
+✅ Summary
+Method	Partition Control	Use Case
+assign()	✅ Full control	Direct reading, testing, replay, etc.
+subscribe()	❌ No control	Standard consumer group processing
+
+Let me know your use case — e.g., do you want deterministic reading from a partition, or are you using consumer groups? I can tailor the example.
+
+You said:
+does consumer reads from only 1 partition which kafka assigns
+or does the consumer check in each partition for its data
+ChatGPT said:
+Great question. The behavior depends on how many partitions exist and how many consumers are in the consumer group. Let’s clarify:
+
+✅ In Kafka Consumer Groups:
+When you use subscribe() to consume from a topic as part of a consumer group, each consumer is assigned one or more specific partitions.
+
+A single consumer reads only from the partitions assigned to it, not from all partitions.
+
+The consumer does not check other partitions—Kafka brokers push only the assigned partitions' data to each consumer.
+
+Example:
+If a topic has 4 partitions and you have 2 consumers in a group:
+
+Kafka might assign partition 0 and 1 to consumer A,
+
+and partition 2 and 3 to consumer B.
+
+Each consumer reads only from its own assigned partitions.
+
+🔁 What if I use assign() instead?
+If you manually use assign() (instead of subscribe()), then the consumer reads only from the partitions you explicitly assign.
+
+Example:
+
+consumer.assign(List.of(new TopicPartition("my-topic", 1)));
+→ The consumer only reads from partition 1.
+
+🧠 Internals: Does a consumer check every partition?
+No. In normal operation, a consumer:
+
+Knows its assigned partitions, and
+
+Only fetches messages from those.
+
+It does not scan or check other partitions.
+
+🟡 Special Case: When would a consumer interact with multiple partitions?
+If:
+
+You're manually assigning multiple partitions to a single consumer (e.g., in a small group or single-consumer scenario), then yes, it will read from all those assigned partitions.
+
+But again — it’s only reading the ones Kafka or you assigned, never all of them unless explicitly told to.
+
+✅ TL;DR
+Consumers only read from their assigned partitions.
+
+They do not check other partitions for messages.
+
+You can manually assign partitions, or let Kafka handle it via consumer groups.
+
+Let me know if you want an example or code snippet in your preferred language.
+
+You said:
+one partiion can't be assigned to 2 consumer in a group
+ChatGPT said:
+You're absolutely right — one Kafka partition cannot be assigned to more than one consumer within the same consumer group at the same time.
+
+✅ Kafka Consumer Group Partition Assignment Rules:
+Each partition is assigned to exactly one consumer in a given consumer group.
+
+A consumer can have multiple partitions, but a partition cannot have multiple consumers (in the same group).
+
+🤔 Why?
+Kafka ensures message ordering within a partition, and having multiple consumers read from the same partition would:
+
+Break the ordering guarantees.
+
+Risk duplicate processing or data loss without strong coordination.
+
+🔁 What happens if there are more consumers than partitions?
+Some consumers will be idle (not assigned any partitions).
+
+Example: If you have 2 partitions and 3 consumers in a group:
+
+Kafka will assign one partition each to two consumers.
+
+The third consumer will remain idle and do nothing.
+
+👥 What if you want multiple consumers to read from the same partition?
+There are two options:
+
+Use different consumer groups
+→ Each group gets its own copy of the data (acts like a pub-sub model).
+
+Useful for multiple independent services processing the same topic differently.
+
+Manually assign the same partition to multiple consumers (not recommended)
+
+Only possible with assign() but then you’re outside of the group coordination model.
+
+You’ll need to handle offset management, duplicates, and ordering manually.
+
+
+✅ Summary
+
+| Scenario                       | Can 2 Consumers Read Same Partition? | Notes                                    |
+| ------------------------------ | ------------------------------------ | ---------------------------------------- |
+| Same consumer group            | ❌ Not possible                       | One consumer per partition               |
+| Different consumer groups      | ✅ Yes                                | Each gets a full copy                    |
+| Manual assignment (`assign()`) | ✅ Possible but unsafe                | No group coordination or offset tracking |
+
+
+
+how do I make sure producer send to only a particular partition and also consumer consume from same partition
+ChatGPT said:
+To ensure a Kafka producer sends messages to a specific partition and a consumer reads only from that same partition, you need to explicitly control both ends — the producer and the consumer — using Kafka's APIs.
+
+✅ Step-by-Step Guide
+🔹 1. Producer: Send to a Specific Partition
+Kafka allows you to directly target a partition using the partition parameter when producing a message.
+
+Example (Java):
+
+ProducerRecord<String, String> record = new ProducerRecord<>("my-topic", 2, "my-key", "my-message");
+// "2" is the target partition
+
+producer.send(record);
+This sends the message to partition 2 of my-topic.
+
+You can omit the key if not needed (null), but specifying a key normally routes messages deterministically by default hashing.
+
+🔹 2. Consumer: Read Only from That Partition
+Use assign() to manually assign your consumer to that specific partition (e.g., partition 2).
+
+Example (Java):
+KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
+
+TopicPartition partition = new TopicPartition("my-topic", 2);
+consumer.assign(Collections.singletonList(partition));
+
+while (true) {
+    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+    for (ConsumerRecord<String, String> record : records) {
+        System.out.println(record.value());
+    }
+}
+This consumer will only read from partition 2 of my-topic.
+
+You are fully responsible for partition targeting and offset management.
+
+🧠 Important Notes
+Aspect	What You Control
+Producer	Set partition directly (new ProducerRecord<>(topic, partition, key, value))
+Consumer	Use assign() instead of subscribe() to fix to a specific partition
+Scalability	No auto balancing – you must manage partition-consumer mapping manually
+Offset Commit	You are responsible for committing offsets (manual or auto, depending on config)
+
+✅ Summary
+Use assign() in the consumer to bind to one partition only.
+
+Use the partition argument in ProducerRecord to target that exact partition.
+
+This gives 1:1 control over producer-consumer routing, useful in tightly-coupled systems or testing.
+
+Let me know your use case (e.g. IoT device routing, manual sharding, replay from a partition), and I can optimize an example for that.
+
+
+------------
+
+does kafka send message in bulk to consumer or one by one
+
+ChatGPT said:
+Apache Kafka sends messages to consumers in batches (bulk), not one by one.
+
+✅ Details:
+🔹 Kafka Consumer Pull Model
+Kafka uses a pull model, where the consumer polls the broker for data using:
+
+consumer.poll(Duration.ofMillis(100));
+This poll() returns a batch of messages (i.e., multiple records) if available.
+
+🧱 Batch Size Depends On:
+1. Broker Config:
+fetch.message.max.bytes – max bytes a broker will allow per fetch.
+
+2. Consumer Config:
+fetch.min.bytes – min bytes to wait for before sending a batch.
+
+fetch.max.bytes – max total bytes per fetch request.
+
+max.partition.fetch.bytes – max bytes per partition.
+
+3. poll() Timeout:
+If fewer bytes than fetch.min.bytes are available, Kafka waits up to the timeout in poll() before returning the smaller batch.
+
+🔁 Inside the Consumer:
+
+ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+
+for (ConsumerRecord<String, String> record : records) {
+    // You process them one-by-one here
+    System.out.println(record.value());
+}
+Kafka delivers in batches, but you process them one by one inside the loop if desired.
+
+You could also process the whole batch together (e.g., bulk insert to DB).
+
+⚡ Example Batch Size Impact:
+Let's say Kafka has 100 messages ready.
+
+A single poll() may return:
+
+50 records (due to size limits),
+
+All 100 records,
+
+Or fewer if timeout hits first.
+
+✅ Summary:
+
+| Aspect              | Kafka Behavior                          |
+| ------------------- | --------------------------------------- |
+| Message delivery    | **Bulk (batched)**                      |
+| Consumer processing | Can be **one-by-one** or **batch-wise** |
+| Controlled by       | Consumer config and `poll()` usage      |
+
+
+If you're optimizing for performance (e.g., batch DB writes or ML inference), you can tune Kafka to maximize batch sizes.
+
+Let me know if you want help tuning these settings for your use case.
+
+
+
+------------------
+
+
+
+when a consumer sends an ack to broker, does it mean same as commiting an offset
+ChatGPT said:
+Great question! The short answer is:
+
+No, sending an acknowledgment to the broker and committing an offset are not the same thing in Kafka.
+
+Let’s break it down clearly:
+
+✅ Kafka Concepts: Acknowledgment vs Offset Commit
+🔹 1. Acknowledgment to Broker
+In Kafka, the consumer doesn’t actually send explicit acks to the broker like in RabbitMQ or other systems.
+
+Instead, acknowledgment is implied by polling:
+
+When the consumer polls data, Kafka assumes the consumer has received the messages successfully.
+
+Kafka won’t resend unless the consumer fails or restarts without committing the offset.
+
+So there's no manual “ack” sent to Kafka. Instead, the consumer controls when it says “I’ve finished processing this message” by committing the offset.
+
+🔹 2. Offset Commit = “I’m done with this record”
+Committing an offset means: “I’ve successfully processed all messages up to this offset. Don’t resend them.”
+
+This is how Kafka tracks what a consumer has already processed.
+
+You can commit offsets:
+
+Automatically (if enable.auto.commit=true, default is every 5 seconds)
+
+Manually using:
+
+java
+Copy
+Edit
+consumer.commitSync();  // safer, waits for broker ack
+consumer.commitAsync(); // faster, but no guarantee
+✅ Timeline of Events
+Consumer calls poll().
+
+Kafka sends a batch of messages.
+
+Consumer processes the messages.
+
+Only when the consumer commits the offsets, Kafka knows those messages were successfully processed.
+
+If the consumer crashes before committing — those messages will be redelivered.
+
+🧠 Why This Matters
+No commit = possible duplicate processing (Kafka will resend on restart).
+
+Commit too early = risk of data loss (messages may not actually be processed yet).
+
+✅ Summary Table
+
+| Concept                    | Description                                   |
+| -------------------------- | --------------------------------------------- |
+| **Ack (implied)**          | Kafka assumes delivery after `poll()`         |
+| **Offset Commit**          | Tells Kafka “I’ve processed up to this point” |
+| **When committed?**        | Automatically or via `commitSync()`/`Async()` |
+| **Failure before commit?** | Messages are redelivered (at-least-once)      |
+
+
+Let me know your use case (e.g., real-time processing, batch jobs, exactly-once needs), and I can recommend best practices for offset handling.
 
