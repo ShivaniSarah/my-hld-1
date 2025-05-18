@@ -1,1 +1,7 @@
+C in CAP or ACID
+
+Issues:
+Single Point of Failure
+Latency  between remote servers => solution is caching and data replication
+Cost of Vertical Scaling
 
