@@ -1,0 +1,241 @@
+questions asked on kafka
+
+Here’s a list of common interview questions asked on Apache Kafka, categorized by difficulty and topic. These cover fundamental concepts, architecture, operations, and use cases.
+
+
+
+Basic Kafka Interview Questions  :: =>
+
+What is Apache Kafka?
+
+What are the key components of Kafka?
+
+What is a Kafka topic?
+
+What is a Kafka partition?
+
+What is a Kafka broker?
+
+Explain the concept of Producer and Consumer in Kafka.
+
+What is the difference between Kafka and a traditional message queue?
+
+What is a Kafka consumer group?
+
+How does Kafka achieve message durability?
+
+What is the default retention period of Kafka messages?
+
+
+
+
+Intermediate Kafka Questions  :: =>
+
+How does Kafka guarantee message ordering?
+
+What is the role of ZooKeeper in Kafka?
+
+Explain the process of message consumption in Kafka.
+
+How does Kafka handle message offsets?
+
+What is the difference between at-least-once, at-most-once, and exactly-once semantics?
+
+How can Kafka handle a scenario of message loss or duplication?
+
+What is the purpose of partitions in Kafka?
+
+Explain the replication mechanism in Kafka.
+
+How does Kafka handle fault tolerance?
+
+What is ISR (In-Sync Replica) in Kafka?
+
+How can Kafka be integrated with Spark, Flink, or Hadoop?
+
+What are Kafka Streams?
+
+
+
+
+
+Advanced Kafka Questions :: =>
+
+Explain Kafka’s internal storage mechanism.
+
+How does Kafka ensure high throughput and low latency?
+
+What is the difference between log compaction and log retention?
+
+How would you design a Kafka cluster for high availability?
+
+How can Kafka be secured? What authentication and authorization mechanisms does Kafka support?
+
+How do Kafka transactions work?
+
+Explain how Kafka manages backpressure.
+
+How do you monitor Kafka performance and health?
+
+What are Kafka Connect and Kafka MirrorMaker?
+
+How does Kafka handle schema evolution?
+
+Explain Kafka’s exactly-once semantics and how it is implemented.
+
+What are the different types of Kafka partitioners?
+
+How do you tune Kafka for optimal performance?
+
+
+
+
+Kafka Use-Case and Scenario-Based Questions  :: =>
+
+
+How would you implement a real-time analytics pipeline using Kafka?
+
+What design considerations are needed for a Kafka-based messaging system?
+
+How do you handle schema compatibility with evolving data?
+
+How would you deal with slow consumers in Kafka?
+
+How would you handle reprocessing messages in Kafka?
+
+Describe a scenario where Kafka is not a good fit.
+
+How would you implement a request-response messaging pattern using Kafka?
+
+How to guarantee message order for a particular key?
+
+Explain strategies to prevent data loss in Kafka.
+
+How do you migrate data from legacy systems into Kafka?
+
+If you want, I can also provide detailed answers for any of these questions or a focused list for a specific Kafka topic (e.g., Kafka architecture, Kafka security, Kafka Streams). Would you like that?
+
+
+
+--------------------
+
+
+
+tell me ans of first 10 questions
+
+
+Here are clear and concise answers to the first 10 Apache Kafka interview questions:
+
+Q1. What is Apache Kafka?
+
+Apache Kafka is a distributed event streaming platform used for building real-time data pipelines and streaming applications. It allows you to publish, subscribe to, store, and process streams of records in a fault-tolerant and scalable way.
+
+Q2. What are the key components of Kafka?
+
+Producer: Sends data to Kafka topics.
+
+Consumer: Reads data from topics.
+
+Broker: A Kafka server that stores and serves data.
+
+Topic: A logical stream to which records are sent.
+
+Partition: Sub-divisions of a topic for parallelism.
+
+ZooKeeper: Used for managing Kafka's cluster metadata (phased out in newer Kafka versions with KRaft).
+
+Q3. What is a Kafka topic?
+
+A topic is a logical channel or category to which records (messages) are sent by producers and from which consumers read. Topics can have multiple partitions to allow for parallel processing.
+
+Q4. What is a Kafka partition?
+
+A partition is a log that stores an ordered sequence of messages. Each topic is split into partitions, and each message in a partition has a unique offset. Partitions allow Kafka to scale horizontally and support parallel processing.
+
+Q5. What is a Kafka broker?
+
+A broker is a Kafka server that stores data and serves client requests (produce, consume, etc.). A Kafka cluster consists of one or more brokers.
+
+Q6. Explain the concept of Producer and Consumer in Kafka.
+
+Producer: A client application that sends messages to Kafka topics.
+
+Consumer: A client application that reads messages from Kafka topics. Consumers can belong to consumer groups to divide the workload.
+
+Q7. What is the difference between Kafka and a traditional message queue?
+
+Kafka is distributed, durable, and supports message replay. Unlike traditional queues, Kafka stores messages for a configurable period and allows multiple consumers to read independently. Kafka also emphasizes high throughput and horizontal scalability.
+
+Q8. What is a Kafka consumer group?
+A consumer group is a group of consumers working together to consume messages from a topic. Each partition is consumed by only one consumer in a group, ensuring load balancing and parallelism.
+
+Q9. How does Kafka achieve message durability?
+Kafka persists messages to disk using a write-ahead log. Data is replicated across brokers to ensure fault tolerance, and messages remain even after being consumed (until they expire based on retention policy).
+
+Q10. What is the default retention period of Kafka messages?
+By default, Kafka retains messages for 7 days. This can be changed using the log.retention.hours configuration. You can also retain messages based on size or indefinitely (if needed).
+
+Let me know if you want detailed answers with examples, diagrams, or follow-up questions on these topics.
+
+
+tell me ans of 11-15 questions
+
+Here are the answers to questions 11 through 15 about Apache Kafka:
+
+Q11. How does Kafka guarantee message ordering?
+
+Kafka guarantees message ordering within a partition. That means all messages sent to a specific partition are written and read in the same order. However, Kafka does not guarantee order across multiple partitions of the same topic.
+
+👉 Tip: If you need strict ordering for related events, use a message key to ensure all related messages go to the same partition.
+
+Q12. What is the role of ZooKeeper in Kafka?
+
+ZooKeeper (used in older Kafka versions) performs the following roles:
+
+Maintains metadata about brokers (e.g., which brokers are alive).
+
+Handles leader election for partitions.
+
+Manages cluster configuration and topic-related changes.
+
+📌 Note: As of Kafka 2.8, a new mode called KRaft (Kafka Raft) removes the dependency on ZooKeeper for simpler operations and improved scalability.
+
+Q13. Explain the process of message consumption in Kafka.
+
+Here’s a simplified message consumption flow:
+
+A consumer subscribes to one or more topics.
+
+Kafka assigns partitions to consumers within a consumer group.
+
+The consumer polls Kafka to fetch data.
+
+Kafka returns messages starting from the last committed offset.
+
+After processing, the consumer commits the new offset (automatically or manually).
+
+Kafka provides APIs to control offset commits and reprocessing behavior.
+
+Q14. How does Kafka handle message offsets?
+
+Kafka uses offsets to uniquely identify each message within a partition. Consumers track their progress using these offsets. There are two offset handling modes:
+
+Automatic commit: Kafka commits offsets at intervals (default every 5 seconds).
+
+Manual commit: Applications explicitly commit offsets after processing, providing more control (important for reliability).
+
+Offsets can be stored in Kafka (default) or externally (e.g., in a database).
+
+Q15. What is the difference between at-least-once, at-most-once, and exactly-once semantics?
+
+At-least-once (default): Messages may be delivered more than once if a failure occurs. Ensures no data loss.
+
+At-most-once: Messages are delivered at most one time. There is no retry on failure — data loss may occur.
+
+Exactly-once: Each message is delivered and processed once with no duplication. Kafka supports this through idempotent producers and transactional writes.
+
+🧠 Kafka’s exactly-once semantics require configuring both producers and consumers carefully (e.g., using Kafka Streams or the transactions API).
+
+Let me know if you’d like practical examples or diagrams for any of these concepts.
+
+
