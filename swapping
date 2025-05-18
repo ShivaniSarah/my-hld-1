@@ -1,0 +1,55 @@
+🧠 What is Swapping (in Operating Systems)?
+Swapping is a memory management technique where entire processes are moved between main memory (RAM) and secondary storage (usually a swap space or disk) to free up RAM for other active processes.
+
+🔁 Basic Concept
+If RAM is full and a new or higher-priority process needs memory:
+
+The OS swaps out (moves) a currently inactive process to disk.
+
+Then swaps in the needed process into the freed RAM.
+
+The swapped-out process is stored in a designated area called the swap space (or page file in Windows).
+
+📦 Key Characteristics
+
+| Feature           | Description                                                      |
+| ----------------- | ---------------------------------------------------------------- |
+| Unit of Swapping  | Typically a **whole process** (unlike paging, which moves pages) |
+| Trigger Condition | Insufficient RAM                                                 |
+| Storage Location  | Disk (HDD/SSD)                                                   |
+| Performance       | Much **slower than RAM access**                                  |
+| Goal              | Allow more processes to be handled than can fit in RAM           |
+
+
+🔄 Swapping Process
+Process A, B, C are in RAM.
+
+Process D arrives but no RAM is free.
+
+OS chooses process B to swap out to disk.
+
+Frees RAM for process D to swap in.
+
+Later, if B becomes active again, it is swapped back in, possibly causing another swap.
+
+🧱 Swapping vs Paging vs Virtual Memory
+
+| Concept     | Swapping                                | Paging                            | Virtual Memory                        |
+| ----------- | --------------------------------------- | --------------------------------- | ------------------------------------- |
+| Unit        | Whole process                           | Fixed-size pages                  | Abstract concept over paging/swapping |
+| Granularity | Coarse (entire process)                 | Fine-grained                      | N/A                                   |
+| Use Case    | Older systems or OS-controlled swapping | Common in modern OSs              | General memory abstraction            |
+| Disk Access | Yes                                     | Yes (only when page faults occur) | Yes (as needed)                       |
+
+
+⚠️ Downsides of Swapping
+Very slow due to disk I/O.
+
+Can cause thrashing: frequent swapping in/out leads to severe performance drop.
+
+Not used in modern systems for whole-process management — instead, paging and demand paging are preferred.
+
+📌 Summary
+Swapping is the act of moving entire processes between RAM and disk to manage memory. It's an early method of achieving multiprogramming and is now largely replaced by more efficient paging and virtual memory techniques.
+
+Would you like a visual diagram or animation-style explanation of swapping in action?
