@@ -22,8 +22,10 @@ With small cache , cache Thrashing: you are inputting and outputting the element
 
 cache write policy
 
-write through
-write back
+write through => write to cache and then update DB at the same time 
+write back => write to database first and then write to cache
+hybrid of write through and write back => write to cache then update DB in blocks ensuring network failure also so retrying or kafka or WAL
+in case of one server failure => also write to cache of other servers to ensure data consistency
 
 for write through -> might have cache invalidated in other servers
 
