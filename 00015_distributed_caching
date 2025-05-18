@@ -31,3 +31,7 @@ so can keep global cache
 
 write back is expensive
 
+so choose hybrid approach:
+
+write through and later on save network calls in blocks
+
