@@ -14,3 +14,5 @@ to do so , we need cache policy to load and evict data
 And cache performance entirely depends on cache policy
 LRU
 LFU
+
+cache Thrashing: you are inputting and outputting the elements without using it, it is hurtful situation for cache.
