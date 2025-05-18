@@ -1,0 +1,63 @@
+Subtasks of writing:
+
+example of update steps:
+read
+modify
+write
+
+In a transaction , there can be multiple reads and writes.
+Transaction can be called a step by step process of reads writes deletes updtes like  CRUD
+
+
+In the context of database management systems, isolation levels define the degree to which the operations in one transaction are isolated from those in other concurrent transactions. The goal is to balance data consistency with performance and concurrency.
+
+
+🔒 ACID "I" – Isolation
+Isolation is the "I" in ACID, and different isolation levels control how/when the changes made by one transaction become visible to others.
+
+
+🔄 Read Phenomena
+Isolation levels are defined based on which of these undesirable phenomena are allowed:
+
+Phenomenon	
+
+| Phenomenon              | Description                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Dirty Read**          | A transaction reads uncommitted changes made by another transaction.                                   |
+| **Non-Repeatable Read** | A row read twice within a transaction gives different results because another transaction modified it. |
+| **Phantom Read**        | New rows added by another transaction are visible in a repeated query.                                 |
+
+
+🧱 ANSI SQL Isolation Levels
+
+| Level                | Dirty Read  | Non-Repeatable Read | Phantom Read | Notes                                              |
+| -------------------- | ----------- | ------------------- | ------------ | -------------------------------------------------- |
+| **Read Uncommitted** | ✅ Allowed   | ✅ Allowed           | ✅ Allowed    | Fastest but unsafe                                 |
+| **Read Committed**   | ❌ Prevented | ✅ Allowed           | ✅ Allowed    | Default in many systems (e.g., SQL Server, Oracle) |
+| **Repeatable Read**  | ❌ Prevented | ❌ Prevented         | ✅ Allowed    | Default in MySQL InnoDB                            |
+| **Serializable**     | ❌ Prevented | ❌ Prevented         | ❌ Prevented  | Most strict and safest, but slowest                |
+
+
+📦 Summary Table
+
+| Isolation Level  | Prevents Dirty Reads | Prevents Non-Repeatable Reads | Prevents Phantom Reads |
+| ---------------- | -------------------- | ----------------------------- | ---------------------- |
+| Read Uncommitted | ❌                    | ❌                             | ❌                      |
+| Read Committed   | ✅                    | ❌                             | ❌                      |
+| Repeatable Read  | ✅                    | ✅                             | ❌                      |
+| Serializable     | ✅                    | ✅                             | ✅                      |
+
+
+🛠 DBMS-Specific Notes
+MySQL (InnoDB): Default is REPEATABLE READ. Phantom reads are avoided using Next-Key Locks.
+
+PostgreSQL: Uses MVCC (Multiversion Concurrency Control), making READ COMMITTED safe without blocking.
+
+SQL Server: Defaults to READ COMMITTED; also supports Snapshot Isolation.
+
+Oracle: Uses READ COMMITTED by default with non-blocking reads using versioning (similar to MVCC).
+
+
+
+
+
