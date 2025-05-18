@@ -1,5 +1,11 @@
 data consistency levels
 
+https://www.geeksforgeeks.org/weak-levels-of-consistency/
+
+
+Strict Consistency, Atomic Consistency, and Sequential Consistency are stronger levels of consistency.
+Causal Consistency, Eventual Consistency is weaker levels of Consistency
+
 
 | Level                      | Description                                                                        | Use Case                        |
 | -------------------------- | ---------------------------------------------------------------------------------- | ------------------------------- |
@@ -26,7 +32,7 @@ Use case: Banking systems, financial transactions.
 
 Trade-off: Latency is higher; system may block during network partitions.
 
-🔁 Linearizability
+🔁 Linearizability / Atomic  Consistency or Linear Consistency
 Subset of: Strong consistency.
 
 Definition: Operations appear to occur atomically and in real-time order.
