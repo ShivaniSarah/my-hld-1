@@ -46,9 +46,12 @@ prepare
 commit 
 just lik ACK and ACK ACK and retry commit or rollback in case of network failures
 you take a lock and availability becomes issue in case of waiting and deadlock. But is strongly consistent
-Transaction is idempotent. But at the system being down.
+Transaction is idempotent. But at the system being down. And that adds to the cost.
 may not be required
 Sometime eventual consistency is required and it comes with isolation guarantees.
+
+
+
 
 
 
