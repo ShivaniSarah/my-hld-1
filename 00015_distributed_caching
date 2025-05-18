@@ -24,3 +24,10 @@ cache write policy
 
 write through
 write back
+
+for write through -> might have cache invalidated in other servers
+
+so can keep global cache
+
+write back is expensive
+
