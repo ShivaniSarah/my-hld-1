@@ -47,7 +47,7 @@ commit
 just lik ACK and ACK ACK and retry commit or rollback in case of network failures
 you take a lock and availability becomes issue in case of waiting and deadlock. But is strongly consistent
 Transaction is idempotent. But at the system being down. And that adds to the cost.
-may not be required
+This may not be required sometimes like in analytics we picked inconsistemt data that is okay but availability matter or in linkedin u see older posts thats okay.
 Sometime eventual consistency is required and it comes with isolation guarantees.
 
 
