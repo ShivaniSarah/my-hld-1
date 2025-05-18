@@ -1,0 +1,9 @@
+Caching solves:
+
+Avoid network calls
+Avoid repeated computataions
+Avoid DB load
+
+Why cant store everything in cache
+
+hardware of cache is SSD costly
