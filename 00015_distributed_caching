@@ -12,8 +12,15 @@ also if store tons a data , search time will increase why dont we go and hit the
 So we need to keep only the relevant data in cache
 to do so , we need cache policy to load and evict data
 And cache performance entirely depends on cache policy
+
+eviction policy
 LRU
 LFU
 
 Poor  eviction policy increases the DB calls
 With small cache , cache Thrashing: you are inputting and outputting the elements without using it, it is hurtful situation for cache.
+
+cache write policy
+
+write through
+write back
