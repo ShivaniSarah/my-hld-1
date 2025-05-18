@@ -1,0 +1,1 @@
+From one consumer group , only one consumer can consume from one partition in a topic
