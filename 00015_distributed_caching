@@ -37,3 +37,119 @@ so choose hybrid approach:
 
 write through and later on save network calls in blocks
 
+
+
+Cache write policies define how data is written to main memory and the cache when a write operation occurs. The choice of policy affects performance, data consistency, and cache coherency.
+
+🔁 Major Cache Write Policies
+1. Write-Through
+✅ Data is written to both the cache and main memory simultaneously.
+
+Ensures data consistency between cache and memory.
+
+Slower due to frequent memory writes.
+
+Pros:
+
+Simpler and consistent.
+
+Memory is always up to date.
+
+Cons:
+
+Slower performance due to main memory write latency.
+
+2. Write-Back (Copy-Back)
+✅ Data is written only to cache.
+
+❗ Modified cache blocks are written to main memory only when evicted.
+
+Requires a "dirty bit" to track modified blocks.
+
+Pros:
+
+Faster, reduces memory writes.
+
+Good for repeated writes to the same block.
+
+Cons:
+
+More complex.
+
+Risk of data loss on power failure.
+
+Memory may be stale until the dirty block is flushed.
+
+3. Write-Once (Hybrid)
+First write: write-through.
+
+Subsequent writes: write-back.
+
+Tries to combine the benefits of both.
+
+🧭 Cache Write Allocation Policies
+These determine what happens on a write miss:
+
+A. Write Allocate (Fetch on Write)
+On a write miss, the block is loaded into cache, and then the write is performed.
+
+Usually used with write-back caches.
+
+B. No-Write Allocate (Write-No-Allocate)
+On a write miss, data is written directly to main memory, not loaded into the cache.
+
+Typically used with write-through caches.
+
+🔄 Summary Table
+
+
+| Write Policy  | Memory Updated on Write | Cache Updated on Write | Common Pairing                      |
+| ------------- | ----------------------- | ---------------------- | ----------------------------------- |
+| Write-Through | ✅ Yes                   | ✅ Yes                  | No-Write Allocate or Write Allocate |
+| Write-Back    | ❌ Only on eviction      | ✅ Yes                  | Write Allocate                      |
+| Write-Once    | Mixed                   | Mixed                  | Hybrid                              |
+
+
+The write-around policy is a cache write policy designed to avoid polluting the cache with data that is not frequently accessed.
+
+🔁 Write-Around Policy – Definition
+On a write miss, data is written directly to main memory, not loaded into cache.
+
+On a write hit, data is written to cache and memory (if combined with write-through).
+
+🧠 Key Characteristics
+Feature	Behavior
+Write Hit	Write to cache (may also update memory)
+Write Miss	Bypass cache, write directly to memory
+Cache Allocation	❌ No caching on write miss
+Common Pairing	Often used with write-through cache
+Goal	Avoid caching transient or rarely used data
+
+✅ Pros
+Reduces cache pollution with write-only or rarely used data.
+
+Saves cache space for frequently read data.
+
+Can improve cache hit rate for read-intensive workloads.
+
+❌ Cons
+On future read, data might not be in the cache → causes read miss.
+
+Slightly more complex to implement.
+
+🧭 Comparison with Other Policies
+
+| Policy            | Write Miss Behavior               | Data Cached? |
+| ----------------- | --------------------------------- | ------------ |
+| **Write-Through** | Write to cache + memory           | ✅ Yes        |
+| **Write-Back**    | Write to cache only, defer memory | ✅ Yes        |
+| **Write-Around**  | Write to memory only              | ❌ No         |
+
+
+📌 When to Use Write-Around
+When write operations are infrequent, or
+
+When written data is unlikely to be read soon (e.g., logging, telemetry),
+
+Useful in read-heavy systems where cache space is at a premium.
+
