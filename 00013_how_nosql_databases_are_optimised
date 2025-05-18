@@ -1,8 +1,37 @@
 Q. How to optimise scaled up writes in database?
 
-Ans. B+ Trees like BST (not binary)
+Ans.
 
+B+ Trees like BST (not binary)
+Insertion/ search time => O(log n)
 
+After each search / insertion ACK is sent to the client when the operation is successful and insternal structure is also changed.
+
+We have to optimise headers like ACK and IO call per request to reduce bandwidth and time.
+
+One way is to : If we can condense all of the write querys data and send to the database and send once and get get one ACK , that would be great.
+Server has to give some memory to store these bunch of queries which is disadvantage. but the advantage is lesser IO call.
+the best data structure for lot of write operation is linked list. O(1)
+There is Log based data structure ( Log based merge tree ) that follows the idea of linked list.
+So advantage here is fast writes O(1) and disadvantage is slow reads O(n).
+
+The additional memory  we cant skip we can only constrain the amount of blocks before we flush into the database.
+So we have look for reducing slow reads.
+
+So if we use something like sorted array or BST , search or read is O(logn)  time
+But it is counter intuitive as B+ Tree  was already giving the same time complexity
+But B+ tree was giving poorer write of Log (n).
+
+This combo of (linked list + sorted arary ) can give like great write speed O(1) and great read speed O(log n ).
+
+when insertion data comes in memory it is sorted before it is persisted into the database.
+when another insertion chunk comes u have to choose to merge or not the two sorted data chunks.
+
+Merging is much needed in the background as after merging the no of operations to read is much less compared to when we individually search in each sorted chunk.
+
+So when to search or not , we decide using bloom filter which is very fast and tells if false positively if a record exist in a block/set or not
+
+This is like Sorted String Table and Compaction.
 
 
 
