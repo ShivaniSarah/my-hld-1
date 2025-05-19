@@ -277,6 +277,8 @@ Idempotent Producer: Ensures exactly-once semantics by assigning sequence number
 Consumer Offsets: If a consumer crashes after processing but before committing an offset, it may reprocess (duplicate).
 
 Solution: Use transactional API or external idempotent stores.
+( transactional API  ->  all steps of API should be atomic to ensure -> @Transactional )
+(idempotent stores -> check the composite key exits in DB or not then insert)
 
 Q17. What is the purpose of partitions in Kafka?
 
