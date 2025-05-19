@@ -1,0 +1,117 @@
+The Saga Pattern is a microservices architectural pattern used to manage distributed transactions or long-lived transactions across multiple services, ensuring data consistency in a decentralized manner without relying on traditional ACID transactions.
+
+🧩 Why Saga Pattern?
+In a microservices system, each service typically manages its own data. A traditional distributed transaction (e.g., using 2PC - Two-Phase Commit) is often impractical due to:
+
+High coupling between services
+
+Poor scalability
+
+Lack of fault tolerance
+
+Instead, Saga manages data consistency using a sequence of local transactions, each with a corresponding compensating transaction to undo its effects in case of failure.
+
+🔁 Saga Flow
+A Saga is a sequence of steps (local transactions):
+
+nginx
+Copy
+Edit
+T1 → T2 → T3 ... → Tn
+If one fails:
+
+scss
+Copy
+Edit
+T1 → T2 (fails) → C1 (compensate T1)
+🛠️ Saga Implementation Types
+1. Choreography (Event-driven, Decentralized)
+Each service listens to events and emits its own events.
+
+No central orchestrator.
+
+Pros:
+
+Simple and loosely coupled
+
+Easy to scale
+
+Cons:
+
+Hard to track the flow
+
+Harder to handle complex logic
+
+Example:
+
+Order Service → emits OrderCreated
+
+Payment Service → handles OrderCreated, emits PaymentCompleted
+
+Shipping Service → handles PaymentCompleted, emits ShippingStarted
+
+2. Orchestration (Centralized)
+A central orchestrator tells each service what to do next.
+
+Pros:
+
+Easier to monitor and control
+
+Better for complex workflows
+
+Cons:
+
+Adds a central dependency
+
+More complex to implement
+
+Example:
+
+Orchestrator calls Order Service → then Payment → then Shipping
+
+On failure, it invokes compensation steps in reverse
+
+🔁 Compensation Example
+Let’s say we’re booking a trip:
+
+Book flight ✈️
+
+Book hotel 🏨
+
+Rent car 🚗
+
+If hotel booking fails, compensate:
+
+Cancel flight
+
+If car rental fails, compensate:
+
+Cancel hotel
+
+Cancel flight
+
+🧪 Tools/Frameworks
+Axon Framework (Java)
+
+Eventuate Tram / Eventuate Saga
+
+Temporal.io
+
+Camunda
+
+Netflix Conductor
+
+✅ Use When:
+You need to maintain data consistency across microservices
+
+Traditional distributed transactions aren't feasible
+
+Failure handling and rollback are important
+
+⚠️ Challenges
+Writing and maintaining compensation logic
+
+Handling partial failures and retries
+
+Eventual consistency can be complex to test and debug
+
