@@ -498,6 +498,207 @@ cleanup.policy=compact
 
 
 
+Q26. How would you design a Kafka cluster for high availability?
+To design a highly available Kafka cluster, you must eliminate single points of failure and ensure data durability and service continuity.
+
+✅ Key Strategies:
+Replication Factor ≥ 3:
+
+Each topic's partitions should be replicated to at least 3 brokers.
+
+Ensures that even if 1 or 2 brokers fail, data is still safe.
+
+Multiple Brokers:
+
+Spread partitions and replicas across multiple brokers (min 3–5 for HA).
+
+Leader Election from ISR:
+
+Kafka automatically elects a new leader from In-Sync Replicas (ISR) if the current leader fails.
+
+ack=all & min.insync.replicas=2:
+
+Producers wait until all ISR replicas ack messages → ensures durability.
+
+Prevents data loss if one broker goes down.
+
+Multiple ZooKeeper Nodes / KRaft Controllers:
+
+Use a ZooKeeper ensemble (odd number ≥ 3) or KRaft quorum for metadata durability.
+
+Rack Awareness:
+
+Configure broker.rack to place replicas across different racks/availability zones.
+
+Enables fault tolerance against rack failure.
+
+Monitoring & Alerts:
+
+Use Kafka monitoring tools (Prometheus, Grafana, Confluent Control Center) to detect failures early.
+
+Backup & Disaster Recovery:
+
+MirrorMaker 2 or custom solutions for cross-cluster replication.
+
+Q27. How can Kafka be secured? What authentication and authorization mechanisms does Kafka support?
+Kafka supports several security features to ensure authentication, authorization, and encryption.
+
+🔒 Security Mechanisms:
+
+Encryption (TLS/SSL):
+
+Use TLS for encrypting data in-transit (between brokers, producers, consumers).
+
+Configure ssl.keystore, ssl.truststore.
+
+Authentication:
+
+Kafka supports:
+
+SSL authentication (client certificates)
+
+SASL mechanisms:
+
+SASL/PLAIN (username/password)
+
+SASL/SCRAM (encrypted password storage)
+
+SASL/GSSAPI (Kerberos)
+
+Authorization (ACLs):
+
+Kafka’s built-in ACL system (ZK or KRaft-based) can restrict:
+
+Topic access
+
+Group access
+
+Producer/consumer permissions
+
+Example:
+kafka-acls.sh --add --allow-principal User:alice --operation Read --topic my-topic
+
+
+Audit Logging:
+
+Kafka can log security events and access patterns for auditing purposes.
+
+KRaft Mode:
+
+Newer deployments can use KRaft (Kafka without ZooKeeper), with built-in security management.
+
+Q28. How do Kafka transactions work?
+
+Kafka supports exactly-once semantics (EOS) using transactions.
+
+✅ Use Case:
+To atomically write to multiple partitions or topics, or read-process-write reliably without duplication.
+
+🔄 Steps in Kafka Transactions:
+1.Enable idempotence:
+
+Producer must set: enable.idempotence=true (auto-enabled with transactions)
+
+2.Init transactional producer:
+
+Properties props = new Properties();
+props.put("transactional.id", "my-tx-id");
+
+3.Begin, send, and commit:
+producer.initTransactions();
+producer.beginTransaction();
+producer.send(...); // multiple topic-partition writes
+producer.commitTransaction(); // or abortTransaction()
+
+4.Read-process-write (with EOS):
+
+Use read_committed isolation level to consume only committed messages.
+
+⚠ Notes:
+Transactional ID must be unique per producer instance.
+
+Requires internal topic __transaction_state.
+
+
+Q29. Explain how Kafka manages backpressure.
+Kafka doesn’t have a strict backpressure mechanism but handles it using indirect controls at different stages:
+
+🔃 Producer Side:
+Buffer size: If producer buffer is full (buffer.memory), it blocks or throws an exception based on max.block.ms.
+
+linger.ms: Can delay sending small batches to accumulate more records, smoothing spikes.
+
+🧯 Broker Side:
+Kafka brokers queue incoming messages in memory.
+
+If overloaded, brokers can throttle producers using quota configuration.
+
+🔁 Consumer Side:
+Consumers control backpressure by controlling offset commits.
+
+If a consumer is too slow, lag increases, which can be monitored and alerted.
+
+🔄 Flow Control Tools:
+Use concurrency controls (e.g., thread pools) in consumers.
+
+Apply rate limiting or batch processing to control processing throughput.
+
+Q30. How do you monitor Kafka performance and health?
+
+Monitoring Kafka is critical for performance tuning and fault detection.
+
+🔍 Key Metrics to Monitor:
+Broker Metrics:
+
+Under-replicated partitions
+
+Offline partitions
+
+Request latency
+
+ISR shrink/expand events
+
+Producer Metrics:
+
+Record send rate / failure rate
+
+Batch size and compression rate
+
+Retries / errors
+
+Consumer Metrics:
+
+Consumer lag (difference between committed and latest offset)
+
+Rebalance frequency
+
+Throttled fetch rate
+
+Cluster Health:
+
+Disk usage
+
+JVM heap usage
+
+Controller health
+
+ZooKeeper or KRaft status
+
+📊 Tools for Monitoring:
+Prometheus + Grafana: Open-source combo to scrape and visualize metrics.
+
+Confluent Control Center: Enterprise tool for deep Kafka insights.
+
+Datadog / New Relic / Splunk: Commercial options with Kafka plugins.
+
+JMX Exporter: Kafka exposes metrics over JMX, which Prometheus can scrape.
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------
+
+
+
 
 
 
