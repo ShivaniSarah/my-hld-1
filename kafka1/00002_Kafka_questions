@@ -189,7 +189,7 @@ By default, Kafka retains messages for 7 days. This can be changed using the log
 Let me know if you want detailed answers with examples, diagrams, or follow-up questions on these topics.
 
 
-
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 
@@ -251,7 +251,7 @@ Let me know if you’d like practical examples or diagrams for any of these conc
 
 
 
-
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 Q16. How can Kafka handle a scenario of message loss or duplication?
@@ -324,6 +324,8 @@ ZooKeeper or KRaft: Tracks cluster metadata and helps with leader elections (mov
 
 Consumer Groups: Allow other consumers in the group to take over if one fails.
 
+
+
 Q20. What is ISR (In-Sync Replica) in Kafka?
 
 ISR (In-Sync Replica) is the set of replicas that:
@@ -341,6 +343,11 @@ If brokers 1 and 2 are in sync, ISR = {1, 2}.
 If broker 3 lags too much or goes down, it is removed from ISR until it catches up.
 
 Kafka only acknowledges messages to producers once all ISR members have received the data (if acks=all).
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 Q21. How can Kafka be integrated with Spark, Flink, or Hadoop?
 
@@ -458,7 +465,6 @@ Data is partitioned across brokers, enabling parallelism in reads and writes.
 
 7. Log Segmentation:
 Log files are split into segments, allowing efficient deletion and index maintenance.
-
 
 
 Q25. What is the difference between log compaction and log retention?
@@ -819,6 +825,16 @@ Idempotence works within a single producer session.
 It is required for exactly-once delivery (acks=all, retries allowed).
 
 At the consumer end , composite key of the data is used to check whether this data exits in database or not. then insert or not.
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+scenario based questions
+
+
 
 
 
