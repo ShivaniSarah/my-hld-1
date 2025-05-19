@@ -5,8 +5,9 @@ Kafka broker has its own cpu, memory and disk storage (where queues are there)
 From one consumer group , only one consumer can consume from one partition in a topic.
 Because of partitions in a topic parallel processing can be done in  a consumer group.
 
-When consumer send ACK/commit to kafka , it increments the offset and commits the offset.
+When consumer send commit to kafka , it increments the offset and commits the offset.
 Retention Policy is by default 7 days for deletion withn which period offset can be reset and data consumed again.
+ACK is sent by kafka to producer to tell successful capturingof message.
 
 Producer can publish messages into a Topic in 3 ways:
 Random partition
