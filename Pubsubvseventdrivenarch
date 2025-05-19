@@ -1,0 +1,65 @@
+Is event driven architecture different than publisher subscriber
+Yes, Event-Driven Architecture (EDA) and the Publisher-Subscriber (Pub/Sub) pattern are related but not the same. Here's how they differ:
+
+
+---
+
+1. Event-Driven Architecture (EDA)
+
+Architecture style that revolves around the production, detection, consumption, and reaction to events.
+
+Events are first-class citizens — any significant change in state (e.g., "OrderPlaced", "PaymentFailed").
+
+Components are loosely coupled and interact through events.
+
+Supports various communication models:
+
+Pub/Sub (asynchronous broadcast)
+
+Event Streaming (Kafka, Pulsar)
+
+Event Sourcing
+
+CQRS
+
+
+
+
+---
+
+2. Publisher-Subscriber Pattern
+
+A messaging pattern, often used within EDA.
+
+Involves:
+
+Publisher: emits messages/events.
+
+Subscriber: consumes messages/events.
+
+
+Usually facilitated by a message broker (e.g., Kafka, RabbitMQ, Redis).
+
+Subscribers don't directly know about publishers, enabling loose coupling.
+
+
+
+---
+
+Summary of Differences:
+
+Feature	Event-Driven Architecture	Publisher-Subscriber Pattern
+
+Scope	Architectural style	Messaging pattern
+Focus	Event generation and handling	Message distribution
+Use cases	System-wide integration	Component-to-component communication
+Includes Pub/Sub?	Yes, as one implementation pattern	No, it's a standalone pattern
+Example Technologies	Kafka, AWS EventBridge, Azure Event Grid	Kafka, RabbitMQ, Redis Pub/Sub
+
+
+
+---
+
+So, Pub/Sub is a pattern used inside EDA, but EDA is a broader architectural approach that may use Pub/Sub, but also includes other patterns and responsibilities like orchestration, event processing, and storage.
+
+
