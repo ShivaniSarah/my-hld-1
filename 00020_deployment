@@ -1,0 +1,208 @@
+5 most important deployment strategies
+
+Big Bang Deployment 
+Rolling Deployment
+Blue Green Deployment
+Canary Deployment
+Feature Toggle Deployment
+
+
+
+Deployment strategies in software refer to the various methods used to release new versions of software systems into production environments. The goal is to update systems with minimal downtime, risk, and user disruption. Here's an overview of the most common deployment strategies:
+
+1. Recreate (Big Bang) Deployment
+Overview: Shut down the old version and deploy the new one.
+
+Pros: Simple to implement.
+
+Cons: Downtime during deployment; high risk if failure occurs.
+
+Definition: Stops the old version completely before deploying the new one.
+
+Example Scenario:
+
+A small internal accounting app used by a single department.
+
+Deployment occurs at night when no one is using the system.
+
+Steps:
+
+Shutdown app.
+
+Replace codebase.
+
+Restart application.
+
+Use Case: Low traffic apps or internal tools.
+
+
+2. Rolling Deployment
+
+Overview: Gradually replace instances of the old version with the new one, one or a few at a time.
+
+Pros: Reduces downtime; easier rollback per instance.
+
+Cons: Harder to detect version-specific bugs; mixed versions may create conflicts.
+
+Definition: Deploy new version gradually, replacing old version instance by instance.
+
+Example Scenario:
+
+A backend microservice running in a Kubernetes cluster.
+
+10 pods run version 1.0 → replaced 2 at a time with version 1.1.
+
+Steps:
+
+Start a few instances of the new version.
+
+Monitor logs/metrics.
+
+Gradually replace all old instances.
+
+Use Case: Services with many instances, hosted on orchestration platforms like Kubernetes.
+
+
+3. Blue-Green Deployment
+
+Overview: Two identical environments: one active (blue), one idle (green). New version is deployed to green, and traffic is switched after verification.
+
+Pros: Instant rollback; near-zero downtime.
+
+Cons: Requires double infrastructure; costlier.
+
+Definition: Maintain two environments: blue (live) and green (idle). Deploy to green, then switch traffic.
+
+Example Scenario:
+
+A retail e-commerce website.
+
+Blue serves live traffic. New code is deployed to green. Once tested, traffic is routed to green.
+
+Steps:
+
+Deploy new version to green.
+
+Smoke test green environment.
+
+Switch DNS/traffic router from blue to green.
+
+Blue becomes backup in case rollback is needed.
+
+Use Case: Critical applications requiring zero downtime and fast rollback.
+
+
+4. Canary Deployment
+Overview: Release the new version to a small subset of users before full rollout.
+
+Pros: Limits impact of bugs; easier monitoring and rollback.
+
+Cons: Needs advanced traffic routing and monitoring.
+
+Definition: Gradually release the new version to a subset of users.
+
+Example Scenario:
+
+Netflix releases a new video player feature.
+
+5% of users get the new version.
+
+Monitor feedback, then roll out to more users.
+
+Steps:
+
+Deploy to 5% of servers/users.
+
+Monitor health metrics (CPU, errors).
+
+Increase to 25%, 50%, 100%.
+
+Use Case: Apps with a large user base where bugs must be caught early.
+
+
+5. Shadow Deployment
+
+Overview: New version receives real user traffic but doesn’t serve responses. Used to test behavior without affecting users.
+
+Pros: Great for testing under real load; no user impact.
+
+Cons: Extra infrastructure; doesn’t test UI or user experience.
+
+Definition: New version receives real traffic but does not serve responses.
+
+Example Scenario:
+
+A machine learning model for fraud detection.
+
+Shadow version runs alongside the current model and receives the same input but doesn’t affect output.
+
+Steps:
+
+Mirror live traffic to shadow model.
+
+Compare predictions behind the scenes.
+
+Deploy if behavior is consistent.
+
+Use Case: Testing new algorithms without affecting users.
+
+6. A/B Testing
+
+Overview: Different users are routed to different versions to test new features.
+
+Pros: Useful for feature validation; data-driven decisions.
+
+Cons: Requires careful planning and analysis; privacy considerations.
+
+7. Feature Toggles (Flags)/ Flag Deployment
+Overview: Features are deployed in code but toggled on/off for users or groups.
+
+Pros: Fine-grained control; easy rollback of features.
+
+Cons: Adds complexity to codebase; requires toggle management.
+
+Definition: Deploy new features hidden behind a flag that can be turned on/off.
+
+Example Scenario:
+
+Facebook adds a “Dark Mode” feature.
+
+The code is deployed to all users, but the feature is enabled only for internal employees.
+
+Steps:
+
+Write feature with toggle.
+
+Deploy to production.
+
+Gradually turn on feature for different user groups.
+
+Use Case: Continuous delivery, A/B testing, gradual rollouts.
+
+
+
+Choosing the Right Strategy
+
+| Factor                 | Suggested Strategy      |
+| ---------------------- | ----------------------- |
+| Minimal downtime       | Blue-Green, Canary      |
+| Simple application     | Rolling, Recreate       |
+| Risk-averse deployment | Canary, Feature Toggles |
+| Real-world testing     | Shadow, A/B Testing     |
+
+
+
+Summary Table
+
+
+
+| Strategy        | Zero Downtime | Easy Rollback | Use Case Example               |
+| --------------- | ------------- | ------------- | ------------------------------ |
+| Recreate        | ❌             | ❌             | Internal apps                  |
+| Rolling         | ✅ (partial)   | ❌             | Kubernetes apps                |
+| Blue-Green      | ✅             | ✅             | E-commerce sites               |
+| Canary          | ✅             | ✅             | Streaming platforms            |
+| Shadow          | ✅             | ✅ (test-only) | ML model deployment            |
+| Feature Toggles | ✅             | ✅             | Social networks, SaaS products |
+
+
