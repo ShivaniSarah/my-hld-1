@@ -302,6 +302,7 @@ ChatGPT said:
 Great question! The short answer is:
 
 No, sending an acknowledgment to the broker and committing an offset are not the same thing in Kafka.
+acknowledgement is sent to producer from kafka
 
 Let’s break it down clearly:
 
