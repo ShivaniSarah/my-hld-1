@@ -1,0 +1,61 @@
+Authorization_authentication
+
+1 eg, you have aadhar card to authenticate like username and password to tell your user identity. => authentication
+But are to valid author to write read or modify based on your role or position => Authorization
+
+The terms authentication and authorization are often used together but refer to distinct concepts in security:
+
+🔐 Authentication
+"Who are you?"
+
+Purpose: Verifies identity.
+
+Example: Logging in with a username & password.
+
+Common Methods:
+
+Passwords
+
+Biometrics (fingerprint, face)
+
+OTPs (one-time passwords)
+
+OAuth / SSO (Google, Facebook login)
+
+✅ You are authenticated if the system confirms your identity.
+
+🛡️ Authorization
+"What are you allowed to do?"
+
+Purpose: Determines permissions.
+
+Example: Once logged in, can you access admin dashboard?
+
+Common Implementations:
+
+Role-Based Access Control (RBAC)
+
+Access Control Lists (ACL)
+
+Scopes in OAuth tokens
+
+✅ You are authorized if the system allows you to perform specific actions based on your role or privileges.
+
+🧭 Key Differences
+
+
+| Feature       | Authentication                  | Authorization                       |
+| ------------- | ------------------------------- | ----------------------------------- |
+| Checks        | User's identity                 | User's access rights                |
+| Happens when? | First step                      | After authentication                |
+| Determines    | **Who** you are                 | **What** you can do                 |
+| Example       | Logging in                      | Accessing a restricted page         |
+| Data handled  | Credentials (passwords, tokens) | Permissions, roles, access policies |
+| Returns       | Identity (e.g., user ID)        | Access granted/denied               |
+
+
+
+🔄 Relationship:
+You must be authenticated before you can be authorized.
+
+Authentication does not imply authorization.
