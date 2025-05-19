@@ -1,0 +1,10 @@
+api_architecture_styles
+
+SOAP   (XML based payment gateway high security)
+RESTful  (JSON)
+GraphQL   (queries only the required data)
+gRPC   ( protobuff)
+Websocket  (Bi-directional low- latency data exchange )
+WebHook   (Asynchronous event driven )
+
+
