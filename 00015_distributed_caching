@@ -1,6 +1,12 @@
 Distributed Cache is not a problem -> we have distribute consensus => paxos, raft to handle it
 Cache is sharded geographically.
 
+cdn - content delivery network
+
+We use CDN CloudFront from Akamai. S3 is the storage.
+It also provides cache. 
+
+
 Caching solves:
 
 Avoid network calls
