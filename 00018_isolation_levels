@@ -15,6 +15,7 @@ In the context of database management systems, isolation levels define the degre
 🔒 ACID "I" – Isolation
 Isolation is the "I" in ACID, and different isolation levels control how/when the changes made by one transaction become visible to others.
 
+snapshot isolation
 
 🔄 Read Phenomena
 Isolation levels are defined based on which of these undesirable phenomena are allowed:
