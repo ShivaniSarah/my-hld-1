@@ -96,7 +96,8 @@ Memcached for larger dataset
 snapshot isolation
 
 
-
+Text Search Engine bulit on Apache Lucene Elastic Search Solr uses Fuzzy search for wrong spelling - edit distance
+data can be lost on these.
 
 
 
