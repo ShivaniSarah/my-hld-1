@@ -699,7 +699,124 @@ JMX Exporter: Kafka exposes metrics over JMX, which Prometheus can scrape.
 
 
 
+Q31. How do consumers handle message ordering in Kafka?
 
+✅ Kafka guarantees message order within a partition, but not across partitions.
+🔸 How Consumers Maintain Ordering:
+A single consumer thread per partition ensures strict ordering.
+
+If multiple partitions are assigned to a consumer, messages from different partitions may be processed out of global order.
+
+Use key-based partitioning to ensure that all events with the same key go to the same partition, preserving order for that key.
+
+🧠 Example:
+ProducerRecord<String, String> record = new ProducerRecord<>("my-topic", "user123", "event1");
+
+All events with key "user123" will go to the same partition, ensuring ordered processing.
+
+Q32. What is a dead-letter queue (DLQ) and how is it used in Kafka?
+
+A Dead-Letter Queue (DLQ) is a Kafka topic used to store messages that cannot be processed successfully by consumer after multiple attempts.
+
+🔍 Use Cases:
+
+Malformed messages (bad schema, missing fields)
+
+Business logic failures (e.g., division by zero, missing user in DB)
+
+Deserialization errors
+
+🔁 DLQ Implementation Approaches:
+
+Manual Handling in Consumer:
+try {
+    processMessage(record);
+} catch (Exception e) {
+    producer.send(new ProducerRecord<>("dead-letter-topic", record.key(), record.value()));
+}
+
+Kafka Connect DLQ Support:
+
+Kafka Connect supports built-in DLQ configuration:
+errors.tolerance=all
+errors.deadletterqueue.topic.name=dlq-topic
+
+
+Schema Registry Integration:
+
+If using Confluent Schema Registry, DLQ can capture schema evolution/deserialization issues.
+
+Schema Registry provides a centralized repository for managing and validating schemas for topic message data, and
+for serialization and deserialization of the data over the network. 
+Producers and consumers to Kafka topics can use schemas to ensure data consistency and compatibility as schemas evolve.
+
+
+Q33. How do Kafka Connect and Kafka Streams differ?
+
+Kafka Connect API
+
+| Feature         | **Kafka Connect**                                       | **Kafka Streams**                                 |
+| --------------- | ------------------------------------------------------- | ------------------------------------------------- |
+| Purpose         | Data integration between Kafka and external systems     | Real-time stream processing on Kafka data         |
+| Use Case        | Source/sink connectors (e.g., DB → Kafka, Kafka → HDFS) | Transform, aggregate, join, filter Kafka topics   |
+| Model           | Configuration-driven (no code)                          | Java library (embedded in apps)                   |
+| Fault Tolerance | Built-in with distributed mode                          | Requires handling via checkpoints or state stores |
+| Scalability     | Scales using worker nodes (standalone/distributed mode) | Scales via app instances + Kafka partitions       |
+| Example         | Kafka → MySQL using JDBC Sink Connector                 | Join 2 topics to compute enriched event stream    |
+
+
+Q34. What are Kafka’s delivery semantics?
+
+Kafka supports three delivery semantics:
+
+✅ 1. At Most Once
+Messages may be lost, but never duplicated.
+
+Producer sends without waiting for acknowledgment.
+
+Fast but risky.
+
+✅ 2. At Least Once
+Messages are retried until acknowledged → no loss, but duplicates possible.
+
+Common default for Kafka.
+
+✅ 3. Exactly Once (EOS)
+No duplicates, no message loss.
+
+Requires:
+
+enable.idempotence=true on producer
+
+Transactional producer API
+
+Consumers using read_committed
+
+Highest reliability, but with more overhead.
+
+Q35. What is idempotence in Kafka?
+
+Idempotence means processing the same message multiple times results in the same outcome — crucial for avoiding duplicates.
+
+🛡 In Kafka:
+Producers can be made idempotent using:
+
+enable.idempotence=true
+
+Ensures that resending the same message (e.g., due to retry) does not create duplicates.
+
+🔧 How It Works:
+
+Kafka assigns a producer ID and sequence number for each message.
+
+Broker uses these to discard duplicate writes.
+
+⚠ Important:
+Idempotence works within a single producer session.
+
+It is required for exactly-once delivery (acks=all, retries allowed).
+
+At the consumer end , composite key of the data is used to check whether this data exits in database or not. then insert or not.
 
 
 
