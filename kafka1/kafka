@@ -357,3 +357,6 @@ Commit too early = risk of data loss (messages may not actually be processed yet
 
 Let me know your use case (e.g., real-time processing, batch jobs, exactly-once needs), and I can recommend best practices for offset handling.
 
+
+
+
