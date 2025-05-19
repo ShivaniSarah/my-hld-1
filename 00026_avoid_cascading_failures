@@ -1,0 +1,75 @@
+Avoiding cascading failures—especially in distributed systems, microservices architectures, power grids, or financial systems—involves designing with resilience and fault tolerance in mind. Below are general strategies and concrete techniques for preventing cascading failures:
+
+✅ General Strategies
+1. Isolation and Containment
+Service boundaries: Use well-defined service boundaries (e.g., in microservices) to limit the blast radius of a failure.
+
+Bulkheads: Create independent compartments (bulkheads) so a failure in one does not affect others.
+
+E.g., separate thread pools or connections per downstream dependency.
+
+2. Circuit Breakers
+Detect repeated failures and prevent further attempts to a failing service.
+
+Tools: Netflix Hystrix (deprecated but still referenced), Resilience4j (Java), Polly (.NET).
+
+Example:
+
+java
+Copy
+Edit
+CircuitBreakerRegistry registry = CircuitBreakerRegistry.ofDefaults();
+CircuitBreaker cb = registry.circuitBreaker("myService");
+3. Rate Limiting & Throttling
+Protect downstream services from overload.
+
+Implement token buckets or leaky bucket algorithms.
+
+4. Timeouts and Retries with Backoff
+Always set timeouts on calls to external services.
+
+Use exponential backoff and jitter to avoid retry storms.
+
+java
+Copy
+Edit
+Retry retry = Retry.ofDefaults("myRetry");
+Supplier<String> retryableSupplier = Retry.decorateSupplier(retry, () -> myService.call());
+✅ Defensive System Design Techniques
+5. Fail-Fast and Fallbacks
+Services should detect issues early and fail fast instead of hanging.
+
+Provide fallback mechanisms (e.g., return default values, cached data).
+
+6. Load Shedding
+Drop non-critical traffic when overloaded.
+
+Prioritize high-priority tasks.
+
+7. Health Checks and Auto-Healing
+Use readiness/liveness probes (e.g., in Kubernetes).
+
+Automatically restart or redirect traffic from unhealthy services.
+
+8. Redundancy and Replication
+Replicate services and infrastructure components to provide redundancy.
+
+✅ Monitoring, Alerting & Chaos Engineering
+9. Monitoring and Alerting
+Monitor key metrics: latency, error rate, resource usage, queue lengths.
+
+Set alerts for anomaly detection and trigger automation.
+
+10. Chaos Engineering
+Regularly inject failures to observe system behavior.
+
+Tools: Chaos Monkey, LitmusChaos, Gremlin.
+
+✅ Domain-Specific Examples
+🔌 Power Grids
+Implement protection relays, load balancing, and system islanding.
+
+💰 Financial Systems
+Use risk limits, circuit breakers in trading, and transaction rollbacks.
+
+Summary Table
