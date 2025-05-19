@@ -277,4 +277,14 @@ RPC is a communication strategy that supports architecture like Microservices, S
 Let me know if you want diagrams or a comparison with other communication protocols like REST vs RPC!
 
 
+9. Pipe and Filter Architecture
+
+Concept: Data flows through a sequence of processing components (filters), connected by pipes.
+
+Use cases: Compilers, data processing pipelines, ETL tools
+
+Pros: Reusability, parallel processing
+
+Cons: Difficult error handling, latency between stages
+
 
