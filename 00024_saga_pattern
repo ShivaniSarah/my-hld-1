@@ -1,5 +1,5 @@
 The Saga Pattern is a microservices architectural pattern used to manage distributed transactions or long-lived transactions across multiple services, ensuring data consistency in a decentralized manner without relying on traditional ACID transactions.
-
+long lived transaction 
 🧩 Why Saga Pattern?
 In a microservices system, each service typically manages its own data. A traditional distributed transaction (e.g., using 2PC - Two-Phase Commit) is often impractical due to:
 
