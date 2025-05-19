@@ -1,0 +1,87 @@
+Anomaly Detection in Distributed Systems ? -> isolation trees
+
+
+ChatGPT said:
+Anomaly Detection in Distributed Systems is critical for identifying unexpected behavior such as slowdowns, failures, or security breaches. Due to the system’s complexity, scale, and asynchronous nature, detecting anomalies requires a mix of statistical, machine learning, and rule-based techniques.
+
+✅ Key Challenges
+Challenge	Description
+Scale & Volume	High cardinality of logs/metrics across services/nodes.
+Heterogeneity	Different services, protocols, and hardware configurations.
+Asynchronous Failures	Delayed symptoms or root causes spread across the system.
+Data Noise	Transient spikes may not be true anomalies.
+Contextual Variability	What’s normal during peak hours may be anomalous during off-peak.
+
+🔍 What to Monitor
+System-level metrics
+
+CPU, memory, disk, network usage
+
+Host health, container status
+
+Service/application-level metrics
+
+Latency, error rate, throughput
+
+Queue lengths, retry rates
+
+Logs and traces
+
+Unusual log patterns or trace durations
+
+Distributed Tracing
+
+Abnormal spans, missing spans, or timing bottlenecks
+
+🧠 Anomaly Detection Techniques
+1. Rule-Based Thresholding
+Simple thresholds (e.g., CPU > 90%)
+
+Works for known failure patterns
+
+Fast and explainable, but rigid
+
+2. Statistical Models
+Z-score, moving average, exponential smoothing
+
+Detects sudden spikes or deviations
+
+Low complexity, but struggles with seasonal or contextual anomalies
+
+3. Time-Series ML Models
+ARIMA, Holt-Winters, SARIMA
+
+Good for periodic patterns
+
+Require tuning and stationary data
+
+4. Unsupervised ML
+Isolation Forests, One-Class SVM, LOF
+
+Detect rare behaviors without labels
+
+Common for high-dimensional metrics (e.g., 100+ KPIs across nodes)
+
+5. Deep Learning
+Autoencoders: Reconstruct normal behavior, flag high reconstruction error
+
+LSTM/GRU: Model temporal dependencies in sequences
+
+GANs: Learn distribution of normal behavior and detect deviations
+
+6. Graph-Based Anomaly Detection
+For systems with service dependencies or topologies (e.g., service meshes)
+
+Use Graph Neural Networks (GNNs) or spectral analysis
+
+⚙️ Tools & Frameworks
+Tool/Framework	Features
+Prometheus + Alertmanager	Metric collection + static alerts
+ELK Stack	Log aggregation + rule/ML-based anomaly detection
+Datadog / New Relic / Dynatrace	APM with anomaly detection out of the box
+Apache SkyWalking / Zipkin / Jaeger	Distributed tracing with anomaly correlation
+Facebook Prophet	Time-series forecasting & anomaly detection
+Azure Anomaly Detector / AWS Lookout for Metrics	ML-based managed services
+Kibana + X-Pack ML	Anomaly detection in ELK via ML
+
+
