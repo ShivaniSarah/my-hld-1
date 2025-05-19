@@ -835,6 +835,192 @@ At the consumer end , composite key of the data is used to check whether this da
 scenario based questions
 
 
+36. What is the role of ZooKeeper in Kafka? Is it still required?
+✅ In older Kafka versions (pre-2.8):
+ZooKeeper was essential for Kafka cluster management.
+
+🔹 ZooKeeper’s Responsibilities:
+Leader election (e.g., controller broker)
+
+Maintaining metadata (topic configs, broker list, ISR)
+
+Cluster state and configuration management
+
+Node registration and health checks
+
+🚫 In Kafka 2.8+ and 3.x, ZooKeeper is being phased out:
+🔄 Replacement: KRaft (Kafka Raft Metadata Mode)
+Kafka now includes its own metadata quorum using Raft consensus protocol.
+
+Benefits:
+
+No external dependency (no ZooKeeper)
+
+Simplified deployment and management
+
+Better scalability and resilience
+
+37. How do you perform schema evolution in Kafka?
+Schema evolution allows changing the structure of Kafka messages over time while maintaining compatibility.
+
+✅ Tools: Confluent Schema Registry
+🔄 Supported Compatibility Modes:
+BACKWARD: New schema can read old data.
+
+FORWARD: Old schema can read new data.
+
+FULL: Both forward and backward compatible.
+
+NONE: No compatibility checks.
+
+🔧 Best Practices:
+Use Avro, Protobuf, or JSON Schema with the Schema Registry.
+
+Avoid removing fields or changing field types.
+
+Use default values for new fields.
+
+🔍 Example:
+Old schema:
+{"type": "record", "name": "User", "fields": [{"name": "name", "type": "string"}]}
+
+New schema (backward compatible):
+{"type": "record", "name": "User", "fields": [
+  {"name": "name", "type": "string"},
+  {"name": "email", "type": "string", "default": ""}
+]}
+
+38. How does Kafka handle data replication and consistency?
+Kafka ensures high availability and durability using partition replication.
+
+🔁 Replication Mechanism:
+Each partition has a leader and followers (replicas).
+
+Leader handles all reads/writes, followers replicate data from it.
+
+✅ Consistency Rules:
+A message is considered committed when:
+
+It is written to all in-sync replicas (ISR)
+
+Producer uses acks=all
+
+🔧 Key Settings:
+replication.factor: Number of replicas per partition.
+
+min.insync.replicas: Minimum replicas that must acknowledge for successful write.
+
+🧠 Behavior:
+If a follower lags, it is removed from ISR.
+
+Leader election only happens from ISR (to maintain consistency).
+
+If leader fails, a follower from ISR is elected.
+
+39. Explain how Kafka handles consumer group rebalancing.
+🔁 Rebalancing = reassigning partitions to consumers in a group.
+🧩 When does it happen?
+A new consumer joins or leaves the group.
+
+A topic is added or partition count changes.
+
+A consumer fails (heartbeat timeout).
+
+🧠 Rebalance Process:
+Group Coordinator is selected among brokers.
+
+Consumers send heartbeat and join group requests.
+
+One consumer becomes group leader.
+
+Group leader uses a PartitionAssignor (e.g., range, round-robin, sticky) to assign partitions.
+
+All consumers receive their new partition assignments.
+
+🧱 PartitionAssignor Types:
+RangeAssignor: Splits partitions sequentially.
+
+RoundRobinAssignor: Distributes evenly.
+
+StickyAssignor: Tries to minimize movement across rebalances.
+
+⚠ Impacts:
+During rebalance, consumers pause processing → temporary unavailability.
+
+Use cooperative rebalancing (Kafka 2.4+) to reduce downtime.
+
+40. What are some best practices for using Kafka in production?
+✅ Key Kafka Production Best Practices:
+Design Topics Properly:
+
+Use logical partitioning by key (e.g., user ID, order ID)
+
+Avoid excessive partitions (balance performance and overhead)
+
+Tune Producer Settings:
+
+acks=all, enable.idempotence=true for durability
+
+Use compression (snappy or lz4) for better throughput
+
+Manage Consumer Lag:
+
+Monitor lag metrics
+
+Use auto offset commit cautiously
+
+Prefer manual commit after successful processing
+
+Secure the Cluster:
+
+Use SSL, SASL, ACLs
+
+Encrypt data in transit and at rest
+
+Monitor and Alert:
+
+Track:
+
+Under-replicated partitions
+
+Consumer group lags
+
+Broker disk usage and GC
+
+Request latency
+
+Use Schema Registry:
+
+Enforce schema compatibility
+
+Avoid breaking changes
+
+Set Retention Policies:
+
+Define appropriate retention.ms and cleanup.policy
+
+Use compaction for state-changes and retention for event logs
+
+Backup and Disaster Recovery:
+
+Use MirrorMaker 2 for cross-region/cluster replication
+
+Snapshot critical data if needed
+
+Use Dedicated Storage:
+
+Use fast disks (SSD/NVMe)
+
+Separate Kafka logs from OS disks
+
+Enable Quotas:
+
+Protect brokers from overload using producer/consumer quotas
+
+
+
+
+
 
 
 
