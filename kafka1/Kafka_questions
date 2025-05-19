@@ -156,6 +156,17 @@ Q5. What is a Kafka broker?
 
 A broker is a Kafka server that stores data and serves client requests (produce, consume, etc.). A Kafka cluster consists of one or more brokers.
 
+Apache Kafka brokers do store data, and they do so in their own queues, but the term "queue" can be misleading in Kafka's architecture. Let me break it down clearly:
+✅ Kafka Broker: What it is
+A Kafka broker is a server in a Kafka cluster that:
+Accepts and stores messages from producers.
+Serves messages to consumers.
+Handles topic partitions.
+✅ Does a broker store data?
+Yes, a Kafka broker stores data locally on disk. Each broker:
+Stores the partitions of topics it is responsible for.
+Writes messages to log files on the local file system (these are append-only files, not traditional queues).
+
 Q6. Explain the concept of Producer and Consumer in Kafka.
 
 Producer: A client application that sends messages to Kafka topics.
