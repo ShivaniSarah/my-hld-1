@@ -89,7 +89,11 @@ WAL (write ahead logs) to recover data
 web hooks - event driven HTTP callbacks & synchronous operations 
 eg github notifies its users when a new commit is pushed not useful when you need synchronous operation or immediate response.
 
+Parquet, ORC Avro are columnar data format
 
+Memcached for larger dataset
+
+snapshot isolation
 
 
 
