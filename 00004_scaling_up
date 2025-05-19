@@ -40,6 +40,59 @@ Logging errors metrics / Analytics / Machine Learning / Auditing
 Extensible
 
 
+Reverse Proxy accepts request from a client, forward it  to a server & returns servers's response to the client
+
+A load balancer distribute incoming client, requests among a  group of servers and returns the respective response from the selected server
+to the appropriate client.
+
+Gunicorn - Web Server Gateway Interface (WSGI)
+- websocket
+- HTTP vs websocket
+- HTTP is a one way communication. Either client requests, server responds or server sends , client responds (simplex)
+- websocket is a two way communication (duplex) - stateful established by TCP connection by SYN/ ACK packets
+- HTTP is stateless -> GET, POST send all headers
+It closes after serving the request unless keep - alive is true
+
+Since websocket is stateful, issues of scalability, you cannot assign other servers to handle multiple requests.
+- for real time chat , gaming, low latency bi directional data exchange
+
+Solution - AWS API Gateway
+
+REST - Representational State Transfer - HTTP
+JSON is the language of APIs
+
+Forward Proxy sits infront of a client & 
+Reverse proxy sits in front of a server
+
+GraphQL - clients asks query for specific data  , efficient network communicationa and saves network load and faster response
+
+gRPC uses binary encoding protobuff - bi directional
+A local procedure call is a function call within a process/program to execute code
+A remote procedure enables one machine to invoke some code on another machine.
+Proto buff is a language agnostic way to serialize/ encode structural data
+strongly typed RPC methods  in .proto file.
+Same proto file is used to generate gRPC client & server code from proto file.
+Allows multiple streams of RPC connections over a single TCP connection.
+
+Cassandra DB is used for 3.5T users
+
+Asynchronous communication - kafka
+flink grafan graphit prometheus
+
+use CDN to store images and static content close to geographical region like a cache
+consistent hashing to re-shard
+keep de normalized data to avoid time spet in joins 
+hot  celebrity problem keep one celebrity in one shard
+
+session data store in NoSQL apart from server/ web tier
+WAL (write ahead logs) to recover data
+web hooks - event driven HTTP callbacks & synchronous operations 
+eg github notifies its users when a new commit is pushed not useful when you need synchronous operation or immediate response.
+
+
+
+
+
 
 
 
