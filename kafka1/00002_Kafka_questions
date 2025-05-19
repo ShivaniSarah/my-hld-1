@@ -387,3 +387,118 @@ KStream<String, String> input = builder.stream("input-topic");
 KStream<String, String> upper = input.mapValues(String::toUpperCase);
 upper.to("output-topic");
 
+
+Q23. Explain Kafka’s internal storage mechanism.
+
+Kafka uses a highly optimized append-only log storage model:
+
+Key Concepts:
+Partition as Log: Each topic partition is a log file where new records are always appended.
+
+Segmented Logs: A partition's log is split into segments (e.g., 1 GB files).
+
+Each segment is a separate file on disk (e.g., 000000000000.log).
+
+Index Files: Kafka maintains:
+
+Offset index (.index) → maps message offsets to file positions.
+
+Time index (.timeindex) → maps timestamps to offsets.
+
+All the 3 above techniques are used.
+
+How Storage Works:
+
+New messages are written to the active segment (one only).
+
+Old segments are eligible for deletion or compaction based on retention policy.
+
+Durability:
+Kafka uses write-ahead logs.
+
+Messages are flushed to disk periodically or after a configurable number of messages.
+
+OS page cache is used for performance; fsync ensures durability on flush.
+
+
+
+Q24. How does Kafka ensure high throughput and low latency?
+Kafka is built for high throughput and low latency using several design principles:
+
+1. Sequential I/O (Append-only Log):
+
+Kafka writes data sequentially, avoiding disk seeks.
+Uses zero-copy transfer (sendfile) to transfer data from file to network socket efficiently.
+(Every layer has its own buffer from disk to  OS buffer to memory buffer to network buffer.
+Zero copy means kafka will skip the process and directly transfer from disk to network.
+)
+
+2. Batching:
+Both producers and brokers batch records to reduce overhead.
+
+Batching reduces the number of network and disk operations.
+
+3. OS Page Cache:
+Kafka relies on the Linux page cache to cache file system operations, avoiding costly disk reads.
+
+4. Compression:
+Kafka supports message compression (gzip, snappy, lz4, zstd), reducing bandwidth and disk usage.
+
+5. Efficient Networking:
+Kafka uses asynchronous, non-blocking I/O (NIO) for high concurrency.
+Non-blocking I/O (NIO) allows a program to perform other tasks while waiting for I/O operations to complete,
+rather than blocking the thread until the I/O is finished. This is particularly useful in scenarios 
+like network programming where handling multiple connections concurrently is essential. NIO uses techniques 
+like I/O multiplexing and event-driven programming to achieve this. 
+
+6. Partitioning:
+Data is partitioned across brokers, enabling parallelism in reads and writes.
+
+7. Log Segmentation:
+Log files are split into segments, allowing efficient deletion and index maintenance.
+
+
+
+Q25. What is the difference between log compaction and log retention?
+
+Both are Kafka strategies for data management and cleanup, but serve different purposes.
+
+Log Retention:
+Time or size-based deletion of messages.
+
+Once the data exceeds the configured time or size threshold, Kafka deletes it.
+
+Config:
+
+retention.ms=604800000      # Keep logs for 7 days
+retention.bytes=1073741824  # Or max 1GB per partition
+
+
+Use Case: Event streams where old data isn't needed, e.g., logs, metrics.
+
+Log Compaction:
+Kafka retains the latest message per key by removing older ones with the same key.
+
+Keeps the latest state for each key indefinitely.
+
+Config:
+
+cleanup.policy=compact
+
+
+| Feature          | Log Retention                      | Log Compaction                         |
+| ---------------- | ---------------------------------- | -------------------------------------- |
+| Basis            | Time/Size                          | Message Key                            |
+| Purpose          | Delete old messages                | Retain the latest update per key       |
+| Data Loss        | Deletes all messages beyond limits | Retains most recent message per key    |
+| Example Use Case | Logs, metrics, telemetry           | User profile state, configuration data |
+
+
+----------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
