@@ -73,3 +73,14 @@ Implement protection relays, load balancing, and system islanding.
 Use risk limits, circuit breakers in trading, and transaction rollbacks.
 
 Summary Table
+
+| Technique           | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| Circuit Breaker     | Prevent repeated calls to a failing service |
+| Bulkheading         | Isolate failures                            |
+| Timeout & Retry     | Avoid hanging calls and retry storms        |
+| Load Shedding       | Drop load under high stress                 |
+| Fallbacks           | Continue partial operation                  |
+| Monitoring & Alerts | Detect and respond early                    |
+| Chaos Engineering   | Test real-world failure scenarios           |
+
