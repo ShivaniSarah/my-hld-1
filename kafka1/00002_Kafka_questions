@@ -1245,6 +1245,8 @@ Transactional semantics across systems are required (Kafka’s EOS doesn't cover
 
 Very high fan-out without consumer scalability (each consumer group scales per topic/partition)( Real-Time Sports Score Updates)
 
+It fits well with twitter. where latency hone pe it can show old posts.
+
 ✅ 12. How would you implement a request-response messaging pattern using Kafka?
 Kafka is not inherently request-response, but it can be emulated:
 
