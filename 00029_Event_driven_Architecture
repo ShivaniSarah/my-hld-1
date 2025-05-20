@@ -1,0 +1,28 @@
+Event driven Architecture
+eg , git, reactjs, nodejs, game
+
+We saw limitations in Client/Server Architecture (Request/Response) then in Publisher/Subscriber model
+which is solved in Event-driven Architecture
+
+event bus is used instead of message queue is used
+event with a timestamp is sent and the current is rolled to the timestamp and the event request is performed.
+
+Each of the services stores its owns events in local DB, and free up the event bus
+So here is the difference between Microservices
+Here each service is not only storing the data relevant to it but is also storing data from other services which it dont need to ask everytime.
+Event log , so u can go back and run it and find the bug or rollback
+
+Advantages:
+
+1. Availability is good
+2. Rollback wrt timestamp
+3. replacement of services
+4. Transactional gurantee  (at least once or at most once semantics)
+5. Stores intent of the event then actions can be performed differently on each service
+
+Disadvantages:
+
+1. Consistency is not so good
+2. with the gateway servers, replacement not applicable as the responses are subject to time and events wont be behaving same here.
+Actions will change here as responses from client will depend on time, even though storing the timestamp with response is not much useful
+3. lesser control
