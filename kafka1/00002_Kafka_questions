@@ -4,6 +4,10 @@ Here’s a list of common interview questions asked on Apache Kafka, categorized
 
 Due to the drawbacks of publisher subscriber model , EVENT DRIVEN ARCHITECTURE which also uses asynchronous communication is preferred.
 
+priority is not there in kafka but workaround is there
+but we can design our own message queue
+
+
 Basic Kafka Interview Questions  :: =>
 (Asynchronous communication)
 
@@ -1017,6 +1021,129 @@ Separate Kafka logs from OS disks
 Enable Quotas:
 
 Protect brokers from overload using producer/consumer quotas
+
+
+Q. can priorities be set in kafka 
+
+
+Kafka does not natively support message prioritization within a topic — all messages in a partition are strictly ordered by offset, and Kafka treats all messages equally.
+
+However, you can design your architecture to implement prioritization behavior. Here are some common approaches:
+
+✅ Workarounds to Implement Priorities in Kafka
+
+1. Separate Topics per Priority
+
+Approach:
+
+Create different topics for each priority level, e.g.:
+
+alerts-high
+
+alerts-medium
+
+alerts-low
+
+Consumer Logic:
+
+Consumers read from alerts-high first.
+
+Only after clearing that queue do they read from alerts-medium, and then alerts-low.
+
+Pros:
+
+Simple and effective.
+
+Works well for batch and streaming workloads.
+
+Cons:
+
+Requires custom logic on the consumer side.
+
+More topics to manage.
+
+2. Single Topic with Priority Metadata
+Approach:
+
+Use message headers or payload fields to include a priority level.
+
+Example:
+
+{
+  "priority": "HIGH",
+  "payload": "Important message"
+}
+Consumer Logic:
+
+Consumer reads messages in order, but:
+
+Can temporarily store low-priority messages in memory or a secondary queue.
+
+Can reprocess high-priority messages earlier.
+
+Pros:
+
+No need for multiple topics.
+
+Retains original Kafka message order.
+
+Cons:
+
+Increases consumer complexity.
+
+May violate strict ordering.
+
+3. Kafka Streams for Prioritization
+Approach:
+
+Use Kafka Streams to branch messages based on priority:
+
+
+stream
+  .branch(
+    (key, value) -> value.getPriority().equals("HIGH"),
+    (key, value) -> value.getPriority().equals("MEDIUM"),
+    (key, value) -> true
+  );
+Pros:
+
+Declarative and scalable.
+
+Enables downstream topic separation or prioritization logic.
+
+4. Use Tiered Queues with Kafka + External Queues
+Example:
+
+Use Kafka as the ingestion layer.
+
+Push prioritized data to:
+
+Redis sorted sets (for high-priority)
+
+RabbitMQ with priority queues
+
+In-memory queues (if latency is critical)
+
+When to Use:
+
+For real-time systems like fraud detection or critical alerts.
+
+🚫 What Kafka Will Not Do
+Kafka will not reorder messages within a partition.
+
+Kafka cannot skip low-priority messages in favor of high-priority ones within the same partition.
+
+Kafka does not provide built-in weighted consumption or message TTL by priority.
+
+🔑 Recommendation
+For most use cases, the “multiple topic” approach is best:
+
+Easier to manage.
+
+Allows independent scaling of consumers.
+
+Enables near-real-time prioritization.
+
 
 
 
