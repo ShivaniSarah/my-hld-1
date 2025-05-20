@@ -7,6 +7,7 @@ Due to the drawbacks of publisher subscriber model , EVENT DRIVEN ARCHITECTURE w
 priority is not there in kafka but workaround is there
 but we can design our own message queue
 
+Databases as a queue is an antipattern.
 
 Basic Kafka Interview Questions  :: =>
 (Asynchronous communication)
