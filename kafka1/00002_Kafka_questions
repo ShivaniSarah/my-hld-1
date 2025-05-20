@@ -2,9 +2,10 @@ questions asked on kafka
 
 Here’s a list of common interview questions asked on Apache Kafka, categorized by difficulty and topic. These cover fundamental concepts, architecture, operations, and use cases.
 
-
+Due to the drawbacks of kafka, EVENT DRIVEN SYSTEM which also uses asynchronous communication is preferred.
 
 Basic Kafka Interview Questions  :: =>
+(Asynchronous communication)
 
 What is Apache Kafka?
 
