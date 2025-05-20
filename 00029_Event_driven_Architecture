@@ -1,5 +1,5 @@
 Event driven Architecture
-eg , git, reactjs, nodejs, game
+eg , git, smalltalk, reactjs, nodejs, game
 
 We saw limitations in Client/Server Architecture (Request/Response) then in Publisher/Subscriber model
 which is solved in Event-driven Architecture
@@ -23,6 +23,17 @@ Advantages:
 Disadvantages:
 
 1. Consistency is not so good
-2. with the gateway servers, replacement not applicable as the responses are subject to time and events wont be behaving same here.
+2. N/A  with the gateway servers, replacement not applicable as the responses are subject to time and events wont be behaving same here.
 Actions will change here as responses from client will depend on time, even though storing the timestamp with response is not much useful
-3. lesser control
+3. lesser control of fine tunig with request /response
+if u set the time limit with event bus data might not reach there and set priorities and it gets complicated.
+may be u want some services to consume and stop other services to touch those events, 
+4. Compaction: If u want to play from a particular point, 3 ways: replay from start, diff based, undo redo drom a point. 
+5. Hidden development flow bug
+6. Migration from event driven to Request/response architecture
+
+In conclusion:
+Event driven Arch is a combo of pub-sub and log based storage at each server
+
+
+
