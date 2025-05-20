@@ -6,10 +6,13 @@ Keep Backup : Master Slave Architecture : It also avoids Single Point of failure
 
 Horizontal Scaling : Increasig no of machines.  It also avoids Single Point of failure. Fast deliveries and handle more requests
 
-Load Balancing (multiple load balancers) is needed to handle multiple machines (read and write servers are also different)
+Load Balancing (multiple load balancers) is needed to handle multiple machines 
 DNS (Domain Name System ) is used to resolve the domain to the right load balancer
 
-Maintain 3 servers copy in multple regions to recover in case of failure
+Coordinator to route to database servers for read and write
+Netflix has chaos monkey go into production and put down one server just to check system is resilient.
+
+Maintain 3 servers copy in multple regions to recover in case of disaster
 
 Communication is no longer Inter process communication but more of RPCs - Remote Procedure Calls
 
