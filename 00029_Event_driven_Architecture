@@ -1,4 +1,4 @@
-Event driven Architecture
+Event driven Architecture - reactive programming
 eg , git, smalltalk, reactjs, nodejs, game
 
 We saw limitations in Client/Server Architecture (Request/Response) then in Publisher/Subscriber model
