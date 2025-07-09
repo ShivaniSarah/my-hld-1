@@ -1,0 +1,26 @@
+have health checks of servers that it is running all the time so check what efficiency we promise from the infra at least that is delivered in the first place.
+if 50/% of the servers are down which adds to the cost already why not bring them up first instead of introducing new servers like horizontal scaling or vertical scaling.
+
+Health Service along with load balancers will help this by checking each server if it is alive.
+
+if server s1 doesnt respond yes or alive to the health service, it is marked as critical.
+If again it doesnt respond/ misses the health service request,  it is marked as dead and it needs to be restarted.
+It again can ask another server to restart it or run the service on another server s4 lets say
+load balancer will have the list of servers updated s4 instead of s1. 
+
+
+Sometimes what happens is the server is up/ alive but the application is not, so its not handling requests.
+so we want service itself that it is alive. 
+We want heartbeat from both sides every 5 seconds so that the server kills itself. Otherwise we will have zombies that are dead still sending requests to other servers
+as part of a cron job where it sends stale data it had and might manipulate the internal state of other servers based on the stale data it had, which is quite risky and make
+other servers inconsistent as well along with itself like zombies. So we need to eliminate zombies.
+So here helps the two way heart beat communication sent every 5 seconds. If a server is marked dead by the health service, it will kill itself.
+
+Health service is tied closely with Service discovery
+
+Lets say when a Profile Service is discovered, Load balancer maintains its snapshot with the timestamp in its DB => the list of all ip addresses and servers.
+Health Service can check the difference in the snapshot of DB of load balancer and get list of new services introduced and initiate new health check requests for new services.
+
+
+
+
