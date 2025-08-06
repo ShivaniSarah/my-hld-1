@@ -1,0 +1,65 @@
+why would we prefer mongo db for faster writes than sql ? give strong reasons
+
+
+
+3/3
+
+ChatGPT said:
+We may prefer MongoDB over SQL (like MySQL/PostgreSQL) for faster writes in certain scenarios due to several strong architectural and design differences:
+
+🔹 1. Schema-less / Flexible Schema
+MongoDB doesn't enforce a strict schema, so documents can vary in structure.
+
+This reduces overhead during insert/update operations compared to SQL, where altering schemas or inserting into strict tables can be costly.
+
+🔹 2. No Joins (Denormalized Data Model)
+In MongoDB, related data is often embedded in a single document (denormalization), reducing the need for multi-table joins on writes.
+
+In SQL, related data often requires foreign key inserts across multiple tables, which slows down writes.
+
+🔹 3. Memory-Mapped Storage (WiredTiger Engine)
+MongoDB’s WiredTiger storage engine uses memory-mapped files and compression, which enables faster writes with better I/O efficiency.
+
+🔹 4. Asynchronous Writes (Write Concerns)
+MongoDB allows configurable write concerns. You can write with:, sql is synchronous
+
+w: 0 (no acknowledgment)
+
+w: 1 (acknowledge after primary write)
+
+This makes writes non-blocking, unlike SQL where ACID guarantees often block until commit.
+
+🔹 5. Document-Based Model
+MongoDB stores data as BSON (Binary JSON) documents.
+
+Writing a single document is often faster than writing across multiple normalized SQL tables.
+
+🔹 6. Horizontal Scaling (Sharding)
+MongoDB supports native sharding for horizontal scaling, spreading writes across shards automatically.
+
+SQL systems often require complex setup or external tools for horizontal write scaling.
+
+🔹 7. No Transactions by Default (Optional in MongoDB)
+MongoDB avoids multi-document transactions unless explicitly used.
+
+SQL databases wrap many operations in transactions, adding overhead during writes, read isolation, write isolation, prevent phantom or dirty reads.
+so that 2 threads dont write at the same time.
+
+🔹 8. Write Performance Tuned for High-Volume Ingest
+MongoDB is optimized for high-throughput applications like logs, IoT, or clickstream data.
+
+SQL databases focus more on consistency and relationships, making them slower under high write pressure.
+
+✅ Summary Table
+
+| Feature                     | MongoDB                            | SQL DB (Postgres/MySQL)             |
+| --------------------------- | ---------------------------------- | ----------------------------------- |
+| Schema enforcement          | Flexible / None                    | Strict                              |
+| Join overhead               | None (denormalized)                | High (normalized)                   |
+| Write concern configuration | Yes (asynchronous possible)        | Usually synchronous                 |
+| Transactions                | Optional                           | Default                             |
+| Horizontal write scaling    | Built-in (sharding)                | Manual or limited                   |
+| Optimized for               | High write throughput, flexibility | Strong consistency, relational data |
+
+
+
