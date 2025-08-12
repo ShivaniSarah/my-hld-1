@@ -412,7 +412,42 @@ By combining these elements, CockroachDB aims to provide a highly available, sca
 ----------------------
 
 
+no sql
+
+NoSQL, which stands for "Not only SQL," refers to a class of non-relational database management systems. Unlike traditional relational databases (SQL databases) that store data in structured tables with predefined schemas, NoSQL databases offer a more flexible approach to data storage and retrieval.
+Key characteristics of NoSQL databases include:
+Flexible Schemas:
+NoSQL databases do not require a fixed schema, allowing for dynamic and evolving data structures. This is particularly beneficial for handling unstructured or semi-structured data, such as JSON documents, or for applications with rapidly changing data requirements.
+Horizontal Scalability:
+NoSQL databases are designed for horizontal scaling, meaning they can distribute data across multiple servers to handle large volumes of data and high traffic loads. This makes them suitable for big data applications and applications requiring high availability.
+Variety of Data Models:
+NoSQL encompasses various data models, including:
+Document-based databases: Store data in flexible, self-describing documents (e.g., JSON, BSON). Examples include MongoDB and Couchbase.
+Key-value stores: Store data as simple key-value pairs. Examples include Redis and Amazon DynamoDB.
+Column-oriented databases: Store data in columns rather than rows, optimizing for analytical queries. Examples include Cassandra and HBase.
+Graph-based databases: Store data as nodes and edges to represent relationships between entities, ideal for social networks and recommendation engines. Examples include Neo4j and Amazon Neptune.
+Eventual Consistency (often):
+Many NoSQL databases prioritize availability and partition tolerance over immediate consistency, leading to eventual consistency where data may be temporarily inconsistent across replicas before converging to a consistent state.
+NoSQL databases are widely used in modern applications that require high scalability, flexibility, and the ability to handle diverse data types, such as web applications, mobile apps, IoT platforms, and big data analytics.
 
 
+----------------
+
+
+why is sql not suitable for horizontal scaling
+
+SQL databases, while powerful for managing structured data and ensuring data integrity, face challenges when it comes to horizontal scaling, which involves distributing data and workload across multiple servers. The primary reasons for this unsuitability are:
+ACID Properties and Distributed Transactions:
+SQL databases are designed around ACID (Atomicity, Consistency, Isolation, Durability) properties, which guarantee reliable transactions and data integrity. Maintaining these properties becomes significantly complex in a horizontally scaled environment where a single transaction might span multiple servers. Ensuring atomicity and consistency across distributed nodes requires complex mechanisms like two-phase commit (2PC), which can introduce overhead and latency.
+Schema Rigidity and Data Distribution:
+SQL databases rely on a predefined, rigid schema. Distributing data across multiple servers (sharding) in a consistent and efficient manner, especially when dealing with joins and relationships between tables, becomes a significant challenge. Sharding often requires manual configuration or specialized tools, and managing data consistency and relationships across shards adds complexity.
+Join Operations and Performance:
+SQL's strength lies in its ability to perform complex join operations across multiple tables. In a horizontally scaled environment, performing joins across data distributed on different servers can be computationally expensive and lead to performance bottlenecks, as data needs to be retrieved and combined from various locations.
+Vertical Scaling Preference:
+Traditionally, SQL databases have been optimized for vertical scaling, which involves increasing the resources (CPU, RAM, storage) of a single server. While effective for many applications, this approach has limits and can become cost-prohibitive at very large scales. 
+While techniques like sharding and replication can be employed to enable some degree of horizontal scaling in SQL databases, these often introduce architectural complexities and management overhead that are less prevalent in NoSQL databases, which are inherently designed for distributed environments and horizontal scalability.
+
+
+----------------
 
 
