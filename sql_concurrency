@@ -1,0 +1,276 @@
+https://www.geeksforgeeks.org/dbms/concurrency-control-in-dbms/
+
+In a database management system (DBMS), allowing transactions to run concurrently has significant advantages, such as better system resource utilization and higher throughput. However, it is crucial that these transactions do not conflict with each other. The ultimate goal is to ensure that the database remains consistent and accurate. For instance, if two users try to book the last available seat on a flight at the same time, the system must ensure that only one booking succeeds.Concurrency control is a critical mechanism in DBMS that ensures the consistency and integrity of data when multiple operations are performed at the same time.
+
+Concurrency control is a concept in Database Management Systems (DBMS) that ensures multiple transactions can simultaneously access or modify data without causing errors or inconsistencies. It provides mechanisms to handle the concurrent execution in a way that maintains ACID properties.
+By implementing concurrency control, a DBMS allows transactions to execute concurrently while avoiding issues such as deadlocks, race conditions, and conflicts between operations.
+The main goal of concurrency control is to ensure that simultaneous transactions do not lead to data conflicts or violate the consistency of the database. The concept of serializability is often used to achieve this goal.
+In this article, we will explore the various concurrency control techniques in DBMS, understand their importance, and learn how they enable reliable and efficient database operations.
+
+Concurrent Execution and Related Challenges in DBMS
+In a multi-user system, several users can access and work on the same database at the same time. This is known as concurrent execution, where the database is used simultaneously by different users for various operations. For instance, one user might be updating data while another is retrieving it.
+
+When multiple transactions are performed on the database simultaneously, it is important that these operations are executed in an interleaved manner. This means that the actions of one user should not interfere with or affect the actions of another. This helps in maintaining the consistency of the database. However, managing such simultaneous operations can be challenging, and certain problems may arise if not handled properly. These challenges need to be addressed to ensure smooth and error-free concurrent execution.
+
+Concurrent Execution can lead to various challenges:
+
+Dirty Reads: One transaction reads uncommitted data from another transaction, leading to potential inconsistencies if the changes are later rolled back.
+Lost Updates: When two or more transactions update the same data simultaneously, one update may overwrite the other, causing data loss.
+Inconsistent Reads: A transaction may read the same data multiple times during its execution, and the data might change between reads due to another transaction, leading to inconsistency.
+To read more about Concurrency Problems in DBMS Transactions Refer, Here.
+
+Why is Concurrency Control Needed?
+Consider the following example:
+
+concurrency
+Without Concurrency Control: Transactions interfere with each other, causing issues like lost updates, dirty reads or inconsistent results.
+With Concurrency Control: Transactions are properly managed (e.g., using locks or timestamps) to ensure they execute in a consistent, isolated manner, preserving data accuracy.
+Concurrency control is critical to maintaining the accuracy and reliability of databases in multi-user environments. By preventing conflicts and inconsistencies during concurrent transactions, it ensures the database remains consistent and correct, even under high levels of simultaneous activity.
+
+Concurrency Control Protocols
+Concurrency control protocols are the set of rules which are maintained in order to solve the concurrency control problems in the database. It ensures that the concurrent transactions can execute properly while maintaining the database consistency. The concurrent execution of a transaction is provided with atomicity, consistency, isolation, durability, and serializability via the concurrency control protocols.
+
+concurrency_2
+Locked based concurrency control protocol
+Timestamp based concurrency control protocol
+Cascadeless and Recoverable Schedules in Concurrency Control
+1. Recoverable Schedules
+
+A recoverable schedule ensures that a transaction commits only if all the transactions it depends on have committed. This avoids situations where a committed transaction depends on an uncommitted transaction that later fails, leading to inconsistencies.
+Concurrency control ensures recoverable schedules by keeping track of which transactions depend on others. It makes sure a transaction can only commit if all the transactions it relies on have already committed successfully. This prevents issues where a committed transaction depends on one that later fails.
+Techniques like strict two-phase locking (2PL) enforce recoverability by delaying the commit of dependent transactions until the parent transactions have safely committed.
+2. Cascadeless Schedules
+
+A cascadeless schedule avoids cascading rollbacks, which occur when the failure of one transaction causes multiple dependent transactions to fail.
+Concurrency control techniques such as strict 2PL or timestamp ordering ensure cascadeless schedules by ensuring dependent transactions only access committed data.
+By delaying read or write operations until the transaction they depend on has committed, cascading rollbacks are avoided.
+To read more about different types of schedules based on Recoverability Refer, Here.
+
+Advantages of Concurrency
+In general, concurrency means that more than one transaction can work on a system. The advantages of a concurrent system are:
+
+Waiting Time: It means if a process is in a ready state but still the process does not get the system to get execute is called waiting time. So, concurrency leads to less waiting time.
+Response Time: The time wasted in getting the response from the CPU for the first time, is called response time. So, concurrency leads to less Response Time.
+Resource Utilization: The amount of Resource utilization in a particular system is called Resource Utilization. Multiple transactions can run parallel in a system. So, concurrency leads to more Resource Utilization.
+Efficiency: The amount of output produced in comparison to given input is called efficiency. So, Concurrency leads to more Efficiency.
+Disadvantages of Concurrency 
+Overhead: Implementing concurrency control requires additional overhead, such as acquiring and releasing locks on database objects. This overhead can lead to slower performance and increased resource consumption, particularly in systems with high levels of concurrency.
+Deadlocks: Deadlocks can occur when two or more transactions are waiting for each other to release resources, causing a circular dependency that can prevent any of the transactions from completing. Deadlocks can be difficult to detect and resolve, and can result in reduced throughput and increased latency.
+Reduced concurrency: Concurrency control can limit the number of users or applications that can access the database simultaneously. This can lead to reduced concurrency and slower performance in systems with high levels of concurrency.
+Complexity: Implementing concurrency control can be complex, particularly in distributed systems or in systems with complex transactional logic. This complexity can lead to increased development and maintenance costs.
+Inconsistency: In some cases, concurrency control can lead to inconsistencies in the database. For example, a transaction that is rolled back may leave the database in an inconsistent state, or a long-running transaction may cause other transactions to wait for extended periods, leading to data staleness and reduced accuracy.
+Conclusion
+Concurrency control ensures transaction atomicity, isolation, consistency and serializability. Concurrency control issues occur when many transactions execute randomly. A dirty read happens when a transaction reads data changed by an uncommitted transaction. When two transactions update data simultaneously, the Lost Update issue occurs. Lock-based protocol prevents incorrect read/write activities. Timestamp-based protocols organize transactions by timestamp.
+
+---------------
+
+
+https://www.geeksforgeeks.org/dbms/timestamp-based-concurrency-control/
+
+
+Timestamp based Concurrency Control
+Last Updated : 30 Jul, 2025
+Timestamp-based concurrency control is a technique used in database management systems (DBMS) to ensure serializability of transactions without using locks. It uses timestamps to determine the order of transaction execution and ensures that conflicting operations follow a consistent order.
+
+Each transaction T is assigned a unique timestamp TS(T) when it enters the system. This timestamp determines the transaction’s place in the execution order.
+
+Timestamp Ordering Protocol
+The Timestamp Ordering Protocol enforces that older transactions (with smaller timestamps) are given higher priority. This prevents conflicts and ensures the execution is serializable and deadlock-free.
+
+For example:
+
+If Transaction T1 enters the system first, it gets a timestamp TS(T1) = 007 (assumption).
+If Transaction T2 enters after T1, it gets a timestamp TS(T2) = 009 (assumption).
+This means T1 is "older" than T2 and T1 should execute before T2 to maintain consistency.
+
+Features of Timestamp Ordering Protocol:
+1. Transaction Priority:
+
+Older transactions (those with smaller timestamps) are given higher priority.
+For example, if transaction T1 has a timestamp of 007 times and transaction T2 has a timestamp of 009 times, T1 will execute first as it entered the system earlier.
+2. Early Conflict Management: Unlike lock-based protocols, which manage conflicts during execution, timestamp-based protocols start managing conflicts as soon as a transaction is created.
+
+3. Ensuring Serializability: The protocol ensures that the schedule of transactions is serializable. This means the transactions can be executed in an order that is logically equivalent to their timestamp order.
+
+How Timestamp Ordering Works
+Each data item X in the database keeps two timestamps:
+
+W_TS(X): Timestamp of the last transaction that wrote to X
+R_TS(X): Timestamp of the last transaction that read from X
+Basic Timestamp Ordering
+The Basic TO Protocol works by comparing the timestamp of the current transaction with the timestamps on the data items it wants to read/write:
+
+Timestamp based Protocol
+Precedence Graph for TS ordering
+
+Suppose, if an old transaction Ti has timestamp TS(Ti), a new transaction Tj is assigned timestamp TS(Tj) such that TS(Ti) < TS(Tj).
+The protocol manages concurrent execution such that the timestamps determine the serializability order.
+The timestamp ordering protocol ensures that any conflicting read and write operations are executed in timestamp order.
+Whenever some Transaction T tries to issue a R_item(X) or a W_item(X), the Basic TO algorithm compares the timestamp of T with R_TS(X) & W_TS(X) to ensure that the Timestamp order is not violated.
+Two Basic TO protocols are discussed below:
+
+1. Whenever a Transaction T issues a R_item(X) operation, check the following conditions: 
+
+If W_TS(X) > TS(T) → Abort T (conflict: a newer write already occurred)
+Else → Allow read and set R_TS(X) = max(R_TS(X), TS(T))
+2. Whenever a Transaction T issues a W_item(X) operation, check the following conditions: 
+
+If R_TS(X) > TS(T) or W_TS(X) > TS(T) → Abort T (conflict: older transaction overwriting newer read/write)
+Else → Allow write and set W_TS(X) = TS(T)
+When conflicts are detected, the younger transaction is aborted and rolled back.
+
+timestamp_based_protocol_3.webptimestamp_based_protocol_3.webp
+Strict Timestamp Ordering Protocol
+The Strict Timestamp Ordering Protocol is an enhanced version that avoids cascading rollbacks by delaying operations until it's safe to execute them.
+
+Key Features
+Strict Execution Order: Transactions must execute in the exact order of their timestamps. Operations are delayed if executing them would violate the timestamp order, ensuring a strict schedule.
+No Cascading Rollbacks: To avoid cascading aborts, a transaction must delay its operations until all conflicting operations of older transactions are either committed or aborted.
+Consistency and Serializability: The protocol ensures conflict-serializable schedules by following strict ordering rules based on transaction timestamps.
+Rules for Read Operation R_item(X):
+T can read X only if:
+
+W_TS(X) ≤ TS(T) and
+The transaction that last wrote X has committed
+Rules for Write Operation W_item(X):
+T can write X only if:
+
+R_TS(X) ≤ TS(T) and W_TS(X) ≤ TS(T) and
+All previous readers/writers of X have committed
+If these conditions aren't met, the operation is delayed (not aborted immediately).
+
+
+
+Advantages	Disadvantages
+Conflict-Serializable: Maintains a correct execution order	Cascading Rollbacks (in Basic TO protocol)
+Deadlock-Free: No locks, so no circular waits	Starvation: Newer transactions may be delayed
+Simple Conflict Resolution: Uses timestamps only	High Overhead: Constantly updating R_TS/W_TS
+No Locking Needed: Avoids lock management complexity	Lower Throughput under high concurrency
+Predictable Execution: Operations follow a known order	Delayed Execution in Strict TO for consistency
+
+
+
+---------------------
+
+
+
+https://www.geeksforgeeks.org/dbms/lock-based-concurrency-control-protocol-in-dbms/
+
+
+Lock Based Concurrency Control Protocol in DBMS
+Last Updated : 02 Aug, 2025
+A lock in DBMS controls concurrent access, allowing only one transaction to use a data item at a time. This ensures data integrity and prevents issues like lost updates or dirty reads during simultaneous transactions.
+
+Lock Based Protocols in DBMS ensure that a transaction cannot read or write data until it gets the necessary lock. Here's how they work:
+
+These protocols prevent concurrency issues by allowing only one transaction to access a specific data item at a time.
+Locks help multiple transactions work together smoothly by managing access to the database items.
+Locking is a common method used to maintain the serializability of transactions.
+A transaction must acquire a read lock or write lock on a data item before performing any read or write operations on it.
+Types of Lock
+Shared Lock (S): Shared Lock is also known as Read-only lock. As the name suggests it can be shared between transactions because while holding this lock the transaction does not have the permission to update data on the data item. S-lock is requested using lock-S instruction.
+Exclusive Lock (X): Data item can be both read as well as written. This is Exclusive and cannot be held simultaneously on the same data item. X-lock is requested using lock-X instruction.
+Read more about Types of Locks.
+
+Rules of Locking
+The basic rules for Locking are given below:
+
+Read Lock (or) Shared Lock(S)
+
+If a Transaction has a Read lock on a data item, it can read the item but not update it.
+If a transaction has a Read lock on the data item, other transaction can obtain Read Lock on the data item but no Write Locks.
+So, the Read Lock is also called a Shared Lock.
+Write Lock (or) Exclusive Lock (X)
+
+If a transaction has a write Lock on a data item, it can both read and update the data item.
+If a transaction has a write Lock on the data item, then other transactions cannot obtain either a Read lock or write lock on the data item.
+So, the Write Lock is also known as Exclusive Lock.
+Lock Compatibility Matrix
+A transaction can acquire a lock on a data item only if the requested lock is compatible with existing locks held by other transactions.
+Shared Locks (S): Multiple transactions can hold shared locks on the same data item simultaneously.
+Exclusive Lock (X): If a transaction holds an exclusive lock on a data item, no other transaction can hold any type of lock on that item.
+If a requested lock is not compatible, the requesting transaction must wait until all incompatible locks are released by other transactions.
+Once the incompatible locks are released, the requested lock is granted.
+lock_based_protocol
+Compatibility Matrix
+Concurrency Control Protocols
+Concurrency Control Protocols are the methods used to manage multiple transactions happening at the same time. They ensure that transactions are executed safely without interfering with each other, maintaining the accuracy and consistency of the database.
+
+These protocols prevent issues like data conflicts, lost updates or inconsistent data by controlling how transactions access and modify data.
+
+Types of Lock-Based Protocols
+1. Simplistic Lock Protocol
+It is the simplest method for locking data during a transaction. Simple lock-based protocols enable all transactions to obtain a lock on the data before inserting, deleting, or updating it. It will unlock the data item once the transaction is completed.
+
+Example: Consider a database with a single data item X = 10.
+
+Transactions:
+
+T1: Wants to read and update X.
+T2: Wants to read X.
+Steps:
+T1 requests an exclusive lock on X to update its value. The lock is granted.
+T1 reads X = 10 and updates it to X = 20.
+T2 requests a shared lock on X to read its value. Since T1 is holding an exclusive lock, T2 must wait.
+T1 completes its operation and releases the lock.
+T2 now gets the shared lock and reads the updated value X = 20.
+This example shows how simplistic lock protocols handle concurrency but do not prevent problems like deadlocks or limits concurrency.
+
+2. Pre-Claiming Lock Protocol
+The Pre-Claiming Lock Protocol avoids deadlocks by requiring a transaction to request all needed locks before it starts. It runs only if all locks are granted; otherwise, it waits or rolls back.
+
+Example: Consider two transactions T1 and T2 and two data items, X and Y:
+
+Transaction T1 declares that it needs:
+
+A write lock on X.
+A read lock on Y.
+Since both locks are available, the system grants them. T1 starts execution: It updates X. It reads the value of Y.
+
+While T1 is executing, Transaction T2 declares that it needs: However, since T1 already holds a write lock on X, T2's request is denied. T2 must wait until T1 completes its operations and releases the locks. A read lock on X
+
+Once T1 finishes, it releases the locks on X and Y. The system now grants the read lock on X to T2, allowing it to proceed.
+This method is simple but may lead to inefficiency in systems with a high number of transactions.
+
+3. Two-phase locking (2PL)
+A transaction is said to follow the Two-Phase Locking protocol if Locking and Unlocking can be done in two phases :
+
+Growing Phase: New locks on data items may be acquired but none can be released.
+Shrinking Phase: Existing locks may be released but no new locks can be acquired.
+For more detail refer the article Two-phase locking (2PL).
+
+4. Strict Two-Phase Locking Protocol
+Strict Two-Phase Locking requires that in addition to the 2-PL all Exclusive(X) locks held by the transaction be released until after the Transaction Commits. 
+
+For more details refer the article Strict Two-Phase Locking Protocol.
+
+Problem With Simple Locking
+Consider the Partial Schedule:
+
+S.No	T1	T2
+1	lock-X(B)	
+2	read(B)	
+3	B:=B-50	
+4	write(B)	
+5		lock-S(A)
+6		read(A)
+7		lock-S(B)
+8	lock-X(A)	
+9	......	......
+1. Deadlock
+In the given execution scenario, T1 holds an exclusive lock on B, while T2 holds a shared lock on A. At Statement 7, T2 requests a lock on B, and at Statement 8, T1 requests a lock on A. This situation creates a deadlock, as both transactions are waiting for resources held by the other, preventing either from proceeding with their execution.
+
+2. Starvation
+Starvation is also possible if concurrency control manager is badly designed. For example: A transaction may be waiting for an X-lock on an item, while a sequence of other transactions request and are granted an S-lock on the same item. This may be avoided if the concurrency control manager is properly designed.
+
+
+
+
+
+  -----------
+
+
+
+
+  
+
