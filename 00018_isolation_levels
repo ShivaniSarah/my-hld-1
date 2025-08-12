@@ -15,7 +15,7 @@ In the context of database management systems, isolation levels define the degre
 🔒 ACID "I" – Isolation
 Isolation is the "I" in ACID, and different isolation levels control how/when the changes made by one transaction become visible to others.
 
-durability - disk persistence and WAL and master slave
+durability - disk persistence and WAL and master slave (in case of master failure , slave is promoted to master)
 snapshot isolation
 
 🔄 Read Phenomena
