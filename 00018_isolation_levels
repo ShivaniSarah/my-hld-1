@@ -169,10 +169,13 @@ A comparison with Serializable isolation with scenarios?
 
 
 
-Snapshot Isolation (SI) and Serializable Isolation are two high-level database isolation strategies that aim to maintain data consistency during concurrent transactions. While both prevent common anomalies like dirty reads and non-repeatable reads, they differ in implementation, performance, and the types of anomalies they can prevent.
+Snapshot Isolation (SI) and Serializable Isolation are two high-level database isolation strategies that aim to 
+maintain data consistency during concurrent transactions. While both prevent common anomalies like dirty reads and non-repeatable reads,
+they differ in implementation, performance, and the types of anomalies they can prevent.
 
 🔍 Snapshot Isolation (SI)
-Mechanism: Utilizes Multi-Version Concurrency Control (MVCC) to provide each transaction with a consistent snapshot of the database at the start of the transaction.
+Mechanism: Utilizes Multi-Version Concurrency Control (MVCC) to provide each transaction with a consistent snapshot
+of the database at the start of the transaction.
 
 Key Characteristics:
 
@@ -191,7 +194,8 @@ Avoids common anomalies like dirty reads and non-repeatable reads.
 
 Cons:
 
-Susceptible to write skew anomalies, where concurrent transactions read overlapping data and make disjoint updates, leading to inconsistent states. 
+Susceptible to write skew anomalies, where concurrent transactions read overlapping data and make disjoint updates, 
+leading to inconsistent states. 
 TECHCOMMUNITY.MICROSOFT.COM
 +2
 Wikipedia
