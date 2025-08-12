@@ -57,3 +57,7 @@ Benefit	Avoids full scan, improves performance
 
 
 in the case of and query , composite indexes are useful
+
+
+
+when or is there in te query,    composite index are not of a use, individual indexes are used
