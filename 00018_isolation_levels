@@ -288,7 +288,65 @@ Understanding the specific requirements and constraints of your application will
 
 
 
+-----------
 
 
+
+
+
+https://www.geeksforgeeks.org/dbms/what-is-multi-version-concurrency-control-mvcc-in-dbms/
+
+
+What is Multi-Version Concurrency Control (MVCC) in DBMS?
+Last Updated : 21 Mar, 2024
+Multi-Version Concurrency Control (MVCC) is a database optimization method, that makes redundant copies of records to allow for safe concurrent reading and updating of data. DBMS reads and writes are not blocked by one another while using MVCC. A technique called concurrency control keeps concurrent processes running to avoid read/write conflicts or other irregularities in a database.
+
+Whenever it has to be updated rather than replacing the old one with the new information an MVCC database generates a newer version of the data item.
+
+What is Multi-Version Concurrency Control (MVCC) in DBMS?
+Multi-Version Concurrency Control is a technology, utilized to enhance databases by resolving concurrency problems and also data locking by preserving older database versions. When many tasks attempt to update the same piece of data simultaneously, MVCC causes a conflict and necessitates a retry from one or more of the processes.
+
+Types of Multi-Version Concurrency Control (MVCC) in DBMS
+Below are some types of Multi-Version Concurrency Control (MVCC) in DBMS
+
+Timestamp-based MVCC: The data visibility to transactions is defined by the unique timestamp assigned to each transaction that creates a new version of a record.
+Snapshot-based MVCC: This utilizes the database snapshot that is created at the beginning of a transaction to supply the information that is needed for the transaction.
+History-based MVCC: This Keeps track of every modification made to a record, making transaction rollbacks simple.
+Hybrid MVCC: This coordinates data flexibility and performance by combining two or more MVCC approaches.
+How Does Multi-Version Concurrency Control (MVCC) in DBMS Works?
+In the database, every tuple has a version number. The tuple with the greatest version number can have a read operation done on it simultaneously.
+Only a copy of the record may be used for writing operations.
+While the copy is being updated concurrently, the user may still view the previous version.
+The version number is increased upon successful completion of the writing process.
+The upgraded version is now used for every new record operation and every time there is an update, this cycle is repeated.
+Implementation of Multi-Version Concurrency Control (MVCC) in DBMS
+MVCC operates time stamps (TS) and increases transaction IDs to assure transactional consistency. MVCC manage many copies of the object, ensuring that a transaction (T) never has to wait to read a database object (P).
+A specific transaction Ti can read the most recent version of the object, which comes before the transaction's Read Timestamp RTS(Ti) since each version of object P contains both a Read Timestamp and a Write Timestamp.
+If there are other pending transactions to the same object that have an earlier Read Timestamp (RTS), then a Write cannot be completed.
+You cannot finish your checkout transaction until the person in front of you has finished theirs, much as when you are waiting in a queue at the shop.
+To reiterate, each object (P) has a Timestamp (TS). Should transaction Ti attempt to Write to an object and its Timestamp (TS) exceeds the object's current Read Timestamp, 
+
+TS(Ti)<RTS(P), the transaction will be cancelled and retried.
+Ti makes a new copy of object P and sets its read/write timestamp (TS) to the transaction timestamp 
+(TS↞TS(Ti)).
+Advantages of Multi-Version Concurrency Control (MVCC) in DBMS
+Below are some advantages of Multi-Version Concurrency Control in DBMS
+
+The reduced read-and-write necessity for database locks: The database can support many read-and-write transactions without locking the entire system thanks to MVCC.
+Increased Concurrency: This Enables several users to use the system at once.
+Minimize read operation delays: By enabling concurrent read operations, MVCC helps to cut down on read times for data.
+Accuracy and consistency: Preserves data integrity over several concurrent transactions.
+Disadvantages of Multi-Version Concurrency Control (MVCC) in DBMS
+Below are some disadvantages of Multi-Version Concurrency Control in DBMS
+
+Overhead: Keeping track of many data versions might result in overhead.
+Garbage collecting: To get rid of outdated data versions, MVCC needs effective garbage collecting systems.
+Increase the size of the database: Expand the capacity of the database since MVCC generates numerous copies of the records and/or tuples.
+Complexity: Compared to more straightforward locking systems, MVCC usage might be more difficult.
+Conclusion
+In conclusion, Multiversion Concurrency Control (MVCC) in DBMS is a database optimization method, that makes redundant copies of records to allow for safe concurrent reading and updating of data. When many tasks attempt to update the same piece of data simultaneously, MVCC causes a conflict and necessitates a retry from one or more of the processes.
+
+
+---------
 
 
