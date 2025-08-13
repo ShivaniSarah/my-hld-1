@@ -15,3 +15,235 @@ Red Black tree
 A Red-Black Tree is a self-balancing binary search tree where each node has an additional attribute:
 a color, which can be either red or black. The primary objective of these trees is to maintain balance during
 insertions and deletions, ensuring efficient data retrieval and manipulation.
+
+
+--------
+
+
+
+Storing values within the index
+The key in an index is the thing that queries search for, but the value can be one of
+two things: it could be the actual row (document, vertex) in question, or it could be a
+reference to the row stored elsewhere. In the latter case, the place where rows are
+stored is known as a heap file, and it stores data in no particular order (it may be
+append-only, or it may keep track of deleted rows in order to overwrite them with
+new data later). The heap file approach is common because it avoids duplicating data
+when multiple secondary indexes are present: each index just references a location in
+the heap file, and the actual data is kept in one place.
+When updating a value without changing the key, the heap file approach can be quite
+efficient: the record can be overwritten in place, provided that the new value is not
+larger than the old value. The situation is more complicated if the new value is larger,
+as it probably needs to be moved to a new location in the heap where there is enough
+space. In that case, either all indexes need to be updated to point at the new heap
+location of the record, or a forwarding pointer is left behind in the old heap location
+[5].
+In some situations, the extra hop from the index to the heap file is too much of a per‐
+formance penalty for reads, so it can be desirable to store the indexed row directly
+within an index. This is known as a clustered index. For example, in MySQL’s
+InnoDB storage engine, the primary key of a table is always a clustered index, and
+secondary indexes refer to the primary key (rather than a heap file location) [31]. In
+SQL Server, you can specify one clustered index per table [32].
+A compromise between a clustered index (storing all row data within the index) and
+a nonclustered index (storing only references to the data within the index) is known
+as a covering index or index with included columns, which stores some of a table’s col‐
+umns within the index [33]. This allows some queries to be answered by using the
+index alone (in which case, the index is said to cover the query) [32].
+86 | Chapter 3: Storage and Retrieval
+As with any kind of duplication of data, clustered and covering indexes can speed up
+reads, but they require additional storage and can add overhead on writes. Databases
+also need to go to additional effort to enforce transactional guarantees, because appli‐
+cations should not see inconsistencies due to the duplication.
+
+
+
+---------
+
+
+
+
+This passage is explaining different ways databases can store data inside an index — and how that choice affects read speed, write performance, and storage requirements.
+
+Let’s break it down step-by-step.
+
+1. What’s stored in an index?
+When you create an index, it has:
+
+Key → the value the database searches on (e.g., username, id, email).
+
+Value → what the index points to.
+
+Two main options for what the value is:
+
+Option A: Heap file reference (non-clustered index)
+The index value is just a pointer to where the full row is stored in a separate file called the heap file.
+
+Heap file → stores rows in no particular order (could be append-only or reuse space from deleted rows).
+
+Benefits:
+
+Avoids storing the same row in multiple indexes → saves space when you have multiple indexes.
+
+Easy to update if the data changes (as long as size doesn’t grow).
+
+Drawbacks:
+
+Every read needs two steps:
+
+Find row location from the index.
+
+Fetch the row from the heap file.
+
+Updating rows:
+
+If new value fits in old space → overwrite in place.
+
+If new value is larger → must move row to new heap location.
+
+Either update all indexes pointing to it, or
+
+Leave a forwarding pointer at the old location.
+
+Option B: Store the full row in the index (clustered index)
+The index contains both the key and all columns of the row.
+
+No need for a heap file → the data itself is in the index structure.
+
+Example:
+
+In MySQL InnoDB → The primary key is a clustered index.
+
+In SQL Server → You can choose one clustered index per table.
+
+Benefit:
+
+Faster reads → no extra lookup step.
+
+Drawback:
+
+More storage (since data is duplicated if there are multiple indexes).
+
+Slower writes → every update to data means updating the clustered index.
+
+Option C: Hybrid (covering index / index with included columns)
+Index stores key + some columns of the table (not all).
+
+Allows certain queries to be answered entirely from the index (the query is “covered” by the index).
+
+Example:
+
+If index is (last_name, first_name, age) and your query only needs those three columns, it never touches the heap or clustered index.
+
+Benefit:
+
+Faster for specific queries.
+
+Drawback:
+
+Still more storage.
+
+Still adds write overhead.
+
+2. Trade-offs
+
+| Type of Index        | Read Speed                  | Write Speed                              | Storage Usage    | Notes                             |
+| -------------------- | --------------------------- | ---------------------------------------- | ---------------- | --------------------------------- |
+| Heap + Non-clustered | Slower (needs extra lookup) | Faster for updates (no data duplication) | Smaller          | Most common for secondary indexes |
+| Clustered            | Fastest (data in index)     | Slower (index update on every change)    | Larger           | MySQL InnoDB PK is clustered      |
+| Covering             | Fast for certain queries    | Slower than heap for writes              | Larger than heap | Only covers some queries          |
+
+
+✅ Key takeaway:
+
+Heap file + non-clustered index → efficient writes, smaller storage, but extra lookup on reads.
+
+Clustered index → fastest reads, but more storage + slower writes.
+
+Covering index → good middle ground for specific queries, but still uses more storage.
+
+If you want, I can make you a visual diagram showing heap files, clustered indexes, and covering indexes so it’s easier to picture how data flows during a query. Would you like me to do that?
+
+
+
+---------
+
+and the above was for indexingin sql or no sql ?
+
+
+The explanation you posted is describing index storage strategies in relational databases (SQL) — but the same concepts can also appear in some NoSQL systems.
+
+Why it’s mainly SQL-focused
+Terms like primary key, secondary index, clustered index, and covering index are standard in RDBMSs like:
+
+MySQL (InnoDB)
+
+SQL Server
+
+PostgreSQL (though PostgreSQL doesn’t have a true clustered index by default)
+
+The discussion about heap files vs clustered storage is directly related to how SQL engines store table rows.
+
+In NoSQL
+Some NoSQL databases (like MongoDB, Cassandra, Couchbase) also have indexes — but:
+
+Their default storage engines often work differently.
+
+They may use LSM-trees or SSTables (append-only sorted files) instead of B+ trees and heap files.
+
+Indexes in NoSQL may store document/row data inline or just an object ID (similar to heap pointers).
+
+In systems like MongoDB, the _id index is kind of like a clustered index because documents are stored in _id order in WiredTiger’s B-tree.
+
+So:
+
+This explanation was written in the context of SQL indexing (especially MySQL & SQL Server).
+
+NoSQL systems can still use clustered-like or non-clustered-like indexes, but their underlying mechanics are often different — and many use storage engines optimized for high write throughput (e.g., LSM-trees) rather than heap files.
+
+If you want, I can make you a side-by-side table comparing SQL indexing (heap/clustered/covering) vs NoSQL indexing (LSM, document store indexes) so you can see exactly where they overlap and where they differ.
+
+
+
+---------
+
+
+
+Here’s the side-by-side comparison of SQL indexing vs NoSQL indexing so you can clearly see overlaps and differences:
+
+
+SQL vs NoSQL Index Storage Approaches
+| Feature / Concept          | **SQL (Relational DBs)**                                                                          | **NoSQL (Document/Key-Value/Column Stores)**                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Typical Storage Engine** | **B+ Trees + Heap File** (e.g., MySQL InnoDB, SQL Server)                                         | **LSM-Trees / SSTables** (e.g., Cassandra, LevelDB, RocksDB) or B-Trees (e.g., MongoDB WiredTiger)               |
+| **Row/Document Location**  | Non-clustered index stores **pointer** to row in heap file; clustered index stores **row inline** | Many store **document ID** in index; data in separate SSTable or inline if clustered-like                        |
+| **Clustered Index**        | Stores **entire row** in index, sorted by primary key                                             | Equivalent concept in some NoSQL: MongoDB stores documents in B-tree keyed by `_id` (clustered-like behavior)    |
+| **Non-Clustered Index**    | Stores key + pointer to row in heap                                                               | Stores key + document ID; then fetches from main storage file/table                                              |
+| **Covering Index**         | Stores key + some extra columns so query can be answered from index only                          | Similar idea: MongoDB supports **covered queries** where index includes all needed fields                        |
+| **Updates**                | If row grows beyond original space in heap → move & update pointers                               | In LSM-tree systems, updates create new versions in memtable, eventually flushed to SSTable (no in-place update) |
+| **Writes Performance**     | Slower for clustered indexes due to data movement; heap + non-clustered faster                    | Often optimized for writes (especially LSM-based) since data is appended, not updated in place                   |
+| **Read Performance**       | Clustered indexes fastest; non-clustered require extra heap lookup                                | LSM-trees may require multiple SSTable lookups; use Bloom filters & compaction to speed up reads                 |
+| **Multiple Indexes**       | Secondary indexes point to heap location or primary key                                           | Secondary indexes point to document ID or partition key                                                          |
+| **Data Locality**          | Clustered index keeps related rows physically close                                               | NoSQL often keeps rows/documents in partitioned SSTables or in the same shard for locality                       |
+
+Key Takeaways
+SQL indexes are usually B+ tree-based with a choice of clustered or non-clustered.
+
+NoSQL indexes can be B-tree-like (e.g., MongoDB) or LSM-tree-based (e.g., Cassandra, HBase), with optimizations for write-heavy workloads.
+
+Both worlds have covering indexes, but in NoSQL they’re often called covered queries or projections.
+
+Heap files are common in SQL, but rare in modern NoSQL — LSM-trees avoid in-place updates entirely.
+
+If you want, I can draw a visual diagram showing the storage flow for:
+
+SQL heap + non-clustered index
+
+SQL clustered index
+
+NoSQL LSM-tree index
+so you can see how the read/write path changes.
+
+------------------------------------------------------------
+
+
+
+
