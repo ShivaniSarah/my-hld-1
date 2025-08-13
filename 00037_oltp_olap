@@ -1,0 +1,14 @@
+Slicing allows us to isolate a single dimension of the cube, giving us a focused view of the data. 
+Dicing enables more complex filtering across multiple dimensions, providing a subcube for analysis. 
+Drilling Down helps us navigate from summarized data to more granular details, enriching the data analysis process.
+
+A star schema (also known as dimen‐
+sional modeling [55]).
+The example schema in Figure 3-9 shows a data warehouse that might be found at a
+grocery retailer. At the center of the schema is a so-called fact table 
+ther columns in the fact table are foreign key references to
+other tables, called dimension tables. As each row in the fact table represents an event,
+the dimensions represent the who, what, where, when, how, and why of the event.
+
+A variation of this template is known as the snowflake schema, where dimensions are
+further broken down into subdimensions.
