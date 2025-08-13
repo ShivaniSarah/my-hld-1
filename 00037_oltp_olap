@@ -12,3 +12,721 @@ the dimensions represent the who, what, where, when, how, and why of the event.
 
 A variation of this template is known as the snowflake schema, where dimensions are
 further broken down into subdimensions.
+
+------------------------
+
+
+Column-Oriented Storage
+If you have trillions of rows and petabytes of data in your fact tables, storing and
+querying them efficiently becomes a challenging problem. Dimension tables are usu‐
+ally much smaller (millions of rows), so in this section we will concentrate primarily
+on storage of facts.
+Although fact tables are often over 100 columns wide, a typical data warehouse query
+only accesses 4 or 5 of them at one time ("SELECT *" queries are rarely needed for
+analytics) [51]. Take the query in Example 3-1: it accesses a large number of rows
+(every occurrence of someone buying fruit or candy during the 2013 calendar year),
+but it only needs to access three columns of the fact_sales table: date_key,
+product_sk, and quantity. The query ignores all other columns.
+Column-Oriented Storage | 95
+Example 3-1. Analyzing whether people are more inclined to buy fresh fruit or candy, depending on the day of the week
+SELECT
+dim_date.weekday, dim_product.category,
+SUM(fact_sales.quantity) AS quantity_sold
+FROM fact_sales
+JOIN dim_date ON fact_sales.date_key = dim_date.date_key
+JOIN dim_product ON fact_sales.product_sk = dim_product.product_sk
+WHERE
+dim_date.year = 2013 AND
+dim_product.category IN ('Fresh fruit', 'Candy')
+GROUP BY
+dim_date.weekday, dim_product.category;
+How can we execute this query efficiently?
+In most OLTP databases, storage is laid out in a row-oriented fashion: all the values
+from one row of a table are stored next to each other. Document databases are simi‐
+lar: an entire document is typically stored as one contiguous sequence of bytes. You
+can see this in the CSV example of Figure 3-1.
+In order to process a query like Example 3-1, you may have indexes on
+fact_sales.date_key and/or fact_sales.product_sk that tell the storage engine
+where to find all the sales for a particular date or for a particular product. But then, a
+row-oriented storage engine still needs to load all of those rows (each consisting of
+over 100 attributes) from disk into memory, parse them, and filter out those that
+don’t meet the required conditions. That can take a long time.
+The idea behind column-oriented storage is simple: don’t store all the values from one
+row together, but store all the values from each column together instead. If each col‐
+umn is stored in a separate file, a query only needs to read and parse those columns
+that are used in that query, which can save a lot of work. This principle is illustrated
+in Figure 3-10.
+Column storage is easiest to understand in a relational data model,
+but it applies equally to nonrelational data. For example, Parquet
+[57] is a columnar storage format that supports a document data
+model, based on Google’s Dremel [54].
+96 | Chapter 3: Storage and Retrieval
+Figure 3-10. Storing relational data by column, rather than by row.
+The column-oriented storage layout relies on each column file containing the rows in
+the same order. Thus, if you need to reassemble an entire row, you can take the 23rd
+entry from each of the individual column files and put them together to form the
+23rd row of the table.
+
+explain?
+
+Alright — this section is explaining why column-oriented storage is better than row-oriented storage for analytics, especially in data warehouses.
+
+Let’s go step-by-step.
+
+1. Problem: Big Fact Tables, Few Columns Used
+In data warehouses, you often have fact tables with billions or trillions of rows and 100+ columns.
+
+A typical analytical query:
+
+Reads many rows (sometimes all).
+
+Uses only a few columns (4–5).
+
+Example: The given query only needs:
+
+date_key
+
+product_sk
+
+quantity
+…but the table has 100+ columns.
+
+In a row-oriented database (most OLTP systems like MySQL/PostgreSQL in default mode):
+
+Each row is stored together in memory/disk.
+
+If you need just 3 columns, you still read the whole row from disk.
+
+This means lots of wasted I/O.
+
+2. Row-oriented storage
+Think of a CSV file like this:
+
+date_key, product_sk, quantity, ..., col100
+20130101, 1234, 5, ..., ...
+20130101, 5678, 2, ..., ...
+
+
+If you query date_key, product_sk, and quantity:
+
+You still load the entire row (including unused columns).
+
+You parse everything just to throw most of it away.
+
+3. Column-oriented storage
+Instead of storing rows together, store each column separately:
+
+date_key:   [20130101, 20130101, ...]
+product_sk: [1234, 5678, ...]
+quantity:   [5, 2, ...]
+
+
+Now:
+
+If a query needs only date_key, product_sk, quantity,
+→ only those column files are read from disk.
+
+You don’t touch the other 97 columns.
+
+This saves disk I/O, parsing time, and CPU.
+
+4. Row reconstruction
+All column files keep rows in the same order.
+
+To rebuild a row, take the 23rd value from each column’s file → that’s the 23rd row.
+
+5. Benefits
+Huge I/O savings for analytical queries that use few columns but many rows.
+
+Works for relational and non-relational data.
+
+Example: Parquet format (used in Hadoop/Spark) supports JSON-like structures but stores them in columns.
+
+Based on Google’s Dremel paper.
+
+6. Summary Table
+| Aspect          | Row-Oriented                               | Column-Oriented               |
+| --------------- | ------------------------------------------ | ----------------------------- |
+| Storage layout  | All columns of a row together              | Each column stored separately |
+| Best for        | OLTP (transactional)                       | OLAP (analytics)              |
+| Read pattern    | Read entire row even if few columns needed | Read only needed columns      |
+| I/O efficiency  | Lower for analytics                        | High for analytics            |
+| Example formats | CSV, JSON (row-based)                      | Parquet, ORC, Dremel          |
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+Column Compression
+Besides only loading those columns from disk that are required for a query, we can
+further reduce the demands on disk throughput by compressing data. Fortunately,
+column-oriented storage often lends itself very well to compression.
+Take a look at the sequences of values for each column in Figure 3-10: they often look
+quite repetitive, which is a good sign for compression. Depending on the data in the
+column, different compression techniques can be used. One technique that is particu‐
+larly effective in data warehouses is bitmap encoding, illustrated in Figure 3-11.
+Column-Oriented Storage | 97
+Figure 3-11. Compressed, bitmap-indexed storage of a single column.
+Often, the number of distinct values in a column is small compared to the number of
+rows (for example, a retailer may have billions of sales transactions, but only 100,000
+distinct products). We can now take a column with n distinct values and turn it into
+n separate bitmaps: one bitmap for each distinct value, with one bit for each row. The
+bit is 1 if the row has that value, and 0 if not.
+If n is very small (for example, a country column may have approximately 200 dis‐
+tinct values), those bitmaps can be stored with one bit per row. But if n is bigger,
+there will be a lot of zeros in most of the bitmaps (we say that they are sparse). In that
+case, the bitmaps can additionally be run-length encoded, as shown at the bottom of
+Figure 3-11. This can make the encoding of a column remarkably compact.
+Bitmap indexes such as these are very well suited for the kinds of queries that are
+common in a data warehouse. For example:
+WHERE product_sk IN (30, 68, 69):
+Load the three bitmaps for product_sk = 30, product_sk = 68, and product_sk
+= 69, and calculate the bitwise OR of the three bitmaps, which can be done very
+efficiently.
+98 | Chapter 3: Storage and Retrieval
+WHERE product_sk = 31 AND store_sk = 3:
+Load the bitmaps for product_sk = 31 and store_sk = 3, and calculate the bit‐
+wise AND. This works because the columns contain the rows in the same order,
+so the kth bit in one column’s bitmap corresponds to the same row as the kth bit
+in another column’s bitmap.
+There are also various other compression schemes for different kinds of data, but we
+won’t go into them in detail—see [58] for an overview.
+Column-oriented storage and column families
+Cassandra and HBase have a concept of column families, which
+they inherited from Bigtable [9]. However, it is very misleading to
+call them column-oriented: within each column family, they store
+all columns from a row together, along with a row key, and they do
+not use column compression. Thus, the Bigtable model is still
+mostly row-oriented.
+Memory bandwidth and vectorized processing
+For data warehouse queries that need to scan over millions of rows, a big bottleneck
+is the bandwidth for getting data from disk into memory. However, that is not the
+only bottleneck. Developers of analytical databases also worry about efficiently using
+the bandwidth from main memory into the CPU cache, avoiding branch mispredic‐
+tions and bubbles in the CPU instruction processing pipeline, and making use of
+single-instruction-multi-data (SIMD) instructions in modern CPUs [59, 60].
+Besides reducing the volume of data that needs to be loaded from disk, column-
+oriented storage layouts are also good for making efficient use of CPU cycles. For
+example, the query engine can take a chunk of compressed column data that fits
+comfortably in the CPU’s L1 cache and iterate through it in a tight loop (that is, with
+no function calls). A CPU can execute such a loop much faster than code that
+requires a lot of function calls and conditions for each record that is processed. Col‐
+umn compression allows more rows from a column to fit in the same amount of L1
+cache. Operators, such as the bitwise AND and OR described previously, can be
+designed to operate on such chunks of compressed column data directly. This techni‐
+que is known as vectorized processing [58, 49].
+
+
+explain?
+
+
+
+Alright — this section is really two related ideas: column compression (saving space & I/O) and vectorized processing (making CPU usage more efficient).
+Let’s go through it step-by-step.
+
+1. Why compression works well for column storage
+When data is stored column by column:
+
+Values in a column are often repetitive or come from a small set of possible values.
+
+Example:
+
+country column might have only 200 unique values (but millions of rows).
+
+product_sk might have 100k distinct values (but billions of sales).
+
+Repetitive data compresses really well.
+
+2. Bitmap encoding
+Suppose a column has n distinct values.
+
+You create n bitmaps, one per value.
+
+Each bitmap has 1 bit per row:
+
+1 → the row has this value.
+
+0 → the row does not have this value.
+
+Example:
+Column:
+
+Row1: Apple  
+Row2: Banana  
+Row3: Apple  
+
+
+Unique values = {Apple, Banana}
+Bitmaps:
+
+Apple : 1 0 1  
+Banana: 0 1 0
+
+
+Compression for large n
+If n is large, most bitmaps are mostly zeros (sparse).
+
+You can compress further using run-length encoding (RLE):
+
+Store sequences as (count, value) instead of writing each bit.
+
+Example: 000000111 → (6 zeros, 3 ones).
+
+3. Why bitmap indexes are great for data warehouses
+Common queries check filters like:
+
+WHERE product_sk IN (30, 68, 69)
+→ Load 3 bitmaps → bitwise OR them → result shows which rows match.
+
+WHERE product_sk = 31 AND store_sk = 3
+→ Load bitmap for product_sk=31 and store_sk=3 → bitwise AND → result shows matching rows.
+
+Since all columns keep rows in the same order, bit position k always refers to the same row across all bitmaps.
+
+4. Column-oriented storage ≠ column families
+Cassandra & HBase have “column families” but:
+
+They still store all columns of a row together inside a family.
+
+No per-column compression like real column stores.
+
+So they are still mostly row-oriented in storage behavior.
+
+5. Beyond disk I/O: CPU efficiency
+Even if disk reading is fast, the CPU can become the bottleneck.
+Analytical DB designers focus on:
+
+Memory-to-CPU bandwidth — moving data from RAM to CPU cache.
+
+Avoiding branch mispredictions — keeps CPU pipelines full.
+
+Using SIMD — CPU instructions that process multiple data points in parallel.
+
+6. Vectorized processing
+The DB processes a chunk of column data at a time, usually:
+
+Fits in L1 CPU cache (very small but very fast memory inside CPU).
+
+Runs in tight loops with no function calls per row.
+
+Benefits:
+
+More data fits in CPU cache → fewer memory fetches.
+
+Bitwise operations (AND/OR) run directly on compressed chunks.
+
+Much faster than row-by-row loops.
+
+7. Summary Table
+
+
+| Concept                   | Purpose                               | Benefit                                 |
+| ------------------------- | ------------------------------------- | --------------------------------------- |
+| **Column compression**    | Store less data                       | Less disk I/O, smaller memory footprint |
+| **Bitmap encoding**       | Encode categorical data efficiently   | Fast filtering with bitwise ops         |
+| **Run-length encoding**   | Compress sparse bitmaps               | Reduces storage for large `n`           |
+| **Vectorized processing** | Process data in cache-friendly chunks | Faster CPU usage, SIMD support          |
+
+
+If you want, I can make a diagram showing how bitmap encoding + vectorized processing work together — one for the storage format and one for the query execution — so it’s clear how the speed-up happens from disk → RAM → CPU.
+
+
+ ------------------------- ------------------------- ------------------------- ------------------------- ------------------------- ------------------------- -------------------------
+
+
+
+Sort Order in Column Storage
+In a column store, it doesn’t necessarily matter in which order the rows are stored.
+It’s easiest to store them in the order in which they were inserted, since then inserting
+a new row just means appending to each of the column files. However, we can choose
+to impose an order, like we did with SSTables previously, and use that as an indexing
+mechanism.
+Column-Oriented Storage | 99
+Note that it wouldn’t make sense to sort each column independently, because then
+we would no longer know which items in the columns belong to the same row. We
+can only reconstruct a row because we know that the kth item in one column belongs
+to the same row as the kth item in another column.
+Rather, the data needs to be sorted an entire row at a time, even though it is stored by
+column. The administrator of the database can choose the columns by which the
+table should be sorted, using their knowledge of common queries. For example, if
+queries often target date ranges, such as the last month, it might make sense to make
+date_key the first sort key. Then the query optimizer can scan only the rows from the
+last month, which will be much faster than scanning all rows.
+A second column can determine the sort order of any rows that have the same value
+in the first column. For example, if date_key is the first sort key in Figure 3-10, it
+might make sense for product_sk to be the second sort key so that all sales for the
+same product on the same day are grouped together in storage. That will help queries
+that need to group or filter sales by product within a certain date range.
+Another advantage of sorted order is that it can help with compression of columns. If
+the primary sort column does not have many distinct values, then after sorting, it will
+have long sequences where the same value is repeated many times in a row. A simple
+run-length encoding, like we used for the bitmaps in Figure 3-11, could compress
+that column down to a few kilobytes—even if the table has billions of rows.
+That compression effect is strongest on the first sort key. The second and third sort
+keys will be more jumbled up, and thus not have such long runs of repeated values.
+Columns further down the sorting priority appear in essentially random order, so
+they probably won’t compress as well. But having the first few columns sorted is still
+a win overall.
+Several different sort orders
+A clever extension of this idea was introduced in C-Store and adopted in the com‐
+mercial data warehouse Vertica [61, 62]. Different queries benefit from different sort
+orders, so why not store the same data sorted in several different ways? Data needs to
+be replicated to multiple machines anyway, so that you don’t lose data if one machine
+fails. You might as well store that redundant data sorted in different ways so that
+when you’re processing a query, you can use the version that best fits the query
+pattern.
+Having multiple sort orders in a column-oriented store is a bit similar to having mul‐
+tiple secondary indexes in a row-oriented store. But the big difference is that the row-
+oriented store keeps every row in one place (in the heap file or a clustered index), and
+secondary indexes just contain pointers to the matching rows. In a column store,
+there normally aren’t any pointers to data elsewhere, only columns containing values.
+
+explain??
+
+
+
+This section is explaining how sorting works in a column store — and how it’s different from row stores — plus how sorting can be used to speed up queries and improve compression.
+
+Let’s break it down:
+
+1. You can’t sort columns independently
+In a column store, all the values of a column are stored together, but the position of each value still matters.
+
+The k-th value in one column must correspond to the k-th value in every other column → that’s how we know which values make up a single row.
+
+If you sorted each column separately, you’d lose that alignment and couldn’t reconstruct rows.
+
+2. Sorting is done by whole rows
+Even though the data is stored by column, sorting is done based on entire rows.
+
+Example: If you sort by date_key, you rearrange all columns so that their rows stay in sync.
+
+3. Why sorting helps
+If most queries filter on a certain field (like date_key), sorting by that field means:
+
+All rows for a specific date range are next to each other on disk.
+
+The query engine can scan only the relevant chunk instead of all data.
+
+You can add secondary sort keys:
+
+First sort by date_key
+
+Then, for rows with the same date, sort by product_sk
+
+This groups related data together, which helps grouping & filtering queries.
+
+4. Sorting improves compression
+Example: If you sort by date_key and there are only 365 unique dates in billions of rows:
+
+All rows for a date are consecutive.
+
+The date_key column has long runs of the same value.
+
+Run-Length Encoding (RLE) can compress this extremely well — possibly from gigabytes down to kilobytes.
+
+This compression benefit is strongest for the first sort key (because it’s most ordered), weaker for the second, and minimal for later columns.
+
+5. Multiple sort orders (C-Store / Vertica idea)
+Different queries benefit from different sort orders:
+
+Date-based queries → sort by date_key
+
+Product-based queries → sort by product_sk
+
+C-Store / Vertica said: Why not keep multiple copies of the same data sorted differently?
+
+You already replicate data for fault tolerance, so you can store each replica in a different sort order.
+
+Then, when a query comes in, the database picks the replica whose sort order best fits the query.
+
+6. Difference from secondary indexes in row stores
+Row-oriented store:
+
+Rows are kept in one main place (heap file or clustered index).
+
+Secondary indexes are separate structures that just point to the main rows.
+
+Column-oriented store:
+
+No central “row storage” to point to.
+
+Data is just columns — sorting is done directly on them, so different sort orders mean different physically stored copies of the data.
+
+Quick analogy
+Think of a phonebook:
+
+Row store = all entries sorted by last name, plus extra "index cards" to find entries by address.
+
+Column store = separate lists for names, addresses, phone numbers — but they’re kept in the same row order.
+If you want another ordering, you make a whole new copy of the lists sorted differently.
+
+If you want, I can draw a diagram showing:
+
+How rows are kept aligned in column storage.
+
+How sorting by one column changes the order for all columns.
+
+How multiple sort orders are stored as full copies.
+
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+Writing to Column-Oriented Storage
+These optimizations make sense in data warehouses, because most of the load con‐
+sists of large read-only queries run by analysts. Column-oriented storage, compres‐
+sion, and sorting all help to make those read queries faster. However, they have the
+downside of making writes more difficult.
+An update-in-place approach, like B-trees use, is not possible with compressed col‐
+umns. If you wanted to insert a row in the middle of a sorted table, you would most
+likely have to rewrite all the column files. As rows are identified by their position
+within a column, the insertion has to update all columns consistently.
+Fortunately, we have already seen a good solution earlier in this chapter: LSM-trees.
+All writes first go to an in-memory store, where they are added to a sorted structure
+and prepared for writing to disk. It doesn’t matter whether the in-memory store is
+row-oriented or column-oriented. When enough writes have accumulated, they are
+merged with the column files on disk and written to new files in bulk. This is essen‐
+tially what Vertica does [62].
+Queries need to examine both the column data on disk and the recent writes in mem‐
+ory, and combine the two. However, the query optimizer hides this distinction from
+the user. From an analyst’s point of view, data that has been modified with inserts,
+updates, or deletes is immediately reflected in subsequent queries.
+
+explain?
+
+
+This section is about the challenge of handling writes in column-oriented storage and how databases like Vertica solve it using LSM-tree–style batching.
+
+Let’s go step-by-step:
+
+1. Why writes are harder in column stores
+In a row store, you can update a single row in place (like in a B-tree) without touching unrelated data.
+
+In a column store:
+
+Each column is stored separately and often compressed.
+
+Rows are identified by their position in the column file.
+
+If you insert a row in the middle (especially in a sorted table), all column files must shift to keep positions aligned.
+
+This could mean rewriting huge files — very slow.
+
+2. The LSM-tree–style solution
+Column stores avoid costly in-place writes by buffering new data in memory first.
+
+Process:
+
+Write to memory first
+
+New rows go into an in-memory store (like the “MemTable” in an LSM-tree).
+
+This store is kept sorted and ready for merging later.
+
+It can be row-oriented or column-oriented — doesn’t matter much for the buffer.
+
+Flush in batches
+
+When the in-memory buffer fills up, it’s merged with the existing column files on disk.
+
+The merge creates new sorted column files, rather than modifying old ones in place.
+
+This is efficient because compression and sorting are applied once per bulk flush, not per row.
+
+Queries see both memory + disk data
+
+When you run a query, the database reads from both:
+
+The big, compressed column files on disk.
+
+The smaller in-memory buffer with recent writes.
+
+The query engine merges results behind the scenes, so users see up-to-date results instantly.
+
+3. Why this works well for analytics
+Most queries are read-heavy in a data warehouse, so the cost of occasional bulk merges is acceptable.
+
+You still get the speed benefits of:
+
+Columnar storage
+
+Compression
+
+Sorting
+
+But you avoid the horrendous rewrite costs of trying to update compressed, sorted files directly.
+
+Quick analogy
+Imagine your bookshelf is sorted alphabetically and every book is shrink-wrapped.
+
+If you buy a new book and want to insert it in the right spot, you’d have to unwrap and rewrap the whole shelf — annoying.
+
+Instead, you keep a small pile of new books on your desk.
+
+Every so often, you take all the books from your desk and carefully integrate them into the shelf in one go.
+
+When someone asks to read a book, you check both the shelf and your desk.
+
+If you want, I can diagram how writes flow in a column store with LSM-tree batching so you can see how the memory buffer, flush, and merge work together.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Aggregation: Data Cubes and Materialized Views
+Not every data warehouse is necessarily a column store: traditional row-oriented
+databases and a few other architectures are also used. However, columnar storage can
+be significantly faster for ad hoc analytical queries, so it is rapidly gaining popularity
+[51, 63].
+Another aspect of data warehouses that is worth mentioning briefly is materialized
+aggregates. As discussed earlier, data warehouse queries often involve an aggregate
+function, such as COUNT, SUM, AVG, MIN, or MAX in SQL. If the same aggregates are used
+by many different queries, it can be wasteful to crunch through the raw data every
+time. Why not cache some of the counts or sums that queries use most often?
+One way of creating such a cache is a materialized view. In a relational data model, it
+is often defined like a standard (virtual) view: a table-like object whose contents are
+the results of some query. The difference is that a materialized view is an actual copy
+of the query results, written to disk, whereas a virtual view is just a shortcut for writ‐
+ing queries. When you read from a virtual view, the SQL engine expands it into the
+view’s underlying query on the fly and then processes the expanded query.
+When the underlying data changes, a materialized view needs to be updated, because
+it is a denormalized copy of the data. The database can do that automatically, but
+Column-Oriented Storage | 101
+such updates make writes more expensive, which is why materialized views are not
+often used in OLTP databases. In read-heavy data warehouses they can make more
+sense (whether or not they actually improve read performance depends on the indi‐
+vidual case).
+A common special case of a materialized view is known as a data cube or OLAP cube
+[64]. It is a grid of aggregates grouped by different dimensions. Figure 3-12 shows an
+example.
+Figure 3-12. Two dimensions of a data cube, aggregating data by summing.
+Imagine for now that each fact has foreign keys to only two dimension tables—in
+Figure 3-12, these are date and product. You can now draw a two-dimensional table,
+with dates along one axis and products along the other. Each cell contains the aggre‐
+gate (e.g., SUM) of an attribute (e.g., net_price) of all facts with that date-product
+combination. Then you can apply the same aggregate along each row or column and
+get a summary that has been reduced by one dimension (the sales by product regard‐
+less of date, or the sales by date regardless of product).
+In general, facts often have more than two dimensions. In Figure 3-9 there are five
+dimensions: date, product, store, promotion, and customer. It’s a lot harder to imag‐
+ine what a five-dimensional hypercube would look like, but the principle remains the
+same: each cell contains the sales for a particular date-product-store-promotion-
+customer combination. These values can then repeatedly be summarized along each
+of the dimensions.
+The advantage of a materialized data cube is that certain queries become very fast
+because they have effectively been precomputed. For example, if you want to know
+102 | Chapter 3: Storage and Retrieval
+the total sales per store yesterday, you just need to look at the totals along the appro‐
+priate dimension—no need to scan millions of rows.
+The disadvantage is that a data cube doesn’t have the same flexibility as querying the
+raw data. For example, there is no way of calculating which proportion of sales comes
+from items that cost more than $100, because the price isn’t one of the dimensions.
+Most data warehouses therefore try to keep as much raw data as possible, and use
+aggregates such as data cubes only as a performance boost for certain queries.
+
+explain?
+
+Alright — this section is explaining how materialized views and data cubes speed up analytical queries by precomputing results, and why that’s a trade-off.
+
+1. The problem
+Data warehouse queries often involve aggregations like:
+
+COUNT(*)
+
+SUM(price)
+
+AVG(score)
+
+MIN / MAX
+
+If the same aggregate is used in many queries, recalculating it every time is wasteful — you’re scanning through millions/billions of rows repeatedly.
+
+2. The solution: materialized views
+A virtual view is just a saved query shortcut. The database runs the query fresh every time you use it.
+
+A materialized view is different:
+
+The query result is stored on disk as a physical table.
+
+Reads are much faster — you’re pulling from a precomputed result.
+
+The downside:
+
+When the base data changes, the materialized view must also update (which makes writes slower).
+
+That’s why OLTP systems rarely use them (too many writes), but read-heavy data warehouses often do.
+
+3. Special case: the data cube (OLAP cube)
+A data cube is a precomputed grid of aggregate values grouped by multiple dimensions.
+
+Example:
+
+You have a fact table with:
+
+date
+
+product
+
+store
+
+promotion
+
+customer
+
+and a measure like net_price
+
+Imagine grouping sales by date and product:
+
+Rows = dates
+
+Columns = products
+
+Each cell = total net_price for that date/product combination.
+
+You can also:
+
+Sum across rows (total sales per product across all dates).
+
+Sum across columns (total sales per date across all products).
+
+With more dimensions (store, promotion, customer, etc.), the cube becomes a multi-dimensional hypercube — but the logic is the same.
+
+4. Why it’s fast
+If a query matches a precomputed cube:
+
+Example: “Total sales per store yesterday”
+→ Just grab the right row in the cube — no need to scan raw data.
+
+This can reduce a query from minutes to milliseconds.
+
+5. The trade-off
+Pros:
+
+Lightning-fast queries for precomputed patterns.
+
+Cons:
+
+Less flexibility — you can only query dimensions that the cube contains.
+
+Example: If the cube has date and product, you cannot ask:
+
+"What proportion of sales came from items > $100?"
+(because price isn’t one of the cube’s dimensions)
+
+Typical strategy:
+Keep the raw data for flexibility and store data cubes only for common heavy queries.
+
+💡 Analogy:
+Think of raw data as a giant pile of receipts.
+A materialized view is like keeping a “total sales by day” spreadsheet updated automatically.
+A data cube is like keeping multiple spreadsheets — one for sales by day/product/store/etc. — so you can answer common questions instantly.
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
