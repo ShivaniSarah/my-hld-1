@@ -1,0 +1,154 @@
+Keeping everything in memory
+The data structures discussed so far in this chapter have all been answers to the limi‐
+tations of disks. Compared to main memory, disks are awkward to deal with. With
+both magnetic disks and SSDs, data on disk needs to be laid out carefully if you want
+good performance on reads and writes. However, we tolerate this awkwardness
+because disks have two significant advantages: they are durable (their contents are
+not lost if the power is turned off), and they have a lower cost per gigabyte than
+RAM.
+As RAM becomes cheaper, the cost-per-gigabyte argument is eroded. Many datasets
+are simply not that big, so it’s quite feasible to keep them entirely in memory, poten‐
+88 | Chapter 3: Storage and Retrieval
+tially distributed across several machines. This has led to the development of in-
+memory databases.
+Some in-memory key-value stores, such as Memcached, are intended for caching use
+only, where it’s acceptable for data to be lost if a machine is restarted. But other in-
+memory databases aim for durability, which can be achieved with special hardware
+(such as battery-powered RAM), by writing a log of changes to disk, by writing peri‐
+odic snapshots to disk, or by replicating the in-memory state to other machines.
+When an in-memory database is restarted, it needs to reload its state, either from disk
+or over the network from a replica (unless special hardware is used). Despite writing
+to disk, it’s still an in-memory database, because the disk is merely used as an
+append-only log for durability, and reads are served entirely from memory. Writing
+to disk also has operational advantages: files on disk can easily be backed up,
+inspected, and analyzed by external utilities.
+Products such as VoltDB, MemSQL, and Oracle TimesTen are in-memory databases
+with a relational model, and the vendors claim that they can offer big performance
+improvements by removing all the overheads associated with managing on-disk data
+structures [41, 42]. RAMCloud is an open source, in-memory key-value store with
+durability (using a log-structured approach for the data in memory as well as the data
+on disk) [43]. Redis and Couchbase provide weak durability by writing to disk asyn‐
+chronously.
+Counterintuitively, the performance advantage of in-memory databases is not due to
+the fact that they don’t need to read from disk. Even a disk-based storage engine may
+never need to read from disk if you have enough memory, because the operating sys‐
+tem caches recently used disk blocks in memory anyway. Rather, they can be faster
+because they can avoid the overheads of encoding in-memory data structures in a
+form that can be written to disk [44].
+Besides performance, another interesting area for in-memory databases is providing
+data models that are difficult to implement with disk-based indexes. For example,
+Redis offers a database-like interface to various data structures such as priority
+queues and sets. Because it keeps all data in memory, its implementation is compara‐
+tively simple.
+Recent research indicates that an in-memory database architecture could be extended
+to support datasets larger than the available memory, without bringing back the over‐
+heads of a disk-centric architecture [45]. The so-called anti-caching approach works
+by evicting the least recently used data from memory to disk when there is not
+enough memory, and loading it back into memory when it is accessed again in the
+future. This is similar to what operating systems do with virtual memory and swap
+files, but the database can manage memory more efficiently than the OS, as it can
+work at the granularity of individual records rather than entire memory pages. This
+Data Structures That Power Your Database | 89
+approach still requires indexes to fit entirely in memory, though (like the Bitcask
+example at the beginning of the chapter).
+Further changes to storage engine design will probably be needed if non-volatile
+memory (NVM) technologies become more widely adopted [46]. At present, this is a
+new area of research, but it is worth keeping an eye on in the future.
+
+explain?
+
+
+
+Got it — this section is basically explaining why and how in-memory databases work, their benefits, and even some hybrid approaches.
+Let’s break it down clearly.
+
+1. Why in-memory databases exist
+Traditionally:
+
+Disk storage (HDDs, SSDs) → cheap & durable, but slower and more complex to manage.
+
+RAM → fast but more expensive and volatile (loses data on power loss).
+
+Because RAM is getting cheaper and many datasets are small enough to fit in memory (even across multiple machines), it’s now realistic to store everything in RAM.
+
+This gives rise to in-memory databases.
+
+2. Types of in-memory databases
+Cache-only (e.g., Memcached)
+
+Temporary storage, OK to lose data on restart.
+
+Used to reduce load on the main database.
+
+Durable in-memory databases
+
+Aim to survive restarts.
+
+Achieve durability via:
+
+Special hardware → battery-powered RAM.
+
+Write-ahead log → append changes to disk.
+
+Periodic snapshots → save the full state to disk.
+
+Replication → store data in other machines’ RAM.
+
+When restarted, they reload from disk or replicas.
+
+3. Why they’re fast (and why it’s not just “no disk reads”)
+Surprising point:
+Even disk-based databases may not read from disk often if the OS keeps data in its page cache (recently used blocks in RAM).
+
+The real speed-up comes from:
+
+No need to serialize/encode in-memory data into a disk-friendly format.
+
+Data structures can be optimized for RAM instead of disk layout constraints.
+
+4. Examples
+Relational in-memory DBs: VoltDB, MemSQL, Oracle TimesTen.
+
+Key-value in-memory DBs: RAMCloud (durable via log-structured writes), Redis, Couchbase (weak durability via async writes).
+
+5. Special abilities
+Some models are easier to implement entirely in memory:
+
+Redis supports priority queues, sets, sorted sets, and more — much harder to store efficiently on disk.
+
+6. Anti-caching approach (handling datasets bigger than RAM)
+Normally, if data doesn’t fit in RAM, OS swapping kicks in, which is inefficient because it swaps at the page level (4 KB chunks).
+
+Anti-caching is a smarter approach:
+
+The DB itself decides which records to evict to disk (least recently used).
+
+Reloads them when needed.
+
+Works at the record level, not the memory page level → much more efficient.
+
+Requirement: Indexes must still fit entirely in memory.
+
+7. Future: Non-Volatile Memory (NVM)
+NVM (like Intel Optane, MRAM, PCM) → as fast as RAM, but retains data without power.
+
+Could change storage design completely (no need for complex disk structures).
+
+Still an active research area.
+
+Summary Table
+
+
+| Feature / Concept    | Explanation                                                      |
+| -------------------- | ---------------------------------------------------------------- |
+| Disk-based DB        | Durable, cheap, slower, complex layout.                          |
+| In-memory DB         | Very fast, simpler structures, volatile unless durability added. |
+| Cache-only DB        | Loses data on restart (Memcached).                               |
+| Durable in-memory DB | Uses logs, snapshots, replication to persist.                    |
+| Real speed gain      | Avoids disk-friendly serialization overhead.                     |
+| Anti-caching         | Smart eviction to disk at record-level granularity.              |
+| NVM                  | Future memory that is fast like RAM but non-volatile.            |
+
+
+
+
