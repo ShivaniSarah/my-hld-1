@@ -350,3 +350,23 @@ In conclusion, Multiversion Concurrency Control (MVCC) in DBMS is a database opt
 ---------
 
 
+Nice one 👍 — Copy-on-Write (CoW) is a classic optimization technique used in databases, file systems, and programming languages.
+
+🔑 Definition
+
+Copy-on-Write (CoW) means:
+👉 Instead of making an immediate deep copy of data, multiple consumers share the same copy until someone tries to modify it. At that moment, a private copy is made for the writer.
+
+So:
+
+Read = shared (no duplication).
+
+Write = copy (only then is a new version created).
+
+⚙️ How It Works
+
+Initially, data is shared between processes/threads.
+
+If no one modifies → no copies are made.
+
+If one modifies → system makes a private copy for the writer (others still see the original).
