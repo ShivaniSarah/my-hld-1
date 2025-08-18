@@ -84,5 +84,9 @@ Routing queries (how the system knows which partition has the data).
 Replication keeps multiple copies of the same data for safety. Partitioning splits data into pieces to fit massive datasets and handle high query load. Each partition is a mini-database, spread across a shared-nothing cluster, allowing horizontal scaling.
 
 
+Partitioning, as discussed in this chapter, is a way of intentionally breaking a large database down into
+smaller ones. It has nothing to do with network partitions (netsplits), a type of fault in the network between
+nodes. We will discuss such faults in Chapter 8.
+
 
 
