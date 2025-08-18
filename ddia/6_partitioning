@@ -1,1 +1,88 @@
-..
+Perfect — you’re now entering Chapter 6 of Designing Data-Intensive Applications, which shifts from replication (multiple copies of the same data) to partitioning (splitting data into pieces). Let’s go step by step.
+
+🔹 Replication vs. Partitioning
+
+Replication = store the same data on multiple nodes (for fault tolerance & high availability).
+
+Partitioning (a.k.a. Sharding) = split the dataset into different subsets, each stored on a different node (for scalability).
+
+Replication = copies of the same book 📚.
+Partitioning = splitting one huge book into chapters across shelves 📖📖📖.
+
+🔹 Terminology
+
+Different systems use different words for the same idea:
+
+Shard → MongoDB, Elasticsearch, SolrCloud
+
+Region → HBase
+
+Tablet → Bigtable
+
+VNode → Cassandra, Riak
+
+vBucket → Couchbase
+
+But the general academic / established word is partition → that’s what the book uses.
+
+🔹 How Partitioning Works
+
+Each record (row/document) belongs to exactly one partition.
+
+Each partition acts like a mini-database that stores only part of the data.
+
+The database system decides which partition a record goes to (based on hashing, ranges, etc.—explained later in the chapter).
+
+🔹 Why Partition?
+
+The main reason: Scalability 🚀
+
+Storage scaling →
+A single machine cannot hold petabytes of data, so data must be split across many disks/machines.
+
+Throughput scaling →
+
+Queries that hit only one partition can be handled independently by the node storing that partition.
+
+More nodes = more parallel query capacity.
+
+For analytics or large queries, operations can sometimes be parallelized across many partitions (though it’s more complex).
+
+So: partitioning helps with both big datasets and high query loads.
+
+🔹 Shared-nothing architecture
+
+Partitioning relies on a shared-nothing cluster:
+
+Each node is independent (its own CPU, RAM, disk).
+
+Nodes don’t share memory or disk directly.
+
+Communication happens only via the network.
+
+This design avoids bottlenecks and scales better.
+
+🔹 History
+
+1980s: Partitioned DBs first appeared (Teradata, Tandem NonStop SQL).
+
+2000s+: Re-discovered by NoSQL systems (MongoDB, Cassandra, HBase) and Hadoop data warehouses.
+
+Partitioning is not new—it’s just been reinvented to handle today’s web-scale workloads.
+
+🔹 What’s Next in the Chapter
+
+This section is just an intro to partitioning. The chapter will dive into:
+
+Partitioning strategies (by key range, by hash, etc.).
+
+Rebalancing (when adding/removing nodes, how to move data without downtime).
+
+Routing queries (how the system knows which partition has the data).
+
+✅ In short:
+Replication keeps multiple copies of the same data for safety. Partitioning splits data into pieces to fit massive datasets and handle high query load. Each partition is a mini-database, spread across a shared-nothing cluster, allowing horizontal scaling.
+
+
+
+
