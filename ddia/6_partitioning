@@ -755,3 +755,334 @@ Rebalancing: Needed for scaling and fault tolerance, must minimize disruption an
 
 
 
+
+
+
+
+
+Strategies for Rebalancing
+
+Rebalancing = moving data/load across nodes so the cluster stays healthy as things change (more traffic, more data, node failures). Any solid scheme should:
+
+End state: share storage and read/write load fairly across nodes.
+
+During move: keep the database online for reads and writes.
+
+Efficiency: move no more data than necessary to reduce time, network, and disk I/O.
+
+How not to do it: hash mod N
+
+A tempting mapping is node = hash(key) mod N.
+
+Why it’s bad: when N changes, almost all keys remap.
+
+Example for hash(key)=123456:
+
+With 10 nodes → 123456 mod 10 = 6 (node 6)
+
+Grow to 11 nodes → 123456 mod 11 = 3 (move to node 3)
+
+Grow to 12 nodes → 123456 mod 12 = 0 (move again)
+
+Impact: massive reshuffling on every scale-up/scale-down → rebalance is excessively expensive.
+
+Need: a scheme that minimizes data movement when N changes.
+
+Fixed number of partitions
+
+Idea: Pre-create many more partitions than nodes and assign several partitions per node.
+
+Example: 10 nodes, 1,000 partitions total → ~100 partitions per node.
+
+Adding/removing nodes:
+
+When a node is added, it steals a few partitions from each existing node until balanced (reverse when a node is removed).
+
+Only whole partitions move; the key→partition mapping never changes. Only the partition→node assignment changes.
+
+While copying data, the old assignment still serves reads/writes; cutover happens after transfer.
+
+Load shaping:
+
+Heterogeneous hardware? Assign more partitions to stronger nodes to give them more load.
+
+Who uses it: Riak, Elasticsearch, Couchbase, Voldemort.
+
+Operational trade-offs:
+
+Number of partitions is typically fixed at cluster creation.
+
+Must choose high enough to allow future growth (max nodes), but not too high (per-partition metadata/management overhead).
+
+If dataset size varies a lot:
+
+Large partitions → expensive rebalances and slower failure recovery.
+
+Tiny partitions → high overhead.
+
+Best performance when partition size is “just right”, which is hard if the count is fixed while data volume changes.
+
+Dynamic partitioning
+
+Where it shines: Key-range partitioning (but can apply to hash too).
+
+How it works:
+
+Partitions split when they exceed a target size; merge when too small.
+
+Example: HBase splits a region when it grows past ~10 GB (default). A big region splits into two ~equal halves.
+
+If lots of data is deleted and a region shrinks below a threshold, it can merge with an adjacent region.
+
+This mimics top-level B-tree behavior.
+
+Assignment & movement:
+
+Each partition (region) is owned by a node; nodes can own many.
+
+After a split, one half can be moved to another node to balance load.
+
+In HBase, region file movement leverages HDFS underneath.
+
+Benefits:
+
+Adapts to data volume automatically:
+
+Small dataset → few partitions → low overhead.
+
+Large dataset → more, smaller partitions → bounded partition size.
+
+Caveats & mitigations:
+
+Empty databases start with one partition → initial writes hit a single node until the first split.
+
+Pre-splitting helps: configure an initial set of partitions on an empty DB.
+
+With key-range sharding, pre-splitting assumes you know the key distribution.
+
+Broader applicability:
+
+Also works with hash partitioning.
+
+MongoDB (since 2.4) supports both key-range and hash sharding and splits dynamically in either case.
+
+Partitioning proportionally to nodes
+
+A third approach: make the number of partitions scale with the number of nodes (i.e., a fixed number of partitions per node).
+
+Used by Cassandra and Ketama.
+
+Behavior:
+
+With a fixed node count, partition sizes grow with the dataset (as usual).
+
+When you add nodes, the system creates more partitions (or splits existing ones) so per-partition size drops, keeping partition sizes fairly stable overall as the cluster scales.
+
+Node join mechanics:
+
+A new node randomly selects a fixed number of existing partitions to split, then takes ownership of half of each split; the other halves remain where they are.
+
+Randomness can yield unfair splits, but with many partitions per node (e.g., 256 virtual nodes per physical node in Cassandra), it averages out to a fair share.
+
+Cassandra 3.0 added an alternative rebalancing algorithm to reduce unfairness further.
+
+Prerequisites & theory:
+
+Random partition boundary selection requires hash-based partitioning.
+
+This aligns with consistent hashing principles; newer hash functions can provide similar balancing with lower metadata overhead.
+
+
+
+
+
+
+
+
+
+
+
+##### Operations: Automatic or Manual Rebalancing
+
+
+
+
+This section is about rebalancing in distributed systems (databases, message queues, etc.) — i.e., moving data partitions between nodes so the cluster load stays balanced.
+
+🔑 Key Idea
+
+There are two main approaches:
+
+1. Automatic Rebalancing
+
+The system itself detects imbalance or failures and moves partitions automatically.
+
+Pros:
+
+Less manual work → the system self-heals.
+
+Useful for scaling or node replacement.
+
+Cons:
+
+Can be unpredictable.
+
+Rebalancing is expensive (lots of data moved, network load, rerouting requests).
+
+If failure detection is wrong (e.g., a node is just slow, not dead), the system might wrongly rebalance.
+
+This can actually worsen the situation, even causing a cascading failure (more nodes get overloaded).
+
+2. Manual (Admin-in-the-loop) Rebalancing
+
+The system suggests a new partition distribution, but an administrator must approve it.
+
+Pros:
+
+Safer, fewer surprises.
+
+An experienced operator can judge whether rebalancing is necessary (e.g., maybe the node was just temporarily slow).
+
+Cons:
+
+Slower.
+
+More operational work.
+
+⚖️ Trade-off
+
+Automatic → fast, convenient, but risky if misfires.
+
+Manual → slower, more effort, but prevents accidents.
+
+That’s why many real-world systems (like Couchbase, Riak, Voldemort) take a hybrid approach:
+👉 They suggest rebalancing automatically but require a human to commit it.
+
+✅ So in short:
+Rebalancing is moving partitions between nodes.
+Automatic = less work but risky.
+Manual = more work but safer.
+Best practice: often keep a human in the loop to avoid cascading failures.
+
+
+
+
+####### Request Routing
+
+
+Once we partition data across multiple nodes (machines), there’s a key challenge:
+👉 When a client wants to read/write a key (e.g., "foo"), how does it know which node holds that partition?
+
+Because partitions can move (due to rebalancing or failures), the client needs an up-to-date mapping of key → partition → node (IP/port).
+This is a general service discovery problem (not just for databases, but for any distributed system).
+
+✅ Three Approaches to Routing
+
+Send requests to any node (random or via load balancer):
+
+If the node owns the partition, it handles the request directly.
+
+If not, it forwards the request to the correct node and relays back the response.
+
+Example: Cassandra, Riak (they use gossip protocol among nodes to know who owns which partition).
+
+Use a dedicated routing tier:
+
+Clients always send requests to a routing service.
+
+The routing tier knows which node owns which partition and forwards requests appropriately.
+
+Acts as a partition-aware load balancer.
+
+Example: LinkedIn Espresso (via Helix + ZooKeeper), MongoDB (mongos daemons), SolrCloud, HBase, Kafka.
+
+Partition-aware clients:
+
+The client itself knows the mapping of partitions to nodes.
+
+Client directly connects to the right node → no forwarding, no routing tier.
+
+But the client must stay updated on partition changes.
+
+⚡ The Core Challenge
+
+How does the routing component (node, routing tier, or client) keep track of partition assignments as they change?
+
+All participants must agree, otherwise requests may go to the wrong node.
+
+🛠 Solutions for Tracking Partition Assignments
+
+Coordination service (ZooKeeper, etc.):
+
+Nodes register themselves with ZooKeeper.
+
+ZooKeeper maintains the authoritative mapping of partitions → nodes.
+
+Routing tiers or clients subscribe to changes → ZooKeeper notifies them when partitions move.
+
+Example: Kafka, HBase, SolrCloud, LinkedIn Espresso (via Helix).
+
+MongoDB uses its own config servers + mongos daemons instead of ZooKeeper.
+
+Gossip protocol:
+
+Nodes gossip cluster state among themselves (no external dependency).
+
+Any node can forward a request to the correct one.
+
+Example: Cassandra, Riak.
+
+Simplified approach (no automatic rebalancing):
+
+Example: Couchbase.
+
+Uses a routing tier (moxi) that learns routing changes from cluster nodes.
+
+🌍 Finding Nodes in the First Place
+
+Clients still need IP addresses of cluster nodes/routing tier.
+
+These change less frequently than partition ownership → DNS is often enough for this step.
+
+
+
+####  Parallel Query Execution
+
+
+
+So far, the discussion has mostly been about simple queries:
+
+Read/write a single key.
+
+Scatter/gather queries (for secondary indexes by document).
+
+But in analytics systems (data warehouses), queries are much more complex.
+
+💡 What Data Warehouse Queries Look Like
+
+Involve joins, filters, grouping, and aggregations.
+
+Often need to scan over large parts of the dataset.
+
+Example: “Find the average selling price of red cars grouped by manufacturer in the past year.”
+
+⚡ How Parallel Execution Works
+
+An MPP (Massively Parallel Processing) database query optimizer:
+
+Breaks the query into stages.
+
+Splits work across partitions and nodes.
+
+Executes many of these tasks in parallel.
+
+Especially beneficial for queries scanning large datasets → speedup via parallelism.
+
+📌 Summary
+
+Request Routing: Problem of directing client requests to the correct node in a partitioned cluster. Solved via forwarding, routing tiers, or partition-aware clients, often with ZooKeeper or gossip for coordination.
+
+Parallel Query Execution: Used mainly in data warehouses for complex analytical queries. Queries are decomposed and executed in parallel across nodes for efficiency.
+
+
+
