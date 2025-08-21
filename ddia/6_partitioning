@@ -547,3 +547,211 @@ But that makes reads and bookkeeping more complex.
 
 
 
+# # Partitioning and Secondary Indexes
+
+
+
+Got it 👍 let’s break this down step by step.
+
+You already understand primary key partitioning:
+
+Every record has a primary key (e.g., user_id or order_id).
+
+The partitioning function (like hash, range, or modulo) is applied to that key.
+
+This makes routing simple — you always know which partition holds the record.
+
+But with secondary indexes, the lookup isn’t by primary key. Instead, you query by another field, like:
+
+"Find all actions by user 123" (secondary key = user_id).
+
+"Find all cars whose color = red".
+
+"Find all articles containing hogwash".
+
+Here’s the challenge:
+👉 These queries don’t map directly to the partitioning scheme based on the primary key.
+So databases need extra strategies to make secondary indexes work with partitioning.
+
+The Two Main Approaches
+1. Document-based partitioning (local indexes)
+
+The secondary index is stored inside the same partition as the primary record.
+
+Example: If you partition orders by order_id, then inside each partition you also store a local index for fields like customer_id.
+
+Query flow:
+
+To search customer_id=123, the query must be sent to all partitions (scatter/gather).
+
+Each partition uses its local secondary index to find matches.
+
+Results are merged and returned.
+
+✅ Pros:
+
+Simple to implement.
+
+Index updates are local (when you update a record, only the partition holding it updates its local index).
+
+❌ Cons:
+
+Queries need to hit all partitions (expensive if there are many).
+
+Works best when queries usually include the primary key too.
+
+2. Term-based partitioning (global indexes)
+
+The secondary index is partitioned separately from the main data.
+
+Instead of colocating with the documents, the index is sharded by the indexed term itself.
+
+Example: Index by color. All entries where color=red are stored together (possibly in one partition).
+
+Query flow:
+
+You want "all cars with color=red".
+
+The query is routed directly to the partition holding red in the secondary index.
+
+That partition gives you the list of matching primary keys.
+
+Then you fetch the actual records from wherever they live.
+
+✅ Pros:
+
+Queries are efficient (only hit the relevant partition).
+
+Much better for large-scale search-like queries.
+
+❌ Cons:
+
+More complex: when inserting/updating, you must update both the document partition and the global secondary index partition.
+
+Extra network hops (lookup in index, then fetch document).
+
+Real-world examples
+
+Document-based (local) → HBase, Cassandra (default secondary indexes).
+
+Term-based (global) → Elasticsearch, Solr (designed for search), or Cassandra’s "custom secondary indexes".
+
+👉 In short:
+
+Document-based partitioning = indexes are local to each partition → simple but scatter-gather.
+
+Term-based partitioning = indexes are partitioned by terms themselves → efficient queries but complex writes.
+
+
+
+#  #  #   Partitioning Secondary Indexes by Document (Local Indexes)
+
+How it works:
+
+The database is partitioned by document ID (primary key).
+
+Each partition maintains its own secondary indexes, covering only the documents stored in that partition.
+
+Example: Partition 0 stores cars with IDs 0–499 and builds its own indexes for color and make. Partition 1 does the same for IDs 500–999.
+
+Writes:
+
+Efficient → only the partition holding the document updates its local index.
+
+When adding a red car to partition 0, only partition 0’s index (color:red → [docIDs]) is updated.
+
+Reads:
+
+Expensive → queries must be sent to all partitions (scatter/gather).
+
+Example: Searching for "color=red" → query must go to all partitions, since red cars may be spread everywhere.
+
+Results are merged at the end.
+
+Problem: prone to tail latency amplification (if one partition is slow, the whole query is slow).
+
+Who uses it:
+MongoDB, Cassandra, Riak, Elasticsearch, SolrCloud, VoltDB.
+
+
+# # #  Partitioning Secondary Indexes by Term (Global Indexes)
+
+
+
+How it works:
+
+Instead of each partition keeping its own index, the database builds a global index across all partitions.
+
+This global index itself is partitioned by term (the value being searched).
+
+Example:
+
+Index entry "color:red" contains all red cars from all partitions.
+
+The "color" index is partitioned alphabetically (a–r in partition 0, s–z in partition 1), or by hash of the term.
+
+Reads:
+
+Efficient → query only needs to hit one partition of the index (the one containing "color:red").
+
+No scatter/gather needed.
+
+Writes:
+
+More complex → writing one document may update multiple index partitions.
+
+Example: Adding a "red Toyota":
+
+"color:red" entry updated in partition 0.
+
+"make:Toyota" entry updated in another partition.
+
+This may require distributed transactions across index partitions, which not all databases support.
+
+Often solved with asynchronous updates (index lags behind actual data slightly).
+
+Who uses it:
+
+DynamoDB (Global Secondary Indexes, async updated).
+
+Riak Search.
+
+Oracle Data Warehouse (gives choice between local vs global).
+
+
+# # #  Rebalancing Partitions
+
+
+
+Over time, the database must rebalance partitions because:
+
+Query throughput grows → need more CPUs.
+
+Data size grows → need more disks and memory.
+
+A machine fails → other nodes must take over its partitions.
+
+Goals of rebalancing:
+
+After rebalancing, load is evenly distributed across nodes.
+
+While rebalancing happens, the DB must stay online (continue serving reads/writes).
+
+Move only the necessary data → to minimize network and disk I/O.
+
+Why important:
+
+Without rebalancing, some nodes may become “hot spots” (overloaded with too much data or too many queries).
+
+A balanced cluster = better performance and fault tolerance.
+
+✅ In summary:
+
+Document-partitioned (local index): Easy writes, expensive scatter/gather reads.
+
+Term-partitioned (global index): Efficient reads, harder/more costly writes.
+
+Rebalancing: Needed for scaling and fault tolerance, must minimize disruption and data movement.
+
+
+
