@@ -760,7 +760,7 @@ Rebalancing: Needed for scaling and fault tolerance, must minimize disruption an
 
 
 
-Strategies for Rebalancing
+#### Strategies for Rebalancing
 
 Rebalancing = moving data/load across nodes so the cluster stays healthy as things change (more traffic, more data, node failures). Any solid scheme should:
 
@@ -788,7 +788,10 @@ Impact: massive reshuffling on every scale-up/scale-down → rebalance is excess
 
 Need: a scheme that minimizes data movement when N changes.
 
-Fixed number of partitions
+
+
+####  Fixed number of partitions
+
 
 Idea: Pre-create many more partitions than nodes and assign several partitions per node.
 
@@ -822,7 +825,10 @@ Tiny partitions → high overhead.
 
 Best performance when partition size is “just right”, which is hard if the count is fixed while data volume changes.
 
-Dynamic partitioning
+
+####   Dynamic partitioning
+
+
 
 Where it shines: Key-range partitioning (but can apply to hash too).
 
@@ -866,7 +872,11 @@ Also works with hash partitioning.
 
 MongoDB (since 2.4) supports both key-range and hash sharding and splits dynamically in either case.
 
-Partitioning proportionally to nodes
+
+
+
+####  Partitioning proportionally to nodes
+
 
 A third approach: make the number of partitions scale with the number of nodes (i.e., a fixed number of partitions per node).
 
@@ -891,12 +901,6 @@ Prerequisites & theory:
 Random partition boundary selection requires hash-based partitioning.
 
 This aligns with consistent hashing principles; newer hash functions can provide similar balancing with lower metadata overhead.
-
-
-
-
-
-
 
 
 
