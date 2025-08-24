@@ -1,6 +1,7 @@
 Got it 👍 Let me break this down for you in simple terms.
 
-This excerpt is talking about transactions in databases — why they exist, what problems they solve, and why they’re not always free or necessary.
+This excerpt is talking about transactions in databases — why they exist, what problems they solve, 
+and why they’re not always free or necessary.
 
 🔴 The Problem: Things Can Go Wrong
 
@@ -43,9 +44,11 @@ So instead of developers worrying about race conditions or corruption, the datab
 Transactions are not “natural laws,” they’re design choices to simplify development.
 But they come at a cost:
 
-Performance: Strict transaction guarantees (like serializability) can be slower, since the system needs locking, ordering, or coordination.
+Performance: Strict transaction guarantees (like serializability) can be slower, since the system needs locking,
+ordering, or coordination.
 
-Availability: In distributed systems, protocols like two-phase commit (2PC) block progress if failures happen, making the system less available.
+Availability: In distributed systems, protocols like two-phase commit (2PC) block progress if failures happen, 
+making the system less available.
 
 Complexity: Stronger guarantees require more coordination across nodes.
 
@@ -78,7 +81,9 @@ How databases implement isolation levels (read committed, snapshot isolation, se
 Both single-node and distributed DBs, with distributed-specific challenges discussed later.
 
 ✅ In short:
-Transactions are a tool to simplify handling failures and concurrency by bundling operations into an "all-or-nothing" package. They reduce developer burden but can slow systems down or make them less available, so you only want them when your application really needs the safety guarantees.
+Transactions are a tool to simplify handling failures and concurrency by bundling operations into an 
+"all-or-nothing" package. They reduce developer burden but can slow systems down or make them less available, 
+so you only want them when your application really needs the safety guarantees.
 
 
 
@@ -86,7 +91,8 @@ Transactions are a tool to simplify handling failures and concurrency by bundlin
 
 
 
-Great question — this section is unpacking what a transaction really means, why it’s sometimes misunderstood, and how different database worlds (SQL vs. NoSQL) treat it. Let’s break it down step by step:
+Great question — this section is unpacking what a transaction really means, why it’s sometimes misunderstood, 
+and how different database worlds (SQL vs. NoSQL) treat it. Let’s break it down step by step:
 
 🔴 Transactions in Relational Databases
 
@@ -126,7 +132,8 @@ So the word transaction became slippery — it didn’t mean the same thing ever
 
 NoSQL hype claim: “Transactions kill scalability. If you want high availability and performance at large scale, you must abandon them.”
 
-Traditional DB vendors claim: “If your data is valuable, you absolutely need strong transactions. No serious application can live without them.”
+Traditional DB vendors claim: “If your data is valuable, you absolutely need strong transactions. 
+No serious application can live without them.”
 
 Both extremes are exaggerations:
 
@@ -146,7 +153,10 @@ So instead of treating transactions as either “mandatory” or “toxic for sc
 👉 Look at the trade-offs in the context of the application.
 
 ✅ In short:
-The concept of a transaction is not absolute. In SQL databases, it has meant the same strong guarantees since the 1970s. In NoSQL databases, the word was weakened or abandoned to improve scalability. Neither “transactions are essential for all serious apps” nor “transactions destroy scalability” is universally true. Transactions are a design trade-off, and the right choice depends on your application’s needs.
+The concept of a transaction is not absolute. In SQL databases, it has meant the same strong guarantees since the 1970s.
+In NoSQL databases, the word was weakened or abandoned to improve scalability. Neither “transactions are essential for all
+serious apps” nor “transactions destroy scalability” is universally true. Transactions are a design trade-off,
+and the right choice depends on your application’s needs.
 
 
 
