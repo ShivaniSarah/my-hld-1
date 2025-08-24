@@ -166,7 +166,8 @@ and the right choice depends on your application’s needs.
 
 
 
-Perfect — this section is about ACID, the classic way of describing the guarantees that transactions are supposed to provide. But it’s also pointing out that in practice, ACID is not as strict or uniform as people assume. Let’s break it down:
+Perfect — this section is about ACID, the classic way of describing the guarantees that transactions are supposed to provide.
+But it’s also pointing out that in practice, ACID is not as strict or uniform as people assume. Let’s break it down:
 
 🔴 What is ACID?
 
@@ -190,7 +191,8 @@ One transaction should behave as if it’s the only one running.
 
 Example: If two people try to book the last ticket at the same time, only one succeeds.
 
-⚠️ Ambiguity: There are different isolation levels (read committed, repeatable read, snapshot isolation, serializable). Different databases implement these differently, so “isolation” is not uniform.
+⚠️ Ambiguity: There are different isolation levels (read committed, repeatable read, snapshot isolation, serializable).
+Different databases implement these differently, so “isolation” is not uniform.
 
 Durability → Once committed, the transaction survives crashes.
 
@@ -218,7 +220,8 @@ Soft state → Data may change or appear inconsistent temporarily.
 
 Eventual consistency → If no new updates happen, all replicas will eventually converge to the same state.
 
-⚠️ But BASE is very vague — it basically just means “not ACID”. It doesn’t pin down what you actually get. Each NoSQL system defines its own meaning.
+⚠️ But BASE is very vague — it basically just means “not ACID”. It doesn’t pin down what you actually get.
+Each NoSQL system defines its own meaning.
 
 🟢 Why This Matters
 
@@ -228,10 +231,13 @@ If you hear “this DB is ACID-compliant”, don’t assume it behaves exactly l
 
 Always check the details of isolation levels, durability guarantees, and failure cases in that system.
 
-Similarly, if a system says it’s “BASE”, that only tells you it weakens ACID guarantees — you need to dig deeper to know which guarantees are relaxed.
+Similarly, if a system says it’s “BASE”, that only tells you it weakens ACID guarantees — you need to dig deeper to know
+which guarantees are relaxed.
 
 ✅ In short:
-ACID is the classic framework for transaction guarantees, but in practice each database interprets it differently, especially around isolation. That’s why “ACID compliant” has become a vague marketing phrase. BASE was introduced as a “not-ACID” philosophy for distributed systems, but it’s even less precise.
+ACID is the classic framework for transaction guarantees, but in practice each database interprets it differently, especially around 
+isolation. That’s why “ACID compliant” has become a vague marketing phrase. BASE was introduced as a “not-ACID” philosophy for
+distributed systems, but it’s even less precise.
 
 
 
@@ -261,7 +267,8 @@ It’s not about concurrency (that’s handled by Isolation, the I in ACID).
 
 It’s about fault tolerance during multi-step operations:
 
-If a transaction has several writes, but a failure occurs partway through (crash, network issue, disk full, constraint violation, etc.), then:
+If a transaction has several writes, but a failure occurs partway through (crash, network issue, disk full, constraint violation, etc.),
+then:
 
 Either all writes take effect (commit) ✅
 
@@ -316,7 +323,8 @@ Consistent hashing → A partitioning/rebalancing algorithm (totally different m
 
 CAP theorem consistency → Means linearizability, i.e., reads always reflect the most recent write.
 
-ACID consistency → The one we’re talking about here: the idea that the database should always remain in a valid state, according to application rules (invariants).
+ACID consistency → The one we’re talking about here: the idea that the database should always remain in a valid state, according to
+application rules (invariants).
 
 ⚠️ Problem: all these mean different things, but share the same word, which creates confusion.
 
@@ -358,7 +366,8 @@ Joe Hellerstein famously said the C was “tossed in to make the acronym work.�
 
 It wasn’t even considered a key property originally.
 
-Because really, “consistency” isn’t something the database ensures — it’s the app’s job to define and enforce its business rules using transactions.
+Because really, “consistency” isn’t something the database ensures — it’s the app’s job to define and enforce 
+its business rules using transactions.
 
 ✅ In short
 
@@ -431,10 +440,12 @@ Isolation (in ACID) = transactions don’t interfere with each other → final r
 
 Serializable = strongest form of isolation, but costly.
 
-In practice, most databases use weaker isolation levels (like read committed, repeatable read, or snapshot isolation) to balance correctness with performance.
+In practice, most databases use weaker isolation levels (like read committed, repeatable read, or snapshot isolation) 
+to balance correctness with performance.
 
 ✅ In short:
-Isolation prevents race conditions by making concurrent transactions behave as if they ran one after another. The strongest form (serializability) is safest but slow, so most real-world databases compromise with weaker forms like snapshot isolation.
+Isolation prevents race conditions by making concurrent transactions behave as if they ran one after another. 
+The strongest form (serializability) is safest but slow, so most real-world databases compromise with weaker forms like snapshot isolation.
 
 
 
@@ -444,7 +455,8 @@ Isolation prevents race conditions by making concurrent transactions behave as i
 
 🔹 What is Durability?
 
-Durability means that once the database tells you your transaction is successful, your data is guaranteed to be safe and not lost, even if:
+Durability means that once the database tells you your transaction is successful, your data is guaranteed to be safe and not lost,
+even if:
 
 The server crashes,
 
@@ -472,7 +484,8 @@ Replicated database (multiple machines/nodes):
 
 Durability means the transaction isn’t considered committed until the data is safely copied to a certain number of replicas.
 
-For instance, in a distributed system like MongoDB or Cassandra, you might wait until at least majority replicas have acknowledged the write before calling it durable.
+For instance, in a distributed system like MongoDB or Cassandra, you might wait until at least majority replicas have acknowledged
+the write before calling it durable.
 
 🔹 Limits of Durability
 
@@ -493,7 +506,8 @@ Suppose you transfer ₹10,000 from Account A to Account B.
 
 Once the database says “Transaction Successful”, you can trust that money is moved.
 
-Even if the database server crashes immediately after, when it restarts, it will recover from the WAL or replicas, and the money will still be in Account B.
+Even if the database server crashes immediately after, when it restarts, it will recover from the WAL or replicas, and the money will
+still be in Account B.
 
 If the database didn’t ensure durability, a crash might make your money disappear or double-spend—which would be disastrous.
 
@@ -503,7 +517,8 @@ If the database didn’t ensure durability, a crash might make your money disapp
 
 
 
-Great question — this section is digging deeper into the real-world challenges of durability. On paper, durability sounds simple: “Once committed, data will never be lost.”
+Great question — this section is digging deeper into the real-world challenges of durability. On paper, durability sounds simple:
+“Once committed, data will never be lost.”
 But in practice, there are many failure scenarios that make it much messier.
 
 Let’s break it down:
@@ -524,7 +539,8 @@ Writing to disk (single machine):
 
 ✅ Data is safe from crashes.
 
-❌ If the machine dies (hardware failure, fire, power supply blowout), the data is trapped → inaccessible until you repair or move the disk.
+❌ If the machine dies (hardware failure, fire, power supply blowout), the data is trapped → inaccessible until you repair or move
+the disk.
 
 Replication across machines:
 
@@ -536,7 +552,8 @@ Replication across machines:
 
 Hardware unreliability:
 
-SSDs sometimes fail to honor durability guarantees, especially under sudden power loss. Even fsync (the command to force writing to disk) isn’t always reliable.
+SSDs sometimes fail to honor durability guarantees, especially under sudden power loss. Even fsync (the command to force writing to disk)
+isn’t always reliable.
 
 Hard drives vs. SSDs:
 
@@ -544,7 +561,8 @@ SSDs → bad blocks (30–80% develop some in 4 years).
 
 HDDs → more complete failures.
 
-Disks/SSDs can also suffer silent corruption (data “rots” or flips bits without warning). If corruption spreads to replicas/backups, you may only recover from older backups.
+Disks/SSDs can also suffer silent corruption (data “rots” or flips bits without warning). If corruption spreads to replicas/backups,
+you may only recover from older backups.
 
 Filesystems and storage engines:
 
@@ -583,7 +601,8 @@ Always treat durability guarantees with a “healthy grain of salt.”
 
 
 
-Perfect question 👌—this section is showing the practical difference between single-object and multi-object operations, and why transactions (atomicity + isolation) matter in real-world apps. Let’s break it down:
+Perfect question 👌—this section is showing the practical difference between single-object and multi-object operations, 
+and why transactions (atomicity + isolation) matter in real-world apps. Let’s break it down:
 
 🔹 The Role of Atomicity and Isolation
 
@@ -591,7 +610,8 @@ Atomicity (all-or-nothing):
 If a multi-step operation fails halfway, none of its effects should remain. Otherwise, you risk partial updates → inconsistent state.
 
 Isolation (don’t interfere):
-While multiple transactions run at the same time, each one should behave as if it’s the only one. This prevents users from seeing “half-finished” work (dirty reads, inconsistent counters, etc.).
+While multiple transactions run at the same time, each one should behave as if it’s the only one. This prevents users from seeing
+“half-finished” work (dirty reads, inconsistent counters, etc.).
 
 🔹 Why Multi-Object Transactions Matter
 
@@ -625,7 +645,8 @@ If anything fails, changes are rolled back.
 If multiple clients run transactions at the same time, the DB enforces isolation rules so no one sees a half-finished transaction.
 
 👉 Usually bound to a TCP connection between client ↔ server.
-⚠️ Problem: if connection drops at the wrong time (e.g., after you send COMMIT but before acknowledgment), the client may not know if the transaction was committed or aborted.
+⚠️ Problem: if connection drops at the wrong time (e.g., after you send COMMIT but before acknowledgment), the client may not know
+if the transaction was committed or aborted.
 → Some databases add transaction IDs (not tied to a single connection) to solve this.
 
 🔹 How Many Nonrelational (NoSQL) Databases Differ
@@ -721,7 +742,8 @@ This prevents lost updates in concurrent environments.
 
 Some marketing calls these “lightweight transactions” or even “ACID.”
 
-Misleading ❌ → because true transactions usually mean grouping multiple operations across multiple objects with atomicity + isolation + durability.
+Misleading ❌ → because true transactions usually mean grouping multiple operations across multiple objects
+with atomicity + isolation + durability.
 
 CAS and atomic increment only give guarantees at the single-object level.
 
@@ -741,7 +763,8 @@ Full ACID transactions matter when you need to coordinate multiple objects at on
 
 🔹 Why Multi-Object Transactions Are Needed
 
-Some distributed databases drop multi-object transactions (because they’re complex + slow across partitions), but many applications cannot function correctly without them.
+Some distributed databases drop multi-object transactions (because they’re complex + slow across partitions), 
+but many applications cannot function correctly without them.
 
 Here are the main reasons:
 
@@ -856,7 +879,8 @@ So you can visually compare "with transactions" vs. "without transactions"?
 ###### Handling errors and aborts
 
 
-Great — this section is about how errors and aborts are handled in transactions, and why abort + retry is powerful but not always simple. Let me explain step by step:
+Great — this section is about how errors and aborts are handled in transactions, 
+and why abort + retry is powerful but not always simple. Let me explain step by step:
 
 🔹 The Philosophy of Transactions (ACID DBs)
 
@@ -867,7 +891,8 @@ Instead → abort the transaction completely, roll back any partial changes.
 This makes life simpler: the client can just retry the whole transaction safely.
 
 👉 Example:
-You transfer money from Account A to Account B. If the DB crashes after subtracting from A but before adding to B → rollback puts A’s money back, so nothing is lost.
+You transfer money from Account A to Account B. If the DB crashes after subtracting from A 
+but before adding to B → rollback puts A’s money back, so nothing is lost.
 
 🔹 Contrast: Leaderless Replication Systems
 
@@ -942,7 +967,8 @@ If the client itself dies before completing retries, the intended data may be lo
 
 Aborts are good: they let you retry safely, instead of leaving half-finished data.
 
-But retries require careful handling: deduplication, backoff, knowing when not to retry, handling side effects, and surviving client crashes.
+But retries require careful handling: deduplication, backoff, knowing when not to retry, handling side effects, 
+and surviving client crashes.
 
 Without transactions, this burden shifts onto the application, which makes systems much more fragile.
 
@@ -952,7 +978,8 @@ Without transactions, this burden shifts onto the application, which makes syste
 ####### Weak Isolation Levels
 
 
-Perfect question 👍 this section is introducing weak isolation levels — one of the trickiest but most important concepts in databases. Let’s carefully unpack it.
+Perfect question 👍 this section is introducing weak isolation levels — 
+one of the trickiest but most important concepts in databases. Let’s carefully unpack it.
 
 🔹 The Problem: Concurrency
 
@@ -1008,7 +1035,8 @@ Corrupted customer data.
 
 Some people say: “Just use an ACID database for financial data!”
 
-Problem: even many popular “ACID” relational databases (e.g., PostgreSQL, MySQL, Oracle, SQL Server) often don’t use full serializable isolation by default.
+Problem: even many popular “ACID” relational databases (e.g., PostgreSQL, MySQL, Oracle, SQL Server) 
+often don’t use full serializable isolation by default.
 
 Instead, they use weaker levels like Read Committed or Repeatable Read.
 
@@ -1020,7 +1048,8 @@ You need to understand the exact isolation level your database provides.
 
 Then → design your application to handle the race conditions it allows.
 
-The upcoming sections (in the book) go over different weak isolation levels (like Read Uncommitted, Read Committed, Repeatable Read, Snapshot Isolation), explaining what race conditions they allow.
+The upcoming sections (in the book) go over different weak isolation levels 
+(like Read Uncommitted, Read Committed, Repeatable Read, Snapshot Isolation), explaining what race conditions they allow.
 
 ✅ So this section is basically saying:
 
@@ -1175,7 +1204,8 @@ Total = $900 (looks like $100 vanished).
 
 This anomaly = Read Skew / Nonrepeatable Read.
 
-👉 It’s acceptable under Read Committed because the values Alice read were indeed committed at those exact times, but the snapshot wasn’t consistent.
+👉 It’s acceptable under Read Committed because the values Alice read were indeed committed at those exact times,
+but the snapshot wasn’t consistent.
 
 Why Read Skew is a Problem
 
@@ -1615,7 +1645,8 @@ Automatic lost update detection ❌
 
 Works for lost updates, but not for write skew.
 
-Databases like PostgreSQL (repeatable read), MySQL/InnoDB (repeatable read), Oracle (serializable), SQL Server (snapshot isolation) → do not automatically prevent write skew.
+Databases like PostgreSQL (repeatable read), MySQL/InnoDB (repeatable read), Oracle (serializable),
+SQL Server (snapshot isolation) → do not automatically prevent write skew.
 
 Requires true serializable isolation.
 
@@ -1792,9 +1823,11 @@ Write skew and phantom anomalies are particularly tricky and unsafe under weaker
 
 The situation is frustrating because:
 
-Isolation levels are confusing → Hard to understand, vary across databases (e.g., “repeatable read” means different things in PostgreSQL vs MySQL).
+Isolation levels are confusing → Hard to understand, vary across databases 
+(e.g., “repeatable read” means different things in PostgreSQL vs MySQL).
 
-Hard to check correctness → In a large app, it’s difficult to know whether code is safe at a certain isolation level since many things may happen concurrently.
+Hard to check correctness → In a large app, it’s difficult to know 
+whether code is safe at a certain isolation level since many things may happen concurrently.
 
 Few tools exist → Detecting race conditions is hard. Testing doesn’t help much because concurrency bugs appear only with unlucky timing.
 
@@ -1925,7 +1958,8 @@ VoltDB doesn’t replicate writes directly.
 
 Instead, it runs the same stored procedure on each replica.
 
-Requires determinism → stored procedures must always produce the same result across replicas (e.g., date/time must come from deterministic APIs).
+Requires determinism → stored procedures must always produce the same result across replicas 
+(e.g., date/time must come from deterministic APIs).
 
 Partitioning
 The Need for Partitioning
@@ -2084,7 +2118,8 @@ Predicate Locks
 
 The phantom problem (new rows appearing that affect a transaction’s earlier query) must also be prevented under serializability.
 
-Example: Room booking system → If A searches for free slots in room 123 at noon, another transaction B should not be allowed to insert a new conflicting booking at the same time.
+Example: Room booking system → If A searches for free slots in room 123 at noon, 
+another transaction B should not be allowed to insert a new conflicting booking at the same time.
 
 How Predicate Locks Work
 
@@ -2168,7 +2203,8 @@ Strong isolation (serializability) → safe but bad performance (e.g., Two-Phase
 
 Weak isolation → faster but risky (race conditions like lost updates, write skew, phantoms).
 
-SSI is a new algorithm (first described in 2008) that tries to give us the best of both worlds: full serializability with performance close to snapshot isolation.
+SSI is a new algorithm (first described in 2008) that tries to give us the best of both worlds: 
+full serializability with performance close to snapshot isolation.
 
 Used in PostgreSQL (since v9.1) and FoundationDB.
 
@@ -2328,7 +2364,8 @@ SSI works best when read-write transactions are short.
 
 Long read-only transactions are still fine.
 
-👉 In practice: SSI is more predictable and scales better than 2PL or serial execution, though it still needs careful design to avoid too many aborts.
+👉 In practice: SSI is more predictable and scales better than 2PL or serial execution,
+though it still needs careful design to avoid too many aborts.
 
 
 
@@ -2336,9 +2373,11 @@ Long read-only transactions are still fine.
 ########## 📌 Summary of Transactions Chapter
 ✅ Purpose of Transactions
 
-Transactions are an abstraction that hides many types of concurrency issues and system faults (hardware/software crashes, power loss, etc.).
+Transactions are an abstraction that hides many types of concurrency issues and system faults 
+(hardware/software crashes, power loss, etc.).
 
-Instead of applications handling these problems directly, the database reduces them to a simple “transaction abort”, and the application just retries.
+Instead of applications handling these problems directly, 
+the database reduces them to a simple “transaction abort”, and the application just retries.
 
 This dramatically simplifies application logic.
 
@@ -2346,7 +2385,8 @@ This dramatically simplifies application logic.
 
 Simple apps (e.g., only reading/writing a single record at a time) may not need transactions.
 
-Complex apps (involving multiple records, conditions, or queries) benefit greatly since transactions prevent inconsistent states and reduce error scenarios.
+Complex apps (involving multiple records, conditions, or queries)
+benefit greatly since transactions prevent inconsistent states and reduce error scenarios.
 
 ✅ Risks Without Transactions
 
@@ -2456,7 +2496,8 @@ But in distributed databases, transactions face even tougher challenges (to be d
 
 📌 Bottom Line
 
-Transactions simplify correctness: instead of many possible failure and concurrency issues, applications only need to handle transaction abort & retry.
+Transactions simplify correctness: instead of many possible failure and concurrency issues,
+applications only need to handle transaction abort & retry.
 
 Isolation levels matter:
 
@@ -2483,13 +2524,15 @@ Writing to non-volatile storage (HDD/SSD, not just RAM).
 
 Using a Write-Ahead Log (WAL) → changes are written to a log before being applied, so the DB can recover if corruption occurs.
 
-On a replicated database, durability can also mean the data is successfully copied to a certain number of replicas before confirming commit.
+On a replicated database, durability can also mean the data is successfully copied to
+a certain number of replicas before confirming commit.
 
 To provide true durability, the DB waits until these writes/replications finish before telling the client: “Your transaction is committed.”
 
 ⚠️ But, perfect durability doesn’t exist → if all disks + backups are destroyed, nothing can save the data.
 
-So durability is a guarantee against ordinary failures, but not against catastrophic events without proper backups + disaster recovery planning.
+So durability is a guarantee against ordinary failures,
+but not against catastrophic events without proper backups + disaster recovery planning.
 
 👉 Do you want me to also compare Durability vs Reliability so you can clearly distinguish them?
 
@@ -2519,7 +2562,8 @@ In ANSI SQL, Repeatable Read does not prevent phantoms. But in MySQL/InnoDB, Rep
 
 Lost Update handling can differ by database engine → some engines prevent it at Read Committed by default with locks, others don’t.
 
-Write Skew is a special case (two transactions each read overlapping data, then write non-overlapping data, violating a constraint). Only Serializable isolation prevents it fully.
+Write Skew is a special case (two transactions each read overlapping data, then write non-overlapping data, violating a constraint).
+Only Serializable isolation prevents it fully.
 
 👉 Do you want me to also create a real-world analogy/example for each anomaly so you can instantly recall what they mean?
 
