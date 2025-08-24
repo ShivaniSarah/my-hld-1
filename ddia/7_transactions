@@ -308,6 +308,85 @@ In databases: atomicity = no partial transaction results. If a transaction fails
 The benefit: applications don’t have to worry about partial updates — they can just retry safely.
 
 
+How atomicity is implemented in DB ??
+
+
+Great question 👍 Let’s break down how atomicity is actually implemented in a database.
+
+🔹 Atomicity Recap
+
+Atomicity = all-or-nothing property of a transaction.
+
+If a transaction succeeds → all its changes are visible.
+
+If it fails or crashes midway → none of its changes remain.
+
+🔹 How DBMS Implements Atomicity
+
+Write-Ahead Logging (WAL)
+
+Before modifying actual data pages, the DBMS writes an undo log record describing how to reverse the change.
+
+Guarantee:
+
+If transaction aborts → DBMS reverts using undo log.
+
+If crash occurs → recovery process reads the log and undoes incomplete transactions.
+
+Example: In PostgreSQL, MySQL (InnoDB), Oracle → WAL is the main mechanism.
+
+Shadow Paging
+
+Instead of updating data in-place, the DBMS makes a shadow copy of pages.
+
+Only when the transaction commits, the new copy becomes official (by flipping a pointer).
+
+If it aborts → simply discard shadow pages.
+
+Simpler, but less common today because it’s less efficient for large datasets.
+
+Checkpoints + Recovery
+
+Periodic checkpoints are taken so recovery doesn’t need to replay the entire log.
+
+During recovery:
+
+Incomplete transactions are rolled back (undo).
+
+Completed transactions are replayed if needed (redo).
+
+Concurrency Control Integration
+
+Atomicity is tightly linked to isolation.
+
+For example, if a transaction aborts because of a deadlock → DBMS uses undo logs to restore data.
+
+🔹 Example Walkthrough (with WAL)
+
+Suppose transaction T1:
+
+BEGIN;
+UPDATE account SET balance = balance - 100 WHERE id = 1;
+UPDATE account SET balance = balance + 100 WHERE id = 2;
+COMMIT;
+
+
+Step 1: Before changing data, DBMS writes undo logs:
+
+"If balance of A changes, old value = X"
+
+"If balance of B changes, old value = Y"
+
+Step 2: DBMS applies updates to in-memory buffer pages.
+
+Step 3: On COMMIT, DBMS writes a "commit record" in the log and flushes it to disk.
+
+Step 4: If crash happens before commit record → undo changes using log.
+
+Step 5: If commit record exists but changes not flushed → redo them from log.
+
+✅ Guarantee: Either both updates happen (transfer completed) or neither happens (transfer never happened).
+
 
 
 ###### Consistency
