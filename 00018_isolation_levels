@@ -26,9 +26,13 @@ Phenomenon
 | Phenomenon                          | Description                                                                                            |
 | ---------------------------------   | ------------------------------------------------------------------------------------------------------ |
 | **Dirty Read**                      | A transaction reads uncommitted changes made by another transaction.                                   |
-| **Non-Repeatable Read/ Read Skew**  | A row read twice within a transaction gives different results because another transaction modified it. |
+| **Non-Repeatable Read           **  | A row read twice within a transaction gives different results because another transaction modified it. |
 | **Phantom Read**                    | New rows added by another transaction are visible in a repeated query.                                 |
 
+Read skew : Scope: Non-repeatable reads typically involve changes to a single row, while read skew usually involves 
+inconsistencies across multiple rows.
+
+Write Skew or Short Fork, happens when two committed transactions write different objects, and each fails to observe the other's write.
 
 🧱 ANSI SQL Isolation Levels
 
