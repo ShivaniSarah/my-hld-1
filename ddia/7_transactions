@@ -1926,6 +1926,19 @@ Naming is confusing: "Repeatable Read" and "Serializable" often mean different t
 Always check your DB’s documentation to understand what isolation level really guarantees!
 
 
+Yes, snapshot isolation prevents lost updates because each transaction operates on a 
+consistent snapshot of the data, and if a transaction attempts to modify data that has been changed since
+its snapshot began, an update conflict is raised, forcing the transaction to retry. This mechanism ensures 
+that the second transaction does not overwrite the first one's changes, preventing a lost update scenario. 
+How Snapshot Isolation Prevents Lost Updates
+1. A Consistent View: When a transaction starts, snapshot isolation provides it with a consistent "snapshot" of the database, 
+meaning it reads a version of the data as it existed at that moment. 
+2. Isolation from Concurrent Changes: While the transaction is running, it is isolated from other concurrent transactions, 
+including those that modify the data it's working with. 
+3. Detecting Conflicts: If another transaction commits a change to a row that the first transaction's snapshot included, and 
+the first transaction later tries to write to that same row, the database detects an update conflict. 
+4. Conflict Resolution: Instead of allowing the update and losing the previous change, the database will typically roll back
+the first transaction and require it to be retried to obtain a new, more current snapshot
 
 
 ##### Preventing Lost Updates
