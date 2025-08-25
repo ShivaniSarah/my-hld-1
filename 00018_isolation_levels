@@ -32,12 +32,12 @@ Phenomenon
 
 🧱 ANSI SQL Isolation Levels
 
-| Level                | Dirty Read  | Non-Repeatable Read | Phantom Read | Notes                                              |
-| -------------------- | ----------- | ------------------- | ------------ | -------------------------------------------------- |
-| **Read Uncommitted** | ✅ Allowed   | ✅ Allowed           | ✅ Allowed    | Fastest but unsafe                                 |
-| **Read Committed**   | ❌ Prevented | ✅ Allowed           | ✅ Allowed    | Default in many systems (e.g., SQL Server, Oracle) |
-| **Repeatable Read**  | ❌ Prevented | ❌ Prevented         | ✅ Allowed    | Default in MySQL InnoDB                            |
-| **Serializable**     | ❌ Prevented | ❌ Prevented         | ❌ Prevented  | Most strict and safest, but slowest                |
+| Level                               | Dirty Read  | Non-Repeatable Read | Phantom Read | Notes                                              |
+| ----------------------------        | ----------- | ------------------- | ------------ | -------------------------------------------------- |
+| **Read Uncommitted**                | ✅ Allowed   | ✅ Allowed           | ✅ Allowed    | Fastest but unsafe                                 |
+| **Read Committed**                  | ❌ Prevented | ✅ Allowed           | ✅ Allowed    | Default in many systems (e.g., SQL Server, Oracle) |
+| **Repeatable Read/ Snapshot **      | ❌ Prevented | ❌ Prevented         | ✅ Allowed    | Default in MySQL InnoDB                            |
+| **Serializable**                    | ❌ Prevented | ❌ Prevented         | ❌ Prevented  | Most strict and safest, but slowest                |
 
 
 📦 Summary Table
