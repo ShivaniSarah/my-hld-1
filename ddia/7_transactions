@@ -468,7 +468,8 @@ Great question 👍 Let’s break down Consistency in databases and how it is im
 
 🔹 What is Consistency (in ACID)?
 
-Consistency means that a transaction moves the database from one valid state to another valid state according to rules, constraints, and invariants defined on the data.
+Consistency means that a transaction moves the database from one valid state to another valid state
+according to rules, constraints, and invariants defined on the data.
 
 After any committed transaction, all integrity constraints (like foreign keys, unique keys, business rules, triggers, etc.) must hold true.
 
@@ -534,7 +535,8 @@ COMMIT;
 If balance goes below 0 → DBMS enforces rollback → consistency preserved.
 
 ✅ In short:
-Consistency in DB is implemented through constraints, triggers, data types, and rules at schema + transaction level. If violated, the DB engine rolls back the transaction to keep the system in a valid state.
+Consistency in DB is implemented through constraints, triggers, data types, and rules at schema + transaction level.
+If violated, the DB engine rolls back the transaction to keep the system in a valid state.
 
 
 Consistency in CAP whatis ? is it same as replication consistency ??????
@@ -549,7 +551,8 @@ Every read receives the most recent write or an error.
 
 In other words: all nodes in a distributed system appear as if there is a single up-to-date copy of the data.
 
-If a client writes data and then another client immediately reads, the read will always return the latest committed value (no stale reads).
+If a client writes data and then another client immediately reads, the read will always return the latest committed
+value (no stale reads).
 
 This is also called linearizability or strong consistency.
 
