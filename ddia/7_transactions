@@ -1734,6 +1734,9 @@ Total = $900 (looks like $100 vanished).
 
 This anomaly = Read Skew / Nonrepeatable Read.
 
+Scope: Non-repeatable reads typically involve changes to a single row,
+while read skew usually involves inconsistencies across multiple rows.
+
 👉 It’s acceptable under Read Committed because the values Alice read were indeed committed at those exact times,
 but the snapshot wasn’t consistent.
 
@@ -2115,6 +2118,8 @@ In replicated databases, conflict resolution strategies (like commutative ops) a
 
 ###### Write Skew and Phantoms
 
+Write Skew or Short Fork, happens when two committed transactions write different objects, and each fails to observe the other's write.
+**Phantom Read**                New rows added by another transaction are visible in a repeated query. 
 
 ✍️ Write Skew and Phantoms
 
