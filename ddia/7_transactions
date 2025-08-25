@@ -1774,7 +1774,7 @@ Makes reasoning easier (data doesn’t "shift under your feet").
 
 Supported in PostgreSQL, MySQL (InnoDB), Oracle, SQL Server, etc.
 
-Implementing Snapshot Isolation
+###### Implementing Snapshot Isolation
 
 Snapshot isolation builds on the same foundation as Read Committed, but with enhancements.
 
@@ -1826,7 +1826,7 @@ Old row ($500) → marked deleted by txid 13.
 
 New row ($400) → created by txid 13.
 
-Visibility Rules for a Consistent Snapshot
+###### Visibility Rules for a Consistent Snapshot
 
 When a transaction reads, it decides which rows are visible using rules:
 
@@ -1857,7 +1857,7 @@ Even if other transactions update or delete rows → they keep reading the "froz
 
 This makes queries consistent, but DB must store multiple versions until safe to clean.
 
-Indexes and Snapshot Isolation
+###### Indexes and Snapshot Isolation
 
 Indexes must also work with MVCC.
 
@@ -1881,7 +1881,7 @@ Each root = consistent snapshot.
 
 Garbage collection compacts old data.
 
-Repeatable Read and Naming Confusion
+###### Repeatable Read and Naming Confusion
 
 Here’s where it gets messy:
 
@@ -2139,7 +2139,7 @@ Both commit → 0 doctors remain on call ❌
 
 👉 The rule has been violated due to concurrent execution.
 
-🧩 Characterizing Write Skew
+######  🧩 Characterizing Write Skew
 
 This anomaly is called Write Skew.
 
@@ -2208,7 +2208,8 @@ FOR UPDATE locks the rows returned.
 
 Prevents two doctors from leaving at the same time.
 
-📚 More Examples of Write Skew
+###### 📚 More Examples of Write Skew
+
 1. Meeting Room Booking
 
 Rule: No two bookings for the same room at the same time.
@@ -2267,7 +2268,8 @@ Combined, balance becomes negative ❌.
 
 This is another write skew case.
 
-👻 Phantoms Causing Write Skew
+######  👻 Phantoms Causing Write Skew
+
 General Pattern
 
 A SELECT checks some condition.
@@ -2294,7 +2296,7 @@ If no row exists, SELECT FOR UPDATE can’t lock anything.
 
 These are phantoms.
 
-🧱 Materializing Conflicts
+######  🧱 Materializing Conflicts
 
 How to handle phantoms?
 
@@ -2386,7 +2388,11 @@ Two-Phase Locking (2PL) → the traditional approach for decades.
 
 Optimistic Concurrency Control (e.g., Serializable Snapshot Isolation, SSI) → a newer approach.
 
-Actual Serial Execution
+
+
+###### Actual Serial Execution
+
+
 The Idea
 
 Simplest solution: remove concurrency entirely.
@@ -2417,7 +2423,8 @@ Throughput is limited by a single CPU core.
 
 To maximize throughput, transactions must be restructured.
 
-Encapsulating Transactions in Stored Procedures
+###### Encapsulating Transactions in Stored Procedures
+
 Why Stored Procedures Are Needed
 
 Old idea: make entire user flows (like airline booking) one big transaction.
@@ -2449,7 +2456,8 @@ Stored procedure runs inside the DB, without waiting for client interaction.
 
 Runs very fast (all in memory, no network delays).
 
-Pros and Cons of Stored Procedures
+######  Pros and Cons of Stored Procedures
+
 Problems with Traditional Stored Procedures
 
 Historically unpopular because:
@@ -2491,7 +2499,8 @@ Instead, it runs the same stored procedure on each replica.
 Requires determinism → stored procedures must always produce the same result across replicas 
 (e.g., date/time must come from deterministic APIs).
 
-Partitioning
+######  Partitioning
+
 The Need for Partitioning
 
 Single-threaded execution = limited by one CPU core.
@@ -2518,7 +2527,9 @@ Key-value style data → easy to partition.
 
 Secondary indexes → often require cross-partition work.
 
-Summary of Serial Execution
+
+######  Summary of Serial Execution
+
 
 Serial execution gives serializable isolation but only works under constraints:
 
@@ -2580,7 +2591,8 @@ In 2PL → readers and writers block each other.
 
 Because of this, 2PL guarantees serializability (prevents lost updates, write skew, phantoms, etc.).
 
-Implementation of Two-Phase Locking
+
+######  Implementation of Two-Phase Locking
 
 Used in:
 
@@ -2626,7 +2638,8 @@ Database automatically detects and aborts one transaction.
 
 Aborted transaction must be retried by the application.
 
-Performance of Two-Phase Locking
+
+######  Performance of Two-Phase Locking
 
 Downside: performance cost.
 
@@ -2644,7 +2657,9 @@ Frequent deadlocks → under 2PL they happen often, leading to wasted retries.
 
 Thus, 2PL databases can become slow and unstable under heavy load.
 
-Predicate Locks
+
+######  Predicate Locks
+
 
 The phantom problem (new rows appearing that affect a transaction’s earlier query) must also be prevented under serializability.
 
@@ -2675,7 +2690,8 @@ If any match, A must wait until B finishes.
 
 🔑 Predicate locks prevent phantoms because they also block operations on future rows that would match the query.
 
-Index-Range Locks (Next-Key Locking)
+
+######  Index-Range Locks (Next-Key Locking)
 
 Predicate locks are too expensive (hard to check all conditions).
 
@@ -2740,7 +2756,8 @@ Used in PostgreSQL (since v9.1) and FoundationDB.
 
 Still young, but very promising as a future default.
 
-Pessimistic versus Optimistic Concurrency Control
+
+######  Pessimistic versus Optimistic Concurrency Control
 
 Two-Phase Locking (2PL) → pessimistic.
 
@@ -2766,7 +2783,8 @@ If violated → the transaction aborts and must retry.
 If too many transactions access the same objects, many will abort and retry, adding load.
 But if contention is manageable, it usually outperforms pessimistic approaches.
 
-Decisions Based on an Outdated Premise
+
+######  Decisions Based on an Outdated Premise
 
 Common pattern in snapshot isolation → “write skew”.
 
@@ -2793,6 +2811,10 @@ SSI must detect such outdated premises and abort unsafe transactions.
 How the Database Detects This
 
 Two main cases:
+
+
+##### Detecting stale MVCC reads
+
 
 1. Detecting Reads of a Stale MVCC Object Version
 
@@ -2828,6 +2850,10 @@ If the other transaction aborts, then the read wasn’t stale after all.
 
 Waiting avoids unnecessary aborts → preserving long-running read performance.
 
+
+##### Detecting writes that affect prior reads
+
+
 2. Detecting Writes That Affect Prior Reads
 
 A second danger: another transaction modifies data after it has been read.
@@ -2856,7 +2882,8 @@ Transaction 42 commits first → succeeds.
 
 Transaction 43 tries to commit later → aborts (because its read was outdated by 42’s write).
 
-Performance of Serializable Snapshot Isolation
+
+#####  Performance of Serializable Snapshot Isolation
 
 Key factors that influence performance:
 
