@@ -827,7 +827,8 @@ The Write-Ahead Log (WAL) is typically stored on disk, not just in RAM. Here’s
 
 RAM is volatile → if the database or server crashes, anything only in RAM is lost.
 
-To guarantee durability (the “D” in ACID), the WAL must be written to non-volatile storage (disk, SSD, or sometimes NVRAM) before a transaction is acknowledged as committed.
+To guarantee durability (the “D” in ACID), the WAL must be written to non-volatile storage (disk, SSD, 
+or sometimes NVRAM) before a transaction is acknowledged as committed.
 
 How it works:
 
@@ -839,7 +840,8 @@ This is usually done with an fsync (force flush to disk) to ensure the OS doesn�
 
 Only after the WAL entry is persisted on disk does the DB return a COMMIT success to the client.
 
-Later, the actual data pages are written to disk (checkpointing), but durability is already guaranteed because the WAL has the full history.
+Later, the actual data pages are written to disk (checkpointing), 
+but durability is already guaranteed because the WAL has the full history.
 
 Optimizations:
 
