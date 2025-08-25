@@ -23,11 +23,11 @@ Isolation levels are defined based on which of these undesirable phenomena are a
 
 Phenomenon	
 
-| Phenomenon              | Description                                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| **Dirty Read**          | A transaction reads uncommitted changes made by another transaction.                                   |
-| **Non-Repeatable Read** | A row read twice within a transaction gives different results because another transaction modified it. |
-| **Phantom Read**        | New rows added by another transaction are visible in a repeated query.                                 |
+| Phenomenon                          | Description                                                                                            |
+| ---------------------------------   | ------------------------------------------------------------------------------------------------------ |
+| **Dirty Read**                      | A transaction reads uncommitted changes made by another transaction.                                   |
+| **Non-Repeatable Read/ Read Skew**  | A row read twice within a transaction gives different results because another transaction modified it. |
+| **Phantom Read**                    | New rows added by another transaction are visible in a repeated query.                                 |
 
 
 🧱 ANSI SQL Isolation Levels
