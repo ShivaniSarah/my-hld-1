@@ -823,6 +823,33 @@ And rolls back incomplete ones
 
 Example: PostgreSQL, Oracle, SQL Server use WAL.
 
+The Write-Ahead Log (WAL) is typically stored on disk, not just in RAM. Here’s why:
+
+RAM is volatile → if the database or server crashes, anything only in RAM is lost.
+
+To guarantee durability (the “D” in ACID), the WAL must be written to non-volatile storage (disk, SSD, or sometimes NVRAM) before a transaction is acknowledged as committed.
+
+How it works:
+
+Transaction modifies data in memory buffers (RAM) first.
+
+Before committing, the changes are appended to the WAL on disk.
+
+This is usually done with an fsync (force flush to disk) to ensure the OS doesn’t keep it in cache.
+
+Only after the WAL entry is persisted on disk does the DB return a COMMIT success to the client.
+
+Later, the actual data pages are written to disk (checkpointing), but durability is already guaranteed because the WAL has the full history.
+
+Optimizations:
+
+Some systems batch fsync calls (group commit) to reduce I/O overhead.
+
+Others use NVRAM, SSD caches, or battery-backed RAM to speed up durable logging.
+
+👉 So the authoritative WAL is on disk. RAM only holds temporary buffers (log buffer) before flushing.
+
+
 2. Checkpointing
 
 Periodically, the DB flushes in-memory pages to disk and writes a checkpoint record.
