@@ -1001,6 +1001,30 @@ Always treat durability guarantees with a “healthy grain of salt.”
 
 
 
+will rollback transactions have their trace in WAL
+
+Yes, the changes made by a transaction that is eventually rolled back are traced in the Write-Ahead Log (WAL). 
+While the original data modification records are logged, a separate undo operation is generated within the WAL to 
+reverse these changes when the rollback occurs. This ensures data integrity by allowing the database to undo uncommitted changes,
+even after a system crash. 
+How it works:
+1. WAL Logging:
+When a transaction modifies data, the changes are first written to the Write-Ahead Log (WAL) before being applied to the actual data pages. 
+2. Undo Log Entries:
+If a transaction is rolled back, the database uses the WAL to find all the operations performed by that transaction. 
+3. Undo Operations:
+For each log record describing a change, a corresponding undo operation is recorded in the WAL. 
+This undo record describes how to reverse the original change. 
+4. Compensation Log Records (CLRs):
+These undo operations generate new log records, often called Compensation Log Records (CLRs), 
+which ensure that even if the system crashes during the undo process, the undone actions can be properly redone or skipped upon restart. 
+5. Reverting Changes:
+The database then applies these undo operations to revert the data to its state before the transaction began, 
+effectively rolling back the transaction. 
+In essence, the WAL serves as a record of both the original changes and the actions needed to reverse them, 
+crucial for maintaining the ACID properties of transactions (Atomicity, Consistency, Isolation, Durability). 
+
+
 
 #####   Single-Object and Multi-Object Operations
 
