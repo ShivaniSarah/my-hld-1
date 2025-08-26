@@ -2213,7 +2213,8 @@ Atomic single-object operations ❌
 
 Don’t help, because multiple rows are involved.
 
-Automatic lost update detection ❌
+Automatic lost update detection ❌ => snalpshot isolation , if a row is written in a snapshot and commited by another transaction, while the current 
+transaction is still processed and uncommited, it is rollback and retried.
 
 Works for lost updates, but not for write skew.
 
