@@ -2010,6 +2010,8 @@ Because this problem is so common, several techniques are used:
 1. Atomic Write Operations
 
 Instead of doing a read-modify-write cycle, some databases allow atomic operations directly.
+This means in a complex query we have subqueries one that read , one that modify and one that update which
+will be converted into 3 steps in a transaction (prone to lost update ), so instead write single query of update
 
 Example (safe increment):
 
