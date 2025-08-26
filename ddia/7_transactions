@@ -2223,7 +2223,7 @@ SQL Server (snapshot isolation) → do not automatically prevent write skew.
 
 Requires true serializable isolation.
 
-Constraints ✅ (sometimes)
+Constraints ✅ (sometimes) => defined by us
 
 Some rules can be enforced using built-in constraints (uniqueness, foreign keys, restricted values).
 
@@ -2231,7 +2231,7 @@ But in this case ("at least one doctor on call"), you’d need a multi-row const
 
 Can sometimes implement with triggers or materialized views.
 
-Explicit locking ✅ (second-best option)
+Explicit locking ✅ (second-best option) => included by us in application code or handled automatically in serializable isolation level
 
 You can lock rows that the transaction depends on:
 
@@ -2245,6 +2245,7 @@ SET on_call = false
 WHERE name = 'Alice'
 AND shift_id = 1234;
 COMMIT;
+
 
 
 FOR UPDATE locks the rows returned.
