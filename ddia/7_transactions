@@ -2430,9 +2430,40 @@ Databases today typically use one of three techniques to implement serializabili
 
 Actual Serial Execution → run one transaction at a time.
 
-Two-Phase Locking (2PL) → the traditional approach for decades.
+Two-Phase Locking (2PL) → the traditional approach for decades. => Pessimistic Concurrency Control 
 
 Optimistic Concurrency Control (e.g., Serializable Snapshot Isolation, SSI) → a newer approach.
+
+
+Conflict (Conflict Serializability)
+
+Meaning: A conflict arises when two transactions access the same data item and at least one is a write.
+
+Types:
+
+WR (Write-Read)
+
+RW (Read-Write)
+
+WW (Write-Write)
+
+Why It Matters: These conflicts can cause non-serializable schedules, which may break correctness (inconsistency).
+
+Resolution:
+
+DBMS checks for conflict-serializability using precedence graphs.
+
+If there are no cycles, the concurrent schedule is equivalent to some serial order.
+
+This is the theory/logic side of concurrency control, not a physical implementation trick.
+
+📌 Example:
+
+T1: Read(x), Write(x)
+
+T2: Write(x)
+Here, WW conflict exists → schedule must ensure correct ordering to maintain serializability.
+
 
 
 
