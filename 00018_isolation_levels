@@ -8,8 +8,24 @@ write
 In a transaction , there can be multiple reads and writes.
 Transaction can be called a step by step process of reads writes deletes updtes like  CRUD
 
+Transaction isolation levels operate at the transaction level within a database, defining how concurrent transactions 
+interact and how data changes from one are visible to others. While not set per table or the entire database,
+you can set a default isolation level for the entire database server, for specific client sessions, or even for individual transactions. 
+How it works:
+Transaction-Specific:
+Isolation levels are applied to individual transactions, controlling the degree of data access and visibility for that
+specific unit of work. 
+Global vs. Session:
+You can set a global default for the database server and override it for individual sessions or transactions using 
+commands like SET TRANSACTION. 
+Balancing Act:
+The choice of isolation level involves a trade-off between performance and data consistency. 
+Lower levels: offer better performance and concurrency but risk more potential concurrency anomalies (e.g., dirty reads, lost updates). 
+Higher levels: provide greater data integrity and consistency but can reduce performance and increase transaction contention. 
 
-In the context of database management systems, isolation levels define the degree to which the operations in one transaction are isolated from those in other concurrent transactions. The goal is to balance data consistency with performance and concurrency.
+
+In the context of database management systems, isolation levels define the degree to which the operations in one transaction are
+isolated from those in other concurrent transactions. The goal is to balance data consistency with performance and concurrency.
 
 
 🔒 ACID "I" – Isolation
@@ -27,12 +43,15 @@ Phenomenon
 | ---------------------------------   | ------------------------------------------------------------------------------------------------------ |
 | **Dirty Read**                      | A transaction reads uncommitted changes made by another transaction.                                   |
 | **Non-Repeatable Read           **  | A row read twice within a transaction gives different results because another transaction modified it. |
-| **Phantom Read**                    | New rows added by another transaction are visible in a repeated query.                                 |
+| **Phantom Read**                    | New rows added/deleted by another transaction are visible in a repeated query.                                 |
 
 Read skew : Scope: Non-repeatable reads typically involve changes to a single row, while read skew usually involves 
 inconsistencies across multiple rows.
 
 Write Skew or Short Fork, happens when two committed transactions write different objects, and each fails to observe the other's write.
+split brain A split-brain in a computer database refers to a state in a distributed system where a network partition or communication failure causes nodes to split into two or more independent, conflicting clusters, leading to data inconsistency and potential data corruption. 
+lost updates The "lost update" problem in a Database Management System (DBMS) is a concurrency issue that arises when multiple transactions attempt to update the same data item simultaneously. This problem occurs when the update made by one transaction is overwritten by another transaction, resulting in the loss of the first transaction's changes.
+materializing conflicts 
 
 🧱 ANSI SQL Isolation Levels
 
