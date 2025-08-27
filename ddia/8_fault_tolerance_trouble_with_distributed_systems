@@ -1,1 +1,100 @@
-..
+CHAPTER 8 – The Trouble with Distributed Systems
+Introduction
+
+This chapter builds on earlier discussions of failures in distributed systems like:
+
+Replica failover (what happens when a node goes down)
+
+Replication lag (inconsistencies when replicas are behind)
+
+Concurrency control (problems when multiple transactions run at the same time).
+
+So far, the picture was already concerning. But here, the author says: we were still too optimistic.
+
+In reality, anything that can go wrong will go wrong.
+
+Engineers working with distributed systems often adopt this pessimistic view because experience shows failures happen in strange, unpredictable ways.
+
+Key Difference: Single Computer vs. Distributed System
+
+On a single computer, behavior is deterministic: if the hardware works, the same input gives the same output.
+
+On a distributed system, things are messier because computers must communicate over a network, and many new types of failures appear.
+
+The chapter’s aim:
+
+Expose problems that arise in real distributed systems.
+
+Understand what can and cannot be relied on.
+
+Set the stage for Chapter 9, which introduces algorithms to handle these challenges.
+
+Faults and Partial Failures
+Behavior of a Single Computer
+
+Normally: it works or doesn’t work.
+
+Software bugs might cause weird behavior (like “bad day” crashes), but:
+
+Good hardware + good software = deterministic execution.
+
+Hardware problems usually cause total failure (e.g., kernel panic, blue screen).
+
+👉 So, computers are designed to fail completely rather than return wrong results.
+
+Returning wrong results is dangerous because it causes confusion.
+
+Instead, systems crash deterministically.
+
+Example: CPU instructions always behave the same way; memory/disk writes remain intact.
+
+This design principle of always-correct computation traces back to the very first digital computers.
+
+Behavior of Distributed Systems
+
+Multiple computers connected by a network cannot guarantee the same idealized model.
+
+The messy physical world introduces:
+
+Network partitions (some nodes can’t reach others).
+
+Hardware failures at different levels (switches, PDUs, racks, even entire data centers).
+
+Unexpected accidents (like the anecdote of a truck crashing into a data center’s HVAC system).
+
+👉 In short, some parts of the system may fail while others work fine.
+
+Partial Failures
+
+Definition: When some parts of the system fail, but others continue working.
+
+Problem: These failures are nondeterministic.
+
+A request involving multiple nodes may sometimes succeed and sometimes fail in unpredictable ways.
+
+Example: You might send a message but never know if it:
+
+Reached the destination,
+
+Got lost in the network, or
+
+Arrived late after a timeout.
+
+👉 Message travel time is also nondeterministic, making it even harder to reason about success or failure.
+
+Why Distributed Systems Are Hard
+
+On a single computer, failures are simple: either the whole thing works or it doesn’t.
+
+In a distributed system, failures can be:
+
+Partial → some nodes respond, others don’t.
+
+Unpredictable → the same operation can behave differently each time.
+
+Invisible → you may not know whether an operation succeeded.
+
+Thus, partial failure + nondeterminism = the core difficulty of distributed systems.
+
+
+
