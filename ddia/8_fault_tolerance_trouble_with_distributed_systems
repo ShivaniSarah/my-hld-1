@@ -1077,3 +1077,1013 @@ Distributed systems cannot fully rely on clocks for correctness → they must as
 
 
 
+
+######  Relying on Synchronized Clocks
+
+
+
+Clocks appear simple, but in distributed systems they come with many pitfalls. Time may drift, jump backward, or differ between nodes, which can cause subtle failures if software depends on synchronized clocks.
+
+The Problem with Clocks
+
+A day is not always exactly 86,400 seconds (because of leap seconds).
+
+Time-of-day clocks may jump backward or forward when corrected.
+
+Different nodes often have different clock values, despite synchronization.
+
+Just like networks can delay or drop packets, clocks can be faulty. Robust software must assume that clocks are sometimes wrong and handle this gracefully.
+
+The challenge is that clock problems often go unnoticed:
+
+If a CPU or network is broken → the machine fails obviously.
+
+If a clock drifts or NTP is misconfigured → the system appears normal, but time slowly drifts out of sync.
+
+The result is not a crash, but silent data loss or incorrect ordering.
+
+➡️ Solution: Systems that rely on synchronized clocks must monitor clock offsets across machines. If a node drifts too far from the cluster’s clocks, it should be declared dead and removed.
+
+
+
+######  Timestamps for Ordering Events
+
+
+One tempting (but dangerous) use of synchronized clocks is to order events across nodes.
+
+Example: Multi-Leader Replication
+
+Client A writes x = 1 on Node 1, replicated to Node 3.
+
+Client B increments x on Node 3 → now x = 2.
+
+Both writes are replicated to Node 2.
+
+Problem:
+
+Node 1’s write has timestamp 42.004s,
+
+Node 3’s write has timestamp 42.003s,
+
+Even though B’s write happened later, it looks earlier due to clock skew.
+
+Node 2 concludes wrongly: x = 1 is more recent, so it discards B’s update.
+
+This is the Last Write Wins (LWW) conflict resolution strategy.
+
+Problems with Last Write Wins (LWW)
+
+Writes can disappear silently
+
+A node with a slow clock cannot overwrite a value written by a node with a faster clock until skew is corrected.
+
+This causes arbitrary data loss, with no error reported.
+
+Cannot distinguish sequential vs. concurrent writes
+
+In the example, B’s increment definitely happened after A’s write.
+
+But LWW treats it the same as if both writes were concurrent.
+
+To fix this, we need causality tracking (e.g., version vectors).
+
+Same timestamps possible
+
+If two nodes generate writes at the same millisecond, timestamps collide.
+
+Systems add a tiebreaker (random number, unique ID).
+
+But this can still violate causality.
+
+Why NTP Can’t Fully Solve This
+
+Even with tight synchronization, clock errors persist.
+
+A packet can be sent at 100 ms (sender’s clock) but arrive at 99 ms (receiver’s clock).
+
+This makes it look like the message arrived before it was sent, which is impossible.
+
+Conclusion: Relying only on physical clocks (time-of-day, monotonic) is unsafe for ordering.
+
+Logical vs Physical Clocks
+
+Physical clocks: measure real time (wall-clock or monotonic).
+
+Logical clocks: measure event ordering, not real time.
+
+Use counters instead of quartz crystals.
+
+Guarantee causal ordering without relying on synchronization.
+
+Safer for distributed systems.
+
+
+
+
+######   Clock Readings Have a Confidence Interval
+
+
+
+Even if you read a clock with microsecond or nanosecond resolution, it’s not that accurate:
+
+Quartz clocks drift several ms per minute.
+
+Best-case NTP (local network) = tens of ms accuracy.
+
+Internet NTP = hundreds of ms error under congestion.
+
+So, a clock reading is not a single exact time → it’s a range with uncertainty.
+
+Example:
+
+System may be 95% confident that the time is between 10.3s and 10.5s.
+
+If uncertainty is ±100 ms, then microsecond digits in a timestamp are meaningless.
+
+Uncertainty =
+
+Quartz drift since last sync.
+
+NTP server’s uncertainty.
+
+Network round-trip delay.
+
+⚠️ Most systems don’t expose uncertainty. For example, clock_gettime() just returns a number, not an error bound.
+
+Google’s TrueTime API (Spanner)
+
+Google’s Spanner database addresses this problem:
+
+TrueTime returns an interval: [earliest, latest].
+
+Actual time is guaranteed to be within this range.
+
+Interval width depends on:
+
+Quartz drift since last sync,
+
+Sync frequency,
+
+Clock source (GPS or atomic clocks).
+
+Using Confidence Intervals
+
+If intervals don’t overlap → ordering is guaranteed.
+
+If intervals overlap → ordering is uncertain.
+
+Commit-Wait Protocol
+
+Spanner waits for the uncertainty interval before committing.
+
+Ensures transaction timestamps reflect causality.
+
+To keep wait short, Spanner minimizes uncertainty using GPS receivers or atomic clocks.
+
+This keeps uncertainty down to about 7 ms.
+
+
+######   Synchronized Clocks for Global Snapshots
+
+
+Snapshot isolation allows long-running read-only queries to see a consistent snapshot.
+
+On a single-node DB → transaction IDs are simple counters.
+
+In distributed DBs → generating global monotonically increasing IDs is hard.
+
+Can we use synchronized clocks as transaction IDs?
+
+If clocks were accurate enough → yes.
+
+But uncertainty prevents correctness.
+
+Spanner’s Solution
+
+Uses TrueTime intervals as transaction IDs.
+
+By waiting out uncertainty, it ensures consistent ordering across datacenters.
+
+Research & Outlook
+
+Using synchronized clocks for transaction semantics is still an active research area.
+
+Outside of Google’s Spanner, mainstream databases do not yet implement such approaches.
+
+✅ That’s the complete breakdown of Relying on Synchronized Clocks, explained with all key points intact.
+
+Would you like me to also make a diagram/flowchart showing:
+
+Physical clocks vs Logical clocks,
+
+Where confidence intervals come in,
+
+And how Spanner’s TrueTime avoids overlap?
+
+
+
+
+
+###### Process Pauses
+
+
+
+In distributed systems, using clocks for leader election or leases can be dangerous because processes may be unexpectedly paused for long periods. Let’s go step by step.
+
+Leader Leases and Clock Reliance
+
+In a system with a single leader per partition, only the leader can accept writes.
+
+To remain leader, a node may hold a lease (like a lock with an expiry time).
+
+A lease guarantees leadership for a fixed period (e.g., 30 seconds).
+
+To continue being leader, the node must periodically renew the lease before it expires.
+
+If it fails, another node can safely take over.
+
+Example loop (simplified):
+
+Continuously process incoming requests.
+
+Before handling, check lease expiration.
+
+Renew lease if too close to expiry.
+
+Process request if lease is still valid.
+
+What’s wrong with this?
+
+Synchronized clock problem:
+
+Lease expiry is often set by another machine.
+
+Comparing it with the local clock assumes clocks are perfectly synchronized.
+
+If clocks are skewed, the node may think it’s still leader when it’s not.
+
+Process pause problem:
+
+Even if only the local monotonic clock is used, the code assumes that very little time passes between checking the lease and processing the request.
+
+If the program unexpectedly pauses (e.g., 15 seconds), the lease may expire mid-processing, meaning another leader has taken over — but the paused node doesn’t know.
+
+Why Can Threads Pause for So Long?
+
+It’s not just a hypothetical risk. Several real-world factors can pause execution:
+
+Garbage Collection (GC) in runtimes
+
+Languages like Java use stop-the-world GC.
+
+Threads may be paused for seconds or even minutes.
+
+Even concurrent GCs (like CMS) still need occasional global pauses.
+
+Virtual Machine suspension
+
+Virtual machines can be paused and resumed (e.g., live migration).
+
+Duration depends on how fast memory state can be copied.
+
+Laptop or end-user devices
+
+Closing a laptop lid suspends execution arbitrarily.
+
+Context switching
+
+OS or hypervisor may switch execution to another thread or VM.
+
+In VMs, this is known as steal time.
+
+Under load, threads may wait a long time to resume.
+
+Disk I/O pauses
+
+Blocking disk operations can stall a thread.
+
+Sometimes hidden (e.g., Java classloader loads files lazily).
+
+Worse if the disk is network-based (e.g., Amazon EBS).
+
+Paging (swapping to disk)
+
+If RAM is low, memory pages get swapped to disk.
+
+Page faults can cause long pauses.
+
+Severe case = thrashing (system spends all time swapping).
+
+Signals like SIGSTOP
+
+A Unix process can be paused (e.g., via Ctrl-Z).
+
+It won’t resume until explicitly continued.
+
+Key point: Any thread may pause at any line of code without warning. Meanwhile, the world (other nodes, clients, network) moves on, possibly declaring the node dead.
+
+
+
+######  Response Time Guarantees
+
+
+
+
+Some systems must respond predictably within deadlines (e.g., airbag systems, aircraft, robotics).
+
+These are hard real-time systems.
+
+If a deadline is missed, the system may fail catastrophically.
+
+Characteristics of real-time systems:
+
+Use a real-time operating system (RTOS) with guaranteed CPU scheduling.
+
+Libraries must state worst-case execution times.
+
+Dynamic memory allocation may be restricted.
+
+Testing ensures deadlines are always met.
+
+
+⚠️ Note:
+
+Real-time ≠ High performance.
+
+Real-time prioritizes predictability, even at the cost of throughput.
+
+Developing such systems is expensive and limited to safety-critical domains.
+
+For server-side distributed systems, real-time is not economical. They run in non-real-time environments and thus must tolerate pauses.
+
+
+
+
+######   Limiting the Impact of Garbage Collection
+
+Even without full real-time guarantees, some strategies reduce GC’s negative impact:
+
+Treat GC pauses like planned outages
+
+Runtime can warn when a GC is about to happen.
+
+The node stops receiving new requests, finishes ongoing work, then pauses.
+
+Other nodes temporarily handle client traffic.
+
+This approach reduces high tail latencies.
+
+Used in latency-sensitive domains like financial trading.
+
+GC only for short-lived objects + periodic restarts
+
+GC of short-lived objects is quick.
+
+Instead of letting long-lived objects accumulate, restart processes before a full GC is required.
+
+Rolling restarts allow shifting traffic away before restart, like upgrades.
+
+Result: These techniques can’t eliminate pauses but can make their impact much smaller.
+
+
+
+
+
+######   Knowledge, Truth, and Lies
+
+Distributed systems behave very differently from single-computer programs. There’s:
+
+No shared memory — only message passing across unreliable networks.
+
+Failures, pauses, and clock issues that make reasoning tricky.
+
+A node never knows for sure what’s true — it can only make guesses based on messages it receives (or fails to receive). For example:
+
+If a remote node doesn’t respond, you can’t tell if it crashed, paused, or if the network dropped the messages.
+
+Because perception itself is unreliable, “truth” in a distributed system isn’t absolute.
+
+Instead of philosophy, distributed systems rely on system models (assumptions about behavior) and algorithms proven correct within those models. This allows reliable behavior despite unreliable foundations.
+
+
+
+######   The Truth Is Defined by the Majority
+
+
+
+Imagine different failure scenarios:
+
+Asymmetric fault: A node receives messages but all its outgoing messages are dropped.
+
+From its view, everything works.
+
+From others’ views, it’s dead (no responses).
+
+Others declare it dead even though it’s alive.
+
+Semi-disconnected awareness: A node notices its outgoing messages aren’t acknowledged, so it realizes something is wrong.
+
+But still, the majority declares it dead.
+
+Stop-the-world pause: A node freezes for a long GC pause (e.g., 1 min).
+
+During that pause, others stop hearing from it and declare it dead.
+
+When it resumes, it thinks no time passed — but it’s already been replaced as “dead.”
+
+Lesson:
+
+A node’s self-judgment cannot be trusted.
+
+Relying on a single node leads to risk of permanent failure.
+
+Quorums (majority voting among nodes) are used instead.
+
+A decision requires votes from a majority.
+
+A node may believe it’s alive, but if the quorum disagrees, it must accept being “dead.”
+
+Majority ensures progress while avoiding conflicting “truths” (there can only be one majority).
+
+
+
+######    The Leader and the Lock
+
+
+
+Some distributed system rules require only one actor at a time:
+
+Only one leader per partition (to avoid split brain).
+
+Only one client holding a lock to prevent corrupting shared data.
+
+Only one user registered with a specific username.
+
+Problem:
+Even if a node thinks it is “the chosen one” (leader, lock holder, etc.), it might not be. For example:
+
+It was leader before but paused (GC, network).
+
+Other nodes declared it dead and elected a new leader.
+
+When it resumes, it still thinks it’s leader, even though the quorum disagrees.
+
+This can cause errors. Example:
+
+A client acquires a lock to write a file.
+
+GC pause → lock expires → another client acquires it → starts writing.
+
+Paused client wakes up, still thinks it holds the lock → writes as well.
+
+Result: file corruption.
+
+This is not theoretical: HBase had this bug.
+
+
+
+######   Fencing Tokens
+
+
+
+To prevent false leaders/lock holders from causing harm, we use fencing:
+
+Every time a lock/lease is granted, the lock server issues a fencing token.
+
+The token is a monotonically increasing number (increments with each new grant).
+
+How it works (example):
+
+Client 1 acquires lock → gets token 33.
+
+Client 1 pauses.
+
+Client 2 acquires same lock → gets token 34.
+
+Client 2 writes to storage, including token 34.
+
+Client 1 resumes → sends write with token 33.
+
+Storage server sees it already processed a higher token (34) → rejects 33.
+
+Thus, the paused client cannot corrupt data.
+
+In ZooKeeper, zxid (transaction ID) or cversion (node version) can serve as fencing tokens.
+
+But this requires the resource itself (e.g., storage server) to validate tokens and reject outdated ones.
+
+It’s unsafe to let clients rely only on themselves to check lock validity.
+
+For resources without built-in fencing, workarounds exist:
+
+Example: include fencing tokens in filenames.
+
+But some server-side check is always needed.
+
+Key benefit:
+
+The service is protected even if clients misbehave.
+
+Since clients are run by different people with different priorities, servers should never blindly trust them.
+
+✅ In summary:
+
+In distributed systems, truth is determined collectively (quorums), not by individual nodes.
+
+Leaders and locks must be carefully managed — pauses and network issues can create “false leaders.”
+
+Fencing tokens are a simple and powerful safeguard against stale nodes corrupting the system.
+
+
+
+
+######   Byzantine Faults
+
+
+Fencing tokens: Used to detect and block nodes that act incorrectly due to errors (e.g., node’s lease expired but it still tries to act).
+
+Problem: If a node is malicious, it could forge fencing tokens and bypass this safeguard.
+
+Assumption in most distributed systems:
+
+Nodes may be unreliable (slow, unresponsive, outdated due to GC pauses or delays).
+
+But they are honest → they don’t deliberately lie.
+
+If nodes can lie (send wrong or corrupted responses), things get much harder.
+
+This type of behavior is called a Byzantine fault.
+
+The problem of reaching agreement despite such behavior is called the Byzantine Generals Problem.
+
+
+
+######   The Byzantine Generals Problem
+
+
+Origin: A generalization of the Two Generals Problem.
+
+Two generals want to coordinate a battle.
+
+Communication is only via messengers, who may be delayed or lost (like network packets).
+
+Hard to guarantee agreement.
+
+Byzantine version:
+
+Now there are n generals.
+
+Some generals may be traitors.
+
+Loyal generals send truthful messages.
+
+Traitors send false or confusing messages to mislead others.
+
+Problem: Nobody knows in advance who the traitors are.
+
+Naming:
+
+Byzantium = ancient Greek city (later Constantinople, now Istanbul).
+
+The name reflects “Byzantine” meaning complex, bureaucratic, devious.
+
+Leslie Lamport chose it to avoid offending anyone (he considered “Albanian Generals Problem” but was advised against it).
+
+Byzantine Fault Tolerance (BFT)
+
+A system is Byzantine fault-tolerant if it works correctly even when:
+
+Some nodes misbehave, don’t follow protocol.
+
+Or if malicious attackers interfere with communication.
+
+Relevant Scenarios:
+
+Aerospace systems:
+
+Radiation may corrupt memory/CPU registers.
+
+Node may send arbitrary/unpredictable responses.
+
+Failures here are catastrophic (plane crash, rocket collision).
+
+Flight control systems must tolerate Byzantine faults.
+
+Multi-organization systems:
+
+Some participants may cheat/mislead others.
+
+Can’t just trust another node’s messages.
+
+Example: Bitcoin/blockchains → consensus among untrusted parties about whether a transaction happened.
+
+Practical Relevance in Datacenter Systems
+
+In datacenters:
+
+All nodes are controlled by one organization.
+
+Radiation not a big problem.
+
+So Byzantine faults are rare.
+
+BFT protocols are complex and expensive.
+
+Embedded aerospace systems use hardware-level support for BFT.
+
+In most server-side systems, BFT cost is impractical.
+
+Web Applications:
+
+Must expect malicious clients (e.g., browsers under user control).
+
+Defense:
+
+Input validation
+
+Sanitization
+
+Output escaping
+
+Prevent SQL injection, XSS, etc.
+
+But here, we don’t use BFT → Instead, server is the authority.
+
+In peer-to-peer networks (no central authority), BFT is much more important.
+
+Bugs and Byzantine Faults
+
+A bug could look like a Byzantine fault.
+
+But if all nodes run the same buggy software, BFT algorithms don’t help.
+
+BFT typically requires:
+
+Supermajority of 2/3+ correct nodes.
+
+Example: With 4 nodes, at most 1 can be faulty.
+
+To use BFT against bugs → need independent implementations (so one bug doesn’t affect all).
+
+Security and Byzantine Faults
+
+It would be nice if protocols protected against attacks or compromises.
+
+But not realistic:
+
+If one node is compromised, likely all can be (since same software stack).
+
+Defense still relies on:
+
+Authentication
+
+Access control
+
+Encryption
+
+Firewalls
+
+etc.
+
+
+
+######  Weak Forms of Lying
+
+
+
+Even though full BFT isn’t practical, systems can guard against weaker forms of lying:
+
+Examples:
+
+Packet corruption:
+
+Happens due to hardware faults, OS bugs, driver bugs, router bugs.
+
+Normally detected by TCP/UDP checksums, but not always.
+
+Defense: application-level checksums.
+
+User input validation:
+
+Public apps must sanitize inputs.
+
+Prevent DOS via oversized payloads.
+
+Internal services (behind firewall) can be less strict, but still should check protocol parsing sanity.
+
+NTP (Network Time Protocol):
+
+Clients configured with multiple servers.
+
+Contact all, estimate errors, find majority agreement.
+
+Detects misconfigured server as an outlier and ignores it.
+
+More robust than relying on a single server.
+
+✅ Summary in one line:
+Byzantine faults occur when nodes can lie or misbehave arbitrarily; while crucial in high-stakes systems (aerospace, blockchains), most datacenter systems avoid the cost of BFT and instead rely on traditional security + lightweight sanity checks for weaker failure modes.
+
+
+
+
+######   System Model and Reality
+
+Distributed algorithms are designed to tolerate the faults we discussed earlier (network unreliability, node crashes, pauses, etc.). To reason about them, we need to abstract away messy hardware/software details by defining a system model—a set of assumptions about timing and failures.
+
+Timing Assumptions in System Models
+
+There are three main models regarding timing:
+
+1. Synchronous Model
+
+Assumes bounded limits for:
+
+Network delay
+
+Process pauses
+
+Clock error (drift)
+
+This does not mean perfect synchronization or zero delay, just that delays never exceed a fixed upper bound.
+
+Unrealistic in practice because real-world systems can have unbounded delays and pauses.
+
+2. Partially Synchronous Model
+
+Behaves like synchronous most of the time but may occasionally exceed bounds.
+
+Example: usually stable network and processes, but sometimes delays or pauses become arbitrarily large.
+
+Most realistic for practical systems, since things usually work fine but can temporarily break timing assumptions.
+
+3. Asynchronous Model
+
+Makes no timing assumptions at all.
+
+No clocks, no timeouts.
+
+Very restrictive, though some algorithms can be designed for it.
+
+Node Failure Models
+
+Besides timing, we must consider node behavior. Three common models:
+
+1. Crash-Stop Faults
+
+Node may suddenly stop responding forever.
+
+Once down, it never comes back.
+
+2. Crash-Recovery Faults
+
+Node may crash, but can recover later.
+
+Assumes stable storage (disk data survives) but in-memory state is lost.
+
+3. Byzantine (Arbitrary) Faults
+
+Nodes may behave in completely arbitrary or malicious ways (e.g., lying, tricking others).
+
+Most Useful Real-World Model
+
+Partially synchronous model with crash-recovery faults
+
+Matches reality: nodes usually behave, but sometimes fail; they can recover with disk persistence.
+
+
+
+######  Correctness of an Algorithm
+
+
+
+Like sorting algorithms have correctness properties (e.g., sorted order), distributed algorithms must also satisfy certain properties.
+
+Example: Fencing Tokens
+
+When generating fencing tokens (unique numbers for locks):
+
+Uniqueness: No two requests return the same token.
+
+Monotonic sequence: If request x finished before y started, then tx < ty.
+
+Availability: A non-crashed node that requests a token eventually gets a response.
+
+An algorithm is correct in a system model if it always satisfies such properties under that model’s assumptions.
+
+
+
+######   Safety and Liveness
+
+
+
+Two categories of properties:
+
+Safety Properties
+
+Definition: Nothing bad happens.
+
+If violated, we can pinpoint the exact moment (e.g., two clients got the same fencing token).
+
+Once broken, cannot be undone.
+
+Liveness Properties
+
+Definition: Something good eventually happens.
+
+Example: A request may not yet be answered, but eventually a response will come.
+
+Always about the future (“eventually”).
+
+Eventual consistency is a liveness property.
+
+Rule of Thumb
+
+Safety must always hold, even if everything crashes.
+
+Liveness is conditional: e.g., guaranteed only if most nodes survive and the network eventually recovers.
+
+
+
+######  Mapping System Models to Reality
+
+
+
+System models are simplified abstractions, but reality is messier:
+
+Stable storage may fail
+
+Data corruption, disk loss, firmware bugs, misconfigurations.
+
+Example: Quorum algorithms fail if a node “forgets” data it promised to store.
+
+Models assume things never happen (e.g., data loss), but in real systems, they sometimes do.
+
+Implementations must handle these “impossible” cases anyway—sometimes just by crashing (exit(666)) and letting humans clean up.
+
+Why Models Still Matter
+
+Abstract models help reduce complexity and make reasoning about correctness possible.
+
+Proving correctness in theory doesn’t guarantee a perfect real-world implementation.
+
+But theoretical proofs are valuable:
+
+They uncover hidden problems earlier.
+
+They prevent surprises in unusual failure conditions.
+
+Both theory and empirical testing are essential in distributed systems.
+
+
+
+
+## Summary
+
+
+This chapter explored the challenges and problems in distributed systems, highlighting why they are inherently difficult and how faults must be tolerated.
+
+Network Issues
+
+When sending a packet:
+
+It may be lost or arbitrarily delayed.
+
+Replies may also be lost or delayed.
+
+If no reply arrives, you cannot tell whether the message was delivered.
+
+Clock Problems
+
+A node’s clock may be out of sync with others.
+
+Despite synchronization protocols like NTP, clocks may:
+
+Drift significantly.
+
+Jump forward or backward suddenly.
+
+It is dangerous to rely on clocks because the error interval is unknown.
+
+Process Pauses
+
+A process may pause unexpectedly (e.g., due to stop-the-world garbage collection).
+
+During this pause:
+
+Other nodes may declare it dead.
+
+When it resumes, it may not even realize it was paused.
+
+Defining Characteristic: Partial Failures
+
+Distributed systems differ from single-computer systems because of partial failures.
+
+Any action involving another node may:
+
+Fail,
+
+Slow down randomly, or
+
+Not respond at all (leading to a timeout).
+
+Goal: build fault tolerance so the system continues working even when some nodes fail.
+
+Fault Detection is Hard
+
+First step: detect failures.
+
+Problem: most systems cannot accurately detect node failure.
+
+Common method: timeouts.
+
+But timeouts cannot distinguish between:
+
+Network failures (message lost in transit), and
+
+Node failures (machine crashed).
+
+Variable delays cause false suspicions of crashes.
+
+A degraded node (“limping”):
+
+Example: a Gigabit NIC suddenly drops to 1 Kb/s due to a bug.
+
+Harder to handle than a completely failed node.
+
+Tolerating Faults is Hard
+
+After detecting a fault, tolerating it is also difficult:
+
+No global variable or shared memory exists.
+
+No common knowledge or universally agreed state.
+
+Even nodes cannot agree on time.
+
+Only way to exchange information: send over the unreliable network.
+
+Major decisions: cannot be made by a single node → require protocols involving multiple nodes and quorums.
+
+Single-Computer vs. Distributed Reality
+
+On a single computer:
+
+Operations are deterministic and predictable.
+
+In distributed systems:
+
+Reality is messy, unpredictable, and failure-prone.
+
+Distributed systems engineers often dismiss problems that could be solved on a single machine as trivial.
+
+If possible, keep everything on one machine to avoid unnecessary complexity.
+
+Why Distributed Systems?
+
+Sometimes, a single machine is not enough.
+
+Goals beyond scalability include:
+
+Fault tolerance (continue running despite failures).
+
+Low latency (place data closer to users).
+
+These goals cannot be achieved on a single node.
+
+Reliability vs. Cost Tradeoff
+
+Is unreliability of networks, clocks, and processes inevitable?
+
+Not exactly. Hard real-time systems can guarantee bounded delays, but:
+
+They are expensive.
+
+They result in lower hardware utilization.
+
+Most non-safety-critical systems choose cheap and unreliable over expensive and reliable.
+
+Supercomputers vs. Distributed Systems
+
+Supercomputers:
+
+Assume components are reliable.
+
+If one fails, the entire system stops and restarts.
+
+Distributed systems:
+
+Can keep running indefinitely.
+
+Faults and maintenance are handled node by node.
+
+⚠️ Exception: if a bad configuration change is rolled out to all nodes, the whole system can fail.
+
+Final Note of the Chapter
+
+This chapter focused mainly on problems in distributed systems, painting a bleak outlook.
+
+The next chapter shifts to solutions, introducing algorithms that help cope with these challenges.
+
+
+
