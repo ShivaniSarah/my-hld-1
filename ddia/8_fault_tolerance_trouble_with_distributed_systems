@@ -29,7 +29,12 @@ Understand what can and cannot be relied on.
 
 Set the stage for Chapter 9, which introduces algorithms to handle these challenges.
 
-Faults and Partial Failures
+
+
+###### Faults and Partial Failures
+
+
+
 Behavior of a Single Computer
 
 Normally: it works or doesn’t work.
@@ -95,6 +100,175 @@ Unpredictable → the same operation can behave differently each time.
 Invisible → you may not know whether an operation succeeded.
 
 Thus, partial failure + nondeterminism = the core difficulty of distributed systems.
+
+
+
+
+
+
+I’ll explain this section with the same headings as in your text so you don’t miss any point.
+
+######  Cloud Computing and Supercomputing
+
+There are different philosophies for building large-scale computing systems.
+
+High-Performance Computing (HPC) / Supercomputing
+
+Used for computationally intensive scientific tasks (e.g., weather forecasting, molecular dynamics).
+
+Built from supercomputers with thousands of CPUs.
+
+Cloud Computing
+
+Not sharply defined, but usually refers to:
+
+Multi-tenant datacenters (many customers share resources).
+
+Commodity machines connected with IP networks (Ethernet).
+
+Elastic/on-demand resource allocation (scale up or down easily).
+
+Metered billing (pay for what you use).
+
+Enterprise Datacenters
+
+Sit between HPC and cloud computing in design and philosophy.
+
+Fault Handling Approaches
+Supercomputers (HPC)
+
+Strategy: checkpoint and restart.
+
+Jobs periodically checkpoint state to durable storage.
+
+If one node fails → entire cluster stops.
+
+After fixing the node, computation restarts from last checkpoint.
+
+This makes supercomputers more like single-node systems:
+
+Partial failure is escalated to total failure (just like a single machine crash).
+
+Internet Services (Focus of the Book)
+
+Very different requirements:
+
+Always online → services must be available with low latency; cannot stop the cluster for repairs.
+
+Hardware differences:
+
+Supercomputers use specialized, reliable hardware and communication methods like shared memory or RDMA.
+
+Cloud systems use commodity hardware (cheaper but less reliable).
+
+Network differences:
+
+Cloud datacenters: IP/Ethernet networks in Clos topologies (for high bandwidth).
+
+Supercomputers: specialized topologies (meshes, toruses) optimized for known communication patterns.
+
+Scale and likelihood of failure:
+
+The bigger the system, the higher the chance something is broken.
+
+In huge clusters, something is always broken.
+
+If your only fault strategy is “stop everything,” most of the system’s time will be wasted recovering instead of doing useful work.
+
+Fault tolerance as a feature:
+
+Systems that tolerate node failures without stopping are very valuable.
+
+Enables rolling upgrades → restart nodes one at a time while service keeps running.
+
+In the cloud: if a VM is slow, just kill it and request a new one.
+
+Geographical distribution:
+
+Internet services often replicate data across the globe to reduce latency for users.
+
+This means relying on the internet → slower and less reliable than local supercomputer networks.
+
+Supercomputers assume all nodes are in the same place.
+
+Accepting Partial Failures
+
+To build distributed systems, we must accept partial failures.
+
+The goal: build reliable systems out of unreliable components.
+
+No such thing as perfect reliability, so we must know the limits of guarantees we can realistically provide.
+
+Even in Small Systems
+
+Partial failure still happens, just less often.
+
+Over time, some component will fail, so software must handle it gracefully.
+
+Fault handling must be designed into the software.
+
+Operators must know how the software behaves during faults.
+
+👉 Assuming faults are rare and just “hoping for the best” is dangerous.
+
+Must consider a wide range of possible faults.
+
+Even unlikely faults should be tested → artificially create them in test environments.
+
+In distributed systems, suspicion, pessimism, and paranoia pay off.
+
+
+
+######  Building a Reliable System from Unreliable Components
+
+
+
+At first glance, this seems impossible (a chain is only as strong as its weakest link).
+But computing has long used the idea of building reliability on top of unreliable foundations.
+
+Examples
+
+Error-Correcting Codes (ECC)
+
+Used to transmit data accurately over channels that occasionally flip bits.
+
+Example: wireless networks affected by radio interference.
+
+TCP over IP
+
+IP (Internet Protocol) is unreliable: can drop, delay, duplicate, or reorder packets.
+
+TCP (Transmission Control Protocol) adds reliability:
+
+Retransmits lost packets.
+
+Eliminates duplicates.
+
+Reassembles packets in correct order.
+
+Limits of Reliability
+
+The higher-level system is more reliable, but not infinitely so.
+
+Example:
+
+ECC can handle a small number of errors, but if the signal is overwhelmed by interference, it fails.
+
+TCP can hide loss/duplication/reordering, but cannot hide network delays.
+
+Why This Matters
+
+Even though reliability is not perfect, it’s still valuable.
+
+By handling low-level failures, these mechanisms make higher-level systems easier to reason about.
+
+The book will explore this further in “The End-to-End Argument” (Chapter 9, p. 519).
+
+
+
+
+
+
 
 
 
