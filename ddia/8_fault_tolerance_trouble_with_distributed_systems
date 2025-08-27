@@ -13,7 +13,8 @@ So far, the picture was already concerning. But here, the author says: we were s
 
 In reality, anything that can go wrong will go wrong.
 
-Engineers working with distributed systems often adopt this pessimistic view because experience shows failures happen in strange, unpredictable ways.
+Engineers working with distributed systems often adopt this pessimistic view because experience shows failures happen in strange, 
+unpredictable ways.
 
 Key Difference: Single Computer vs. Distributed System
 
@@ -654,7 +655,9 @@ Work similarly by adapting to observed round-trip times.
 
 
 
-Distributed systems would be simpler if the network always delivered packets reliably, with fixed maximum delay and no packet loss. But this isn’t how real-world packet networks work. To see why, we compare telephone networks (synchronous) with computer networks (asynchronous).
+Distributed systems would be simpler if the network always delivered packets reliably, with fixed maximum delay and no packet loss. 
+But this isn’t how real-world packet networks work. To see why, we compare telephone networks (synchronous) with computer networks 
+(asynchronous).
 
 Telephone Network Reliability
 
@@ -879,7 +882,8 @@ latency for higher utilization and lower cost—which is why software must alway
 
 ######  Unreliable Clocks
 
-Clocks and time are crucial in applications because many operations depend on them. They are used to measure durations (intervals between two events) and to record points in time (specific timestamps).
+Clocks and time are crucial in applications because many operations depend on them. They are used to measure durations (intervals 
+between two events) and to record points in time (specific timestamps).
 
 Examples of Clock Usage
 
@@ -913,7 +917,8 @@ The receive time is always later than the send time, but due to variable network
 
 This makes it hard to determine the true order of events across multiple machines.
 
-Each machine has its own hardware clock (based on quartz oscillators), which are not perfectly accurate → some run slightly fast, others slightly slow.
+Each machine has its own hardware clock (based on quartz oscillators), which are not perfectly accurate → some run slightly fast, 
+others slightly slow.
 
 Synchronization is possible using NTP (Network Time Protocol), which adjusts a computer’s clock based on servers (often synced with GPS).
 
@@ -1082,7 +1087,8 @@ Distributed systems cannot fully rely on clocks for correctness → they must as
 
 
 
-Clocks appear simple, but in distributed systems they come with many pitfalls. Time may drift, jump backward, or differ between nodes, which can cause subtle failures if software depends on synchronized clocks.
+Clocks appear simple, but in distributed systems they come with many pitfalls. Time may drift, jump backward, or differ between nodes, 
+which can cause subtle failures if software depends on synchronized clocks.
 
 The Problem with Clocks
 
@@ -1092,7 +1098,8 @@ Time-of-day clocks may jump backward or forward when corrected.
 
 Different nodes often have different clock values, despite synchronization.
 
-Just like networks can delay or drop packets, clocks can be faulty. Robust software must assume that clocks are sometimes wrong and handle this gracefully.
+Just like networks can delay or drop packets, clocks can be faulty. Robust software must assume that clocks are sometimes wrong and
+handle this gracefully.
 
 The challenge is that clock problems often go unnoticed:
 
@@ -1102,7 +1109,8 @@ If a clock drifts or NTP is misconfigured → the system appears normal, but tim
 
 The result is not a crash, but silent data loss or incorrect ordering.
 
-➡️ Solution: Systems that rely on synchronized clocks must monitor clock offsets across machines. If a node drifts too far from the cluster’s clocks, it should be declared dead and removed.
+➡️ Solution: Systems that rely on synchronized clocks must monitor clock offsets across machines. If a node drifts too far from the 
+cluster’s clocks, it should be declared dead and removed.
 
 
 
@@ -1288,7 +1296,8 @@ And how Spanner’s TrueTime avoids overlap?
 
 
 
-In distributed systems, using clocks for leader election or leases can be dangerous because processes may be unexpectedly paused for long periods. Let’s go step by step.
+In distributed systems, using clocks for leader election or leases can be dangerous because processes may be unexpectedly paused 
+for long periods. Let’s go step by step.
 
 Leader Leases and Clock Reliance
 
@@ -1324,9 +1333,11 @@ If clocks are skewed, the node may think it’s still leader when it’s not.
 
 Process pause problem:
 
-Even if only the local monotonic clock is used, the code assumes that very little time passes between checking the lease and processing the request.
+Even if only the local monotonic clock is used, the code assumes that very little time passes between checking the lease and processing
+the request.
 
-If the program unexpectedly pauses (e.g., 15 seconds), the lease may expire mid-processing, meaning another leader has taken over — but the paused node doesn’t know.
+If the program unexpectedly pauses (e.g., 15 seconds), the lease may expire mid-processing, meaning another leader has taken over —
+but the paused node doesn’t know.
 
 Why Can Threads Pause for So Long?
 
@@ -1380,7 +1391,8 @@ A Unix process can be paused (e.g., via Ctrl-Z).
 
 It won’t resume until explicitly continued.
 
-Key point: Any thread may pause at any line of code without warning. Meanwhile, the world (other nodes, clients, network) moves on, possibly declaring the node dead.
+Key point: Any thread may pause at any line of code without warning. Meanwhile, the world (other nodes, clients, network) moves on, 
+possibly declaring the node dead.
 
 
 
@@ -1463,7 +1475,8 @@ If a remote node doesn’t respond, you can’t tell if it crashed, paused, or i
 
 Because perception itself is unreliable, “truth” in a distributed system isn’t absolute.
 
-Instead of philosophy, distributed systems rely on system models (assumptions about behavior) and algorithms proven correct within those models. This allows reliable behavior despite unreliable foundations.
+Instead of philosophy, distributed systems rely on system models (assumptions about behavior) and algorithms proven correct within
+those models. This allows reliable behavior despite unreliable foundations.
 
 
 
@@ -1782,14 +1795,17 @@ Detects misconfigured server as an outlier and ignores it.
 More robust than relying on a single server.
 
 ✅ Summary in one line:
-Byzantine faults occur when nodes can lie or misbehave arbitrarily; while crucial in high-stakes systems (aerospace, blockchains), most datacenter systems avoid the cost of BFT and instead rely on traditional security + lightweight sanity checks for weaker failure modes.
+Byzantine faults occur when nodes can lie or misbehave arbitrarily; while crucial in high-stakes systems (aerospace, blockchains),
+most datacenter systems avoid the cost of BFT and instead rely on traditional security + lightweight sanity checks for weaker failure modes.
 
 
 
 
 ######   System Model and Reality
 
-Distributed algorithms are designed to tolerate the faults we discussed earlier (network unreliability, node crashes, pauses, etc.). To reason about them, we need to abstract away messy hardware/software details by defining a system model—a set of assumptions about timing and failures.
+Distributed algorithms are designed to tolerate the faults we discussed earlier (network unreliability, node crashes, pauses, etc.).
+To reason about them, we need to abstract away messy hardware/software details by defining a system model—a set of 
+assumptions about timing and failures.
 
 Timing Assumptions in System Models
 
@@ -1941,7 +1957,8 @@ Both theory and empirical testing are essential in distributed systems.
 ## Summary
 
 
-This chapter explored the challenges and problems in distributed systems, highlighting why they are inherently difficult and how faults must be tolerated.
+This chapter explored the challenges and problems in distributed systems, highlighting why they are inherently difficult and
+how faults must be tolerated.
 
 Network Issues
 
