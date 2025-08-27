@@ -268,7 +268,812 @@ The book will explore this further in “The End-to-End Argument” (Chapter 9, 
 
 
 
+######  Unreliable Networks
 
+
+Shared-Nothing Systems
+
+The distributed systems we study are usually shared-nothing systems:
+
+Each machine has its own memory and disk.
+
+One machine cannot directly access another’s memory/disk.
+
+Communication happens only via the network.
+
+Reasons this model is dominant for internet services:
+
+Cheap → no special hardware needed.
+
+Commodity cloud computing can be used.
+
+High reliability possible via redundancy across multiple datacenters.
+
+Asynchronous Packet Networks
+
+Internet and datacenter networks (Ethernet) are asynchronous packet networks.
+
+Meaning:
+
+One node can send a packet to another.
+
+But the network makes no guarantees:
+
+When the packet will arrive.
+
+Whether it will arrive at all.
+
+Things That Can Go Wrong (if you send a request and expect a response):
+
+Request lost (e.g., cable unplugged).
+
+Request delayed in queue (network/recipient overloaded).
+
+Remote node failed (crash or power down).
+
+Remote node temporarily paused (e.g., long garbage collection stop).
+
+Request processed but response lost (e.g., misconfigured switch).
+
+Request processed but response delayed (network overload or sender overload).
+
+👉 From the sender’s perspective, you cannot distinguish the cause—all you know is “no response yet.”
+
+Timeouts
+
+Usual solution: use a timeout.
+
+Wait for some period.
+
+If no response → assume failure.
+
+Problem:
+
+Even after timeout, you don’t know if the request was delivered.
+
+Request might still be queued and eventually reach recipient even though sender gave up.
+
+
+######  Network Faults in Practice
+
+
+Reality Check
+
+We’ve built networks for decades, but they are still unreliable.
+
+Studies show network problems are common, even in controlled datacenters.
+
+Evidence
+
+Medium-sized datacenter: ~12 network faults/month.
+
+Half → disconnect a single machine.
+
+Half → disconnect an entire rack.
+
+Failures in top-of-rack switches, aggregation switches, load balancers are common.
+
+Redundancy helps less than expected → human error (misconfigured switches) is a big cause.
+
+Cloud vs Private Datacenters
+
+Public clouds (e.g., EC2) → frequent transient glitches.
+
+Well-managed private datacenters → usually more stable.
+
+Examples of Surprising Faults
+
+Switch software upgrade → network topology reconfig, causing packet delays > 1 minute.
+
+Sharks biting undersea cables damaging connectivity.
+
+One-way failure → network interface drops inbound packets but still sends outbound packets.
+
+Network Partitions
+
+If part of the network is cut off from the rest, this is called a network partition (or netsplit).
+
+Book prefers “network fault” to avoid confusion with data partitions (shards).
+
+Importance of Handling Network Faults
+
+Even if rare, they will happen, so software must handle them.
+
+Without fault handling → system may:
+
+Deadlock permanently (unable to serve requests even after recovery).
+
+Do disastrous things (e.g., accidentally delete all data).
+
+Handling faults ≠ always tolerating them:
+
+If network usually reliable, it may be acceptable to just show users an error temporarily.
+
+But you must:
+
+Know how your software behaves under faults.
+
+Ensure system can recover when network comes back.
+
+Good practice: test by deliberately triggering faults (e.g., Chaos Monkey).
+
+
+######  Detecting Faults
+
+
+Many systems must detect faulty nodes automatically. Examples:
+
+Load balancer → must stop sending requests to dead nodes.
+
+Distributed database (leader/follower) → must promote a new leader if current leader fails.
+
+Why Detection Is Hard
+
+Because of network uncertainty, it’s hard to know if a node is really dead or just unreachable.
+
+Possible Feedback Mechanisms
+
+TCP-level feedback:
+
+If machine reachable but no process listening → OS replies with RST/FIN packet.
+
+Limitation: if process crashed while handling a request, you don’t know how much work was done.
+
+Crash notification via script:
+
+If process crashed but OS still running → script can notify others.
+
+Example: HBase does this to avoid waiting for timeouts.
+
+Switch management interfaces:
+
+Can query hardware to detect link failures (e.g., machine powered off).
+
+Not possible if:
+
+Using the public internet.
+
+Shared datacenter (no access to switches).
+
+Network problem blocks access to management interface.
+
+ICMP Destination Unreachable:
+
+Routers may respond when they know an IP is unreachable.
+
+But routers don’t have magical failure detection—still subject to limitations.
+
+Limits of Detection
+
+Rapid feedback is useful but unreliable.
+
+Even if TCP confirms packet delivery → application may crash before processing it.
+
+To be sure a request succeeded → need a positive acknowledgment from the application itself.
+
+If something goes wrong → you may get an error, or you may get no response at all.
+
+Usual practice:
+
+Retry a few times.
+
+Wait for timeout.
+
+If still no response → declare node dead.
+
+
+
+######  Timeouts and Unbounded Delays
+
+
+The Timeout Dilemma
+
+Timeouts are the only reliable way of detecting faults in distributed systems.
+
+But the key question is: how long should the timeout be?
+
+Long timeouts:
+
+System waits longer before declaring a node dead.
+
+Users may experience long delays or error messages.
+
+Short timeouts:
+
+Faults are detected faster.
+
+But higher risk of incorrectly marking a live node as dead (false positives).
+
+Problems with Prematurely Declaring a Node Dead
+
+If a node is falsely declared dead, several issues arise:
+
+If the node was in the middle of an important task (e.g., sending an email), another node may retry it → action happens twice.
+
+When a node is marked dead, its responsibilities are transferred to other nodes → this increases load.
+
+If the system was already under high load, transferring more work may worsen the problem.
+
+Cascading failure risk:
+
+One overloaded node is marked dead.
+
+Other nodes get its workload → they overload and slow down.
+
+Eventually, all nodes may declare each other dead → system-wide outage.
+
+A Hypothetical “Bounded Delay” World
+
+Imagine an ideal system:
+
+Network guarantees maximum packet delay = d.
+
+Every packet is either delivered within time d or lost.
+
+Never longer than d.
+
+Nodes guarantee maximum request handling time = r.
+
+In such a case:
+
+Every request should get a response within 2d + r.
+
+If no response in that time, we know for sure that node or network failed.
+
+Timeout = 2d + r would be perfect.
+
+Reality: Asynchronous Networks with Unbounded Delays
+
+Unfortunately, real systems don’t behave like that:
+
+Networks are asynchronous, meaning no upper limit exists on how long packets might take to arrive.
+
+Servers cannot guarantee they will always process requests within a fixed time.
+
+Even if the system is fast most of the time, a small spike in delays can trigger false failure detection.
+
+
+######  Network Congestion and Queueing
+
+
+Network delays often come from queueing, similar to traffic congestion on roads.
+
+1. Network Switch Queueing
+
+If multiple nodes send packets to the same destination at once:
+
+The switch queues them.
+
+On busy links, packets must wait → network congestion.
+
+If the queue fills up → packets are dropped and must be resent.
+
+2. Destination Machine Queueing
+
+If all CPU cores are busy:
+
+Incoming packets are queued by the operating system until the app is ready.
+
+Delay depends on machine load.
+
+3. Virtualization Delays
+
+In cloud/VM environments:
+
+A VM can be paused for tens of milliseconds while another VM uses CPU.
+
+During the pause, the VM cannot process network data.
+
+Packets are buffered until VM resumes, adding delay.
+
+4. TCP Flow Control (Congestion Avoidance)
+
+TCP avoids overwhelming the network or receiving node.
+
+It slows down sending rate when congestion risk is detected.
+
+This adds extra sender-side queueing before data even enters the network.
+
+Retransmissions in TCP
+
+TCP assumes a packet is lost if it’s not acknowledged in time.
+
+Lost packets are retransmitted after a timeout.
+
+The application doesn’t see packet loss directly, but it does experience the extra delay caused by retransmission.
+
+
+######  TCP Versus UDP
+
+
+TCP: Reliable but suffers from delays due to retransmission and flow control.
+
+UDP:
+
+Used in latency-sensitive applications like VoIP and video conferencing.
+
+No retransmission, no flow control → avoids extra delays.
+
+Still affected by switch queues and CPU scheduling.
+
+Works better when delayed data is useless.
+
+Example: VoIP – if a packet arrives too late, it’s better to skip it and insert silence rather than replay late audio.
+
+Effect of Queueing and Load
+
+Delays are minimal in low-load systems with spare capacity.
+
+Under high utilization, long queues build quickly → large delays.
+
+In public clouds or multi-tenant datacenters:
+
+Resources (network links, switches, CPUs) are shared with many tenants.
+
+Noisy neighbors (e.g., heavy MapReduce jobs) can cause high delays for others.
+
+Network performance becomes unpredictable.
+
+Choosing Timeouts in Practice
+
+Since networks have unbounded delays, timeouts cannot be chosen theoretically.
+
+Instead:
+
+Measure response times and round-trip delays across many machines over long periods.
+
+Study their distribution (how delays vary).
+
+Pick a trade-off:
+
+Faster fault detection (shorter timeouts).
+
+Lower risk of false positives (longer timeouts).
+
+Adaptive Timeout Mechanisms
+
+Better than fixed timeouts → use adaptive timeouts.
+
+Systems monitor delays and automatically adjust thresholds:
+
+Phi Accrual Failure Detector:
+
+Used in Akka and Cassandra.
+
+Tracks variability (jitter) in response times.
+
+Adjusts timeout dynamically.
+
+TCP retransmission timeouts:
+
+Work similarly by adapting to observed round-trip times.
+
+
+
+######  Synchronous Versus Asynchronous Networks
+
+
+
+Distributed systems would be simpler if the network always delivered packets reliably, with fixed maximum delay and no packet loss. But this isn’t how real-world packet networks work. To see why, we compare telephone networks (synchronous) with computer networks (asynchronous).
+
+Telephone Network Reliability
+
+The traditional fixed-line (non-cellular, non-VoIP) telephone network is extremely reliable.
+
+Calls rarely get delayed or dropped.
+
+Why? Because:
+
+A phone call needs low, predictable latency (for natural conversation).
+
+It also needs enough bandwidth to continuously transfer audio.
+
+Circuit Switching in Telephony
+
+When you make a phone call, the telephone network establishes a circuit:
+
+A fixed, guaranteed amount of bandwidth is reserved along the entire route.
+
+This bandwidth is locked until the call ends.
+
+Example:
+
+ISDN runs at 4,000 frames per second.
+
+A call gets 16 bits per frame in each direction.
+
+So each side can always send 16 bits every 250 microseconds, guaranteed.
+
+Result:
+
+Data never waits in queues because the space in each frame is pre-reserved.
+
+End-to-end latency is fixed (bounded delay).
+
+
+
+######  Can We Not Make Computer Networks Predictable Too?
+
+
+
+A telephone circuit ≠ a TCP connection.
+
+A circuit = fixed bandwidth reservation.
+
+A TCP connection = opportunistic; uses available bandwidth as needed.
+
+TCP differences:
+
+You can send variable-sized blocks (emails, web pages, files).
+
+TCP tries to finish as fast as possible using available capacity.
+
+When idle, TCP uses no bandwidth (except rare keepalives).
+
+If networks were circuit-switched like telephony:
+
+We could guarantee fixed round-trip times.
+
+But Ethernet and IP are packet-switched, not circuit-switched.
+
+That means queueing happens, creating unbounded delays.
+
+Why Packet Switching in Datacenters and Internet?
+
+Reason: Packet switching works better for bursty traffic.
+
+Circuits are fine for constant streams (voice/video).
+
+But things like web requests, email, file transfers:
+
+No fixed bandwidth needed.
+
+Goal: complete transfer as quickly as possible.
+
+With circuits:
+
+Must guess bandwidth allocation.
+
+If guess too low → slow transfer, waste capacity.
+
+If guess too high → circuit can’t be set up (since bandwidth must be guaranteed).
+
+With TCP packet switching:
+
+Rate adjusts dynamically to available network capacity.
+
+Utilization is much better for unpredictable/bursty workloads.
+
+Hybrid Approaches
+
+Some attempts tried mixing both worlds (circuit + packet switching):
+
+ATM (Asynchronous Transfer Mode):
+
+Competed with Ethernet in the 1980s.
+
+Adopted mainly in telephone networks.
+
+Not the same as ATM = cash machine.
+
+InfiniBand:
+
+Provides end-to-end flow control at the link layer.
+
+Reduces queueing, though congestion can still delay packets.
+
+Techniques like:
+
+Quality of Service (QoS) → prioritizing packets.
+
+Admission Control → limiting senders’ rates.
+
+Can make packet networks behave like circuit-switched ones.
+
+This provides statistical (not strict) delay guarantees.
+
+
+
+######   Latency and Resource Utilization
+
+
+This is about why packet-switched networks allow higher utilization, even though they introduce variable delay.
+
+Static Partitioning in Telephone Networks
+
+Suppose a wire can carry 10,000 calls.
+
+Each call occupies one slot.
+
+The wire is divided statically:
+
+If you’re the only caller, you still get the same fixed slot.
+
+The unused slots remain wasted.
+
+Advantage: predictable latency.
+
+Disadvantage: poor utilization if not fully loaded.
+
+Dynamic Sharing in Internet Networks
+
+Internet bandwidth is shared dynamically.
+
+Senders push packets as fast as possible.
+
+Routers decide which packet goes next.
+
+Results:
+
+Downside → Queueing + variable delay.
+
+Upside → Maximized utilization of the wire.
+
+Since the wire has a fixed cost, better utilization makes each byte cheaper.
+
+CPU Analogy
+
+Similar trade-off exists in CPU scheduling:
+
+If CPU cores are shared dynamically:
+
+A thread may wait in the run queue.
+
+Execution time becomes unpredictable.
+
+But CPU utilization is higher.
+
+If CPU cycles were statically allocated:
+
+Each thread gets fixed share.
+
+Predictable, but less efficient (unused capacity wasted).
+
+Same reason virtual machines are used → better hardware utilization.
+
+Latency Guarantees vs Cost
+
+Latency guarantees are possible if:
+
+Resources are statically partitioned.
+
+Example: dedicated hardware, exclusive bandwidth.
+
+But this means:
+
+Lower utilization.
+
+More expensive.
+
+Dynamic sharing (multi-tenancy) →
+
+Better utilization (cheaper).
+
+But variable delays.
+
+Conclusion: Variable delays are not fundamental laws of physics.
+
+They are a trade-off between cost and reliability.
+
+Current Reality
+
+Today’s datacenters and public clouds:
+
+Do not enable QoS guarantees.
+
+Internet communication also has no guarantees.
+
+Hence:
+
+Congestion, queueing, unbounded delays are real.
+
+No “correct” timeout values exist.
+
+Timeouts must be determined experimentally.
+
+✅ Summary in one line:
+Networks could be perfectly reliable (like telephony circuits), but packet-switched internet and datacenter networks trade guaranteed
+latency for higher utilization and lower cost—which is why software must always assume delays, drops, and retries.
+
+
+
+######  Unreliable Clocks
+
+Clocks and time are crucial in applications because many operations depend on them. They are used to measure durations (intervals between two events) and to record points in time (specific timestamps).
+
+Examples of Clock Usage
+
+Applications use clocks for different types of questions:
+
+Has this request timed out yet?
+
+What’s the 99th percentile response time of this service?
+
+How many queries per second did this service handle in the last five minutes?
+
+How long did the user spend on our site?
+
+When was this article published?
+
+At what date and time should the reminder email be sent?
+
+When does this cache entry expire?
+
+What is the timestamp on this error message in the log file?
+
+Examples 1–4 → measure durations (time intervals).
+
+Examples 5–8 → deal with points in time (calendar dates and timestamps).
+
+The Challenge of Time in Distributed Systems
+
+Communication takes time: messages don’t arrive instantly across a network.
+
+The receive time is always later than the send time, but due to variable network delays, we cannot know exactly how much later.
+
+This makes it hard to determine the true order of events across multiple machines.
+
+Each machine has its own hardware clock (based on quartz oscillators), which are not perfectly accurate → some run slightly fast, others slightly slow.
+
+Synchronization is possible using NTP (Network Time Protocol), which adjusts a computer’s clock based on servers (often synced with GPS).
+
+Still, synchronization is imperfect and introduces challenges.
+
+
+
+######  Monotonic Versus Time-of-Day Clocks
+
+
+
+Modern systems have two main types of clocks that serve different purposes:
+
+
+
+######   1. Time-of-Day Clocks (Wall-Clock Time)
+
+Returns the current date and time according to the calendar.
+
+Examples:
+
+clock_gettime(CLOCK_REALTIME) in Linux
+
+System.currentTimeMillis() in Java
+
+Measured as seconds or milliseconds since a fixed epoch (e.g., Jan 1, 1970 UTC).
+
+Typically synchronized with NTP so that timestamps are meaningful across machines.
+
+Problems:
+
+Can jump backward (if NTP resets a fast clock).
+
+Can jump forward suddenly.
+
+May ignore leap seconds, leading to inaccuracies.
+
+Historically had low resolution (e.g., 10 ms steps on older Windows).
+
+→ Unsuitable for measuring elapsed time (durations), but useful for recording actual timestamps.
+
+
+
+######    2. Monotonic Clocks
+
+Used to measure durations (e.g., timeouts, response times).
+
+Examples:
+
+clock_gettime(CLOCK_MONOTONIC) in Linux
+
+System.nanoTime() in Java
+
+Properties:
+
+Always move forward (unlike time-of-day clocks).
+
+Useful for checking elapsed time between two events.
+
+Absolute value is meaningless (e.g., could be time since machine boot).
+
+Cannot be compared across different computers.
+
+Challenges:
+
+Multi-CPU servers may have unsynchronized timers per CPU. OS tries to smooth this, but glitches may still occur.
+
+NTP can “slew” the monotonic clock speed slightly (±0.05%) to adjust for drift, but cannot make it jump.
+
+Usually has high resolution (microseconds or better).
+
+→ Best for measuring durations locally, but not suitable for global ordering of events across nodes.
+
+
+
+######   Clock Synchronization and Accuracy
+
+
+
+ Monotonic clocks: do not need synchronization (they’re local).
+
+Time-of-day clocks: must be synchronized (e.g., using NTP).
+
+But achieving accurate synchronization is harder than expected:
+
+Problems with Clocks and NTP
+
+Quartz clock drift
+
+Clocks naturally drift due to temperature and hardware imperfections.
+
+Google assumes 200 ppm drift (~6 ms error every 30 seconds, ~17 s per day if not resynced).
+
+Large adjustments
+
+If a clock is too far off, NTP may reset it abruptly → time jumps backward or forward.
+
+Network issues
+
+If a server is cut off from NTP (e.g., firewall misconfig), drift grows unnoticed.
+
+Synchronization depends on network delays:
+
+Best achievable over internet: ~35 ms error.
+
+But spikes can cause ~1 second errors.
+
+In some cases, clients may give up entirely.
+
+Bad/misconfigured NTP servers
+
+Some servers report incorrect times (off by hours).
+
+Clients usually cross-check with multiple servers, but risk remains.
+
+Leap seconds
+
+Create 59- or 61-second minutes.
+
+Many systems fail if not designed for them → have caused real-world crashes.
+
+Some providers “smear” leap seconds (gradually apply adjustment).
+
+Virtual machines
+
+Virtualized hardware clocks add complexity.
+
+VM pauses (when CPU is given to another VM) appear as sudden clock jumps forward.
+
+Untrusted devices
+
+On user-controlled devices (mobiles, embedded), clocks may be manually set wrong (e.g., to cheat in games).
+
+Achieving High Accuracy (Special Cases)
+
+With enough effort, extremely accurate clocks can be maintained.
+
+Example: MiFID II regulation in Europe → financial firms must sync clocks within 100 microseconds of UTC to detect market anomalies.
+
+Achieved using:
+
+GPS receivers
+
+PTP (Precision Time Protocol)
+
+Careful monitoring and setup.
+
+But:
+
+This requires significant cost and expertise.
+
+Any misconfig (e.g., broken NTP daemon, firewall issue) can quickly lead to large clock errors.
+
+✅ Summary:
+
+Durations → use monotonic clocks (local, don’t jump).
+
+Timestamps → use time-of-day clocks (but beware drift, jumps, leap seconds, and synchronization issues).
+
+Distributed systems cannot fully rely on clocks for correctness → they must assume that clocks can be wrong, out of sync, or misleading.
 
 
 
