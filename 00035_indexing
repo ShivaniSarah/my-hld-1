@@ -230,3 +230,26 @@ NoSQL (LSM-Tree) → “Log now, sort later” (writes are just appended; sortin
 
 If you want, I can now give you a step-by-step numbered diagram showing SQL’s path vs NoSQL’s path side-by-side. That visual makes the performance reason super obvious.
 
+
+
+-----------
+
+uuids bloat indexes.
+
+companies that operate at scale often avoid them for transactional use cases.
+
+moreover, uuids cause inserts to occur in random order, leading to index fragmentation and frequent b-tree rebalancing, which results in higher write latencies.
+
+
+
+if you want your database to be fast, make sure you have enough memory to hold all the indexes.
+
+disk access is 100,000x slower than memory, and hence a single index lookup hitting disk turns a microsecond query execution into a millisecond hogging database connection for long and spiking up hardware utilization.
+
+thus, to get the most out of your database, drop unused indexes. every unused index consumes buffer pool space while imposing write amplification costs on every insert, update, and delete.
+
+even large tables should be partitioned to create smaller ones so that we can have focused indexes that fit the available memory.
+
+moreover, size your buffer pool with 20-30% headroom above the current index footprint (total index size) because operating at memory capacity triggers constant evictions and performance collapse under concurrent load.
+
+
