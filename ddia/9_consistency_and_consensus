@@ -3,7 +3,8 @@ Opening Quote
 
 “Is it better to be alive and wrong or right and dead?” — Jay Kreps (2013)
 
-This sets the stage: in distributed systems, sometimes you have to choose between being always correct but unavailable, or being available but occasionally wrong.
+This sets the stage: in distributed systems, sometimes you have to choose between being always correct but unavailable,
+or being available but occasionally wrong.
 
 Faults in Distributed Systems
 
@@ -401,12 +402,15 @@ Hence, not a recency guarantee.
 ######    Relying on Linearizability
 
 
-Linearizability is not always required, but in some cases it is critical for correctness. For example, viewing a slightly outdated sports score is harmless, but in systems involving locks, uniqueness constraints, or timing dependencies, linearizability becomes essential.
+Linearizability is not always required, but in some cases it is critical for correctness. For example,
+viewing a slightly outdated sports score is harmless, but in systems involving locks, uniqueness constraints,
+or timing dependencies, linearizability becomes essential.
 
 
 ######    Locking and Leader Election
 
-In a single-leader replication system, correctness depends on having exactly one leader (not multiple leaders, which causes split brain).
+In a single-leader replication system, correctness depends on having exactly one leader (not multiple leaders,
+which causes split brain).
 
 A common way to elect a leader is via a lock:
 
@@ -414,7 +418,8 @@ Every node tries to acquire the lock.
 
 The one that succeeds becomes the leader.
 
-For this to work, the lock must be linearizable—all nodes must agree on who owns the lock. Otherwise, multiple nodes could incorrectly think they are the leader.
+For this to work, the lock must be linearizable—all nodes must agree on who owns the lock. Otherwise,
+multiple nodes could incorrectly think they are the leader.
 
 Tools used:
 
@@ -428,7 +433,8 @@ In databases:
 
 Some distributed databases (e.g., Oracle RAC) use fine-grained locks (per disk page).
 
-Since these locks are linearizable and used in transaction execution, RAC often requires a dedicated high-speed interconnect network to minimize latency.
+Since these locks are linearizable and used in transaction execution, 
+RAC often requires a dedicated high-speed interconnect network to minimize latency.
 
 
 
@@ -692,7 +698,8 @@ Multi-leader and most leaderless setups → not linearizable by default.
 
 
 
-Some replication methods can provide linearizability, others cannot. To understand the trade-offs, we need to look at both the benefits and costs of linearizability in distributed systems.
+Some replication methods can provide linearizability, others cannot. To understand the trade-offs,
+we need to look at both the benefits and costs of linearizability in distributed systems.
 
 Example: Multi-Datacenter Replication
 
@@ -888,7 +895,8 @@ Even CPUs give up linearizability for speed.
 
 Distributed systems often weaken consistency for the same reason.
 
-Key result: Linearizability is always expensive because delays are unavoidable; weaker consistency models can achieve much better performance.
+Key result: Linearizability is always expensive because delays are unavoidable; weaker consistency models
+can achieve much better performance.
 
 
 
@@ -1078,7 +1086,8 @@ Linearizability implies causality.
 
 Any linearizable system automatically preserves causality.
 
-✅ Example: If multiple channels exist (message queue + storage service), linearizability ensures causal order is respected without extra mechanisms (e.g., no need for timestamps across components).
+✅ Example: If multiple channels exist (message queue + storage service), linearizability ensures causal order is
+respected without extra mechanisms (e.g., no need for timestamps across components).
 
 📌 Why appealing?
 
@@ -1184,7 +1193,8 @@ Keeps track of which transaction read which version.
 
 
 Although causality is important in theory, tracking every single causal dependency in practice is often too expensive.
-For example, clients may read lots of data before making a write. It’s unclear whether the new write is dependent on all those prior reads or only some of them. Explicitly tracking all read dependencies would add a huge overhead.
+For example, clients may read lots of data before making a write. It’s unclear whether the new write is dependent on all
+those prior reads or only some of them. Explicitly tracking all read dependencies would add a huge overhead.
 
 Instead, systems often use sequence numbers or timestamps to order events.
 
@@ -1196,9 +1206,11 @@ Instead, it can come from a logical clock, which uses counters to assign numbers
 
 Each operation gets a compact identifier (only a few bytes).
 
-These identifiers provide a total order: every operation has a unique number, and we can always compare two numbers to decide which one came later.
+These identifiers provide a total order: every operation has a unique number, and we can always compare two numbers
+to decide which one came later.
 
-👉 If operation A causally happened before operation B, then A’s sequence number will be smaller than B’s. Concurrent operations (with no causal relation) can be ordered arbitrarily.
+👉 If operation A causally happened before operation B, then A’s sequence number will be smaller than B’s.
+Concurrent operations (with no causal relation) can be ordered arbitrarily.
 
 Thus, the total order captures all causality, but also imposes extra ordering that isn’t strictly necessary.
 
@@ -1221,7 +1233,8 @@ Followers then apply writes in the same order as the log.
 
 
 
-When there is no single leader (e.g., in multi-leader, leaderless databases, or partitioned systems), generating global sequence numbers becomes harder.
+When there is no single leader (e.g., in multi-leader, leaderless databases, or partitioned systems),
+generating global sequence numbers becomes harder.
 Several approaches exist in practice:
 
 1. Independent Node Sequences
@@ -1339,7 +1352,8 @@ More expensive (need one entry per node).
 
 
 
-Even though Lamport timestamps provide a total order consistent with causality, they are not enough to solve all distributed system problems.
+Even though Lamport timestamps provide a total order consistent with causality,
+they are not enough to solve all distributed system problems.
 
 Example: Unique Username Creation
 
@@ -1384,10 +1398,12 @@ Once an operation is placed in the order, it is final.
 
 
 
-In a single CPU core system, defining a total order of operations is straightforward: it is simply the order in which operations are executed by the CPU.
+In a single CPU core system, defining a total order of operations is straightforward: it is simply the order in which operations
+are executed by the CPU.
 
 But in a distributed system, getting all nodes to agree on the same total order is challenging.
-Earlier, we looked at timestamp/sequence-number ordering, but saw that it is weaker than single-leader replication (e.g., uniqueness constraints cannot be guaranteed under faults).
+Earlier, we looked at timestamp/sequence-number ordering, but saw that it is weaker than single-leader replication
+(e.g., uniqueness constraints cannot be guaranteed under faults).
 
 In distributed systems literature, this challenge is known as total order broadcast (also called atomic broadcast).
 
@@ -1415,7 +1431,8 @@ Totally ordered delivery
 
 All nodes deliver messages in the same order.
 
-👉 Even with network/node failures, a correct total order broadcast algorithm ensures these properties. Messages may be delayed during interruptions, but once delivered, they must still appear in the correct order.
+👉 Even with network/node failures, a correct total order broadcast algorithm ensures these properties.
+Messages may be delayed during interruptions, but once delivered, they must still appear in the correct order.
 
 
 
@@ -1437,7 +1454,8 @@ Known as state machine replication.
 
 Serializable Transactions
 
-If every message = deterministic transaction (like a stored procedure), and all nodes process them in the same order → system ensures serializability.
+If every message = deterministic transaction (like a stored procedure),
+and all nodes process them in the same order → system ensures serializability.
 
 Log Creation
 
@@ -1453,7 +1471,8 @@ Messages are sequentially numbered → sequence number becomes a fencing token (
 
 In ZooKeeper, this sequence number is called zxid.
 
-👉 Important: Once messages are delivered, their order is fixed. You cannot later insert a new message before already-delivered ones. This makes total order broadcast stronger than timestamp ordering.
+👉 Important: Once messages are delivered, their order is fixed.
+You cannot later insert a new message before already-delivered ones. This makes total order broadcast stronger than timestamp ordering.
 
 
 
@@ -1563,9 +1582,12 @@ This is a deep insight in distributed systems.
 
 
 
-Consensus is one of the most fundamental problems in distributed computing. At first, it may look simple: we just need multiple nodes to agree on something. But in practice, it’s very subtle and hard, and many broken systems were built because engineers underestimated its complexity.
+Consensus is one of the most fundamental problems in distributed computing.
+At first, it may look simple: we just need multiple nodes to agree on something.
+But in practice, it’s very subtle and hard, and many broken systems were built because engineers underestimated its complexity.
 
-This section appears late in the discussion (after replication, transactions, system models, linearizability, and total order broadcast), because understanding consensus requires that background.
+This section appears late in the discussion (after replication, transactions, system models, linearizability, and
+total order broadcast), because understanding consensus requires that background.
 
 Consensus is crucial in distributed systems because there are many cases where nodes need to agree:
 
@@ -1593,7 +1615,8 @@ Or all abort/rollback
 
 This “all-or-nothing” agreement is called the atomic commit problem.
 
-📌 Note: Atomic commit is slightly different from general consensus, but the two problems are closely related (and reducible to each other).
+📌 Note: Atomic commit is slightly different from general consensus,
+but the two problems are closely related (and reducible to each other).
 
 
 
@@ -1603,7 +1626,8 @@ This “all-or-nothing” agreement is called the atomic commit problem.
 
 You may have heard of the FLP result (Fischer, Lynch, Paterson):
 
-It proves that in an asynchronous system model (where there are no clocks or timeouts, only deterministic behavior), there is no algorithm that always guarantees consensus if nodes can crash.
+It proves that in an asynchronous system model (where there are no clocks or timeouts, only deterministic behavior),
+there is no algorithm that always guarantees consensus if nodes can crash.
 
 Since real distributed systems must assume nodes can crash → reliable consensus is impossible in theory.
 
@@ -1630,7 +1654,8 @@ Thus, while the FLP theorem is of theoretical importance, practical distributed 
 
 Now let’s look more closely at atomic commit, particularly the Two-Phase Commit (2PC) protocol—the most common way to solve this.
 
-2PC is implemented in databases, message queues, and application servers, but it is actually a form of consensus—though not a very strong one.
+2PC is implemented in databases, message queues, and application servers,
+but it is actually a form of consensus—though not a very strong one.
 
 Purpose of Transaction Atomicity
 
@@ -1692,7 +1717,8 @@ Reason: committed data becomes visible to other transactions, which may already 
 
 If you were allowed to retroactively abort, all dependent transactions would also need to be undone → chaos.
 
-The only option is to introduce a new compensating transaction to “undo” the effects, but from the system’s perspective that’s just a new transaction, not the same one being reverted.
+The only option is to introduce a new compensating transaction to “undo” the effects,
+but from the system’s perspective that’s just a new transaction, not the same one being reverted.
 
 ✅ So, up to this point we’ve set the stage:
 
@@ -1725,7 +1751,8 @@ XA transactions (supported by Java Transaction API).
 
 WS-AtomicTransaction (used in SOAP web services).
 
-The name comes from the fact that the commit process is split into two phases (instead of a single commit request like in single-node transactions).
+The name comes from the fact that the commit process is split into two phases 
+(instead of a single commit request like in single-node transactions).
 
 
 
@@ -1926,7 +1953,8 @@ Thus, the commit point of 2PC is just a single-node atomic commit at the coordin
 
 ✅ In summary:
 
-2PC ensures atomicity by introducing promises (participants cannot back out after “yes”) and a commit point (coordinator writes decision to disk).
+2PC ensures atomicity by introducing promises (participants cannot back out after “yes”)
+and a commit point (coordinator writes decision to disk).
 
 But it also introduces a vulnerability: if the coordinator crashes, participants may remain in doubt until it recovers.
 
@@ -2088,7 +2116,8 @@ XA (eXtended Architecture) → standard for implementing 2PC across heterogeneou
 
 Introduced in 1991.
 
-Supported by many relational databases (PostgreSQL, MySQL, Oracle, DB2, SQL Server) and message brokers (ActiveMQ, IBM MQ, MSMQ, etc.).
+Supported by many relational databases (PostgreSQL, MySQL, Oracle, DB2, SQL Server) 
+and message brokers (ActiveMQ, IBM MQ, MSMQ, etc.).
 
 How XA Works
 
@@ -2245,7 +2274,8 @@ That’s why many systems today avoid XA / 2PC and use alternative approaches (c
 
 Consensus means getting several nodes to agree on a single outcome.
 
-Example: If multiple customers try to book the last seat on a plane, or the same theater seat, or register the same username, a consensus algorithm determines which one of these mutually conflicting operations should succeed.
+Example: If multiple customers try to book the last seat on a plane, or the same theater seat,
+or register the same username, a consensus algorithm determines which one of these mutually conflicting operations should succeed.
 
 Properties of Consensus
 
@@ -2422,9 +2452,11 @@ To run consensus → we need a leader.
 
 
 
-All consensus protocols (Paxos, Raft, VSR, Zab, etc.) internally use a leader, but they don’t guarantee a leader is globally unique forever.
+All consensus protocols (Paxos, Raft, VSR, Zab, etc.) internally use a leader, but they don’t guarantee a
+leader is globally unique forever.
 
-Instead, they guarantee: within a specific epoch (also called ballot number in Paxos, view number in VSR, or term number in Raft), the leader is unique.
+Instead, they guarantee: within a specific epoch (also called ballot number in Paxos, view number in VSR,
+or term number in Raft), the leader is unique.
 
 Epoch Numbers
 
@@ -2973,7 +3005,8 @@ Distributed system failure models (Ch. 8)
 
 Consistency and consensus (Ch. 9)
 
-Now with strong theoretical foundations in place, Part III will focus on practical systems → building applications from heterogeneous building blocks.
+Now with strong theoretical foundations in place, Part III will focus on
+practical systems → building applications from heterogeneous building blocks.
 
 
 
