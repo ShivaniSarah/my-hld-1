@@ -554,7 +554,8 @@ Better approach: Use replication for fault tolerance.
 
 The question: Which replication methods can provide linearizability?
 
-Single-Leader Replication (Potentially Linearizable)
+
+######   Single-Leader Replication (Potentially Linearizable)
 
 In single-leader replication:
 
@@ -584,7 +585,8 @@ Durability.
 
 Linearizability.
 
-Consensus Algorithms (Linearizable)
+
+######   Consensus Algorithms (Linearizable)
 
 Consensus algorithms resemble single-leader replication but add protections:
 
@@ -600,7 +602,7 @@ ZooKeeper.
 
 etcd.
 
-Multi-Leader Replication (Not Linearizable)
+######   Multi-Leader Replication (Not Linearizable)
 
 In multi-leader systems:
 
@@ -612,7 +614,9 @@ This leads to conflicting writes that need conflict resolution.
 
 Since there is no single copy of truth, multi-leader replication is not linearizable.
 
-Leaderless Replication (Probably Not Linearizable)
+
+######   Leaderless Replication (Probably Not Linearizable)
+
 
 In Dynamo-style leaderless replication:
 
@@ -950,7 +954,7 @@ Ordering is crucial because it preserves causality (cause before effect).
 
 Examples of causality in this book:
 
-Consistent Prefix Reads (Chapter 5, Fig 5-5):
+######   Consistent Prefix Reads (Chapter 5, Fig 5-5):
 
 Saw the answer before the question appeared.
 
@@ -962,7 +966,7 @@ Updates could “overtake” earlier writes.
 
 Example: row updated before it even exists → causality violation.
 
-Detecting Concurrent Writes (p.184):
+######   Detecting Concurrent Writes (p.184):
 
 3 possibilities:
 
@@ -972,7 +976,7 @@ If A → B, then B depends on A (causal link).
 
 If concurrent → no causality.
 
-Snapshot isolation (Chapter 7):
+######   Snapshot isolation (Chapter 7):
 
 A “consistent snapshot” means consistent with causality.
 
@@ -980,7 +984,7 @@ If snapshot shows an answer, it must also include the question.
 
 Read skew = snapshot violates causality.
 
-Write skew (Chapter 7, Fig 7-8):
+######   Write skew (Chapter 7, Fig 7-8):
 
 Alice goes off call based on assumption Bob is still on call, and vice versa.
 
@@ -988,7 +992,7 @@ Each action depends causally on the observation of the other’s status.
 
 Serializable snapshot isolation detects these causal dependencies.
 
-Alice & Bob football example (Fig 9-1):
+######   Alice & Bob football example (Fig 9-1):
 
 Alice hears score → exclaims.
 
@@ -1038,13 +1042,13 @@ Example: sets {a, b} vs {b, c} → incomparable.
 
 In databases:
 
-Linearizability = Total order
+######   Linearizability = Total order
 
 Every two operations can be ordered.
 
 Illustrated as a single timeline (Fig 9-4).
 
-Causality = Partial order
+######   Causality = Partial order
 
 Two ops are ordered if causally related.
 
