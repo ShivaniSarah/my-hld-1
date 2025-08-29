@@ -1,0 +1,12 @@
+Steps to improve performance of microservices
+
+
+1. Parallelize the business logic of api if it can be done using threads or futures or async code.
+2. Use appropriate data structures if applicable and write optimized code
+3. Introduce caching of frequently queried objects.
+4. Database optimization (you already know)
+5. Rate limiting and throttling 
+6. Horizontal scale and vertical scaling 
+7. CDN and load balancers
+
+
