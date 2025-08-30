@@ -36,7 +36,10 @@ Log-structured storage engines
 
 Page-oriented storage engines (e.g., B-trees)
 
-Data Structures That Power Your Database
+
+
+###### Data Structures That Power Your Database
+
 
 To understand storage engines, let’s start with a toy example:
 
@@ -168,7 +171,7 @@ Trade-off: Indexes speed up reads but slow down writes.
 
 
 
-Hash Indexes
+######  Hash Indexes
 
 Indexes for key-value data are very common and serve as a basic building block for more complex indexes.
 
@@ -353,7 +356,9 @@ Limitations: requires memory for keys, not good for range queries.
 
 
 
-SSTables and LSM-Trees
+
+######  SSTables and LSM-Trees
+
 
 In log-structured storage segments (like in Figure 3-3), key-value pairs are written in the order they arrive.
 
@@ -436,7 +441,11 @@ Reduces I/O bandwidth.
 
 (Note: if all records had fixed size, you could binary search directly without an index. But since they are variable-length, an index is necessary.)
 
-Constructing and Maintaining SSTables
+
+
+######  Constructing and Maintaining SSTables
+
+
 
 So far so good—but how do we get data sorted by key in the first place, if writes come in any order?
 
@@ -525,7 +534,7 @@ Use a separate write-ahead log to restore memtable.
 
 
 
-Making an LSM-Tree out of SSTables
+######  Making an LSM-Tree out of SSTables
 
 The algorithm we discussed for SSTables forms the foundation of real-world storage engines.
 
@@ -563,7 +572,9 @@ Lucene keeps this mapping in SSTable-like sorted files.
 
 These files are merged in the background as needed, just like in LSM-trees.
 
-Performance Optimizations
+
+
+######  Performance Optimizations
 
 Although LSM-trees work well, some optimizations are needed to handle practical performance challenges.
 
@@ -631,7 +642,12 @@ Since disk writes are sequential:
 
 Very high write throughput is possible.
 
-B-Trees
+
+
+
+######  B-Trees
+
+
 
 While LSM-based indexes are gaining popularity, the most common indexing structure is still B-trees.
 
@@ -767,11 +783,10 @@ Both structures store keys sorted, but their design trade-offs are very differen
 
 
 
+######  Making B-trees Reliable
 
 
 
-
-Making B-trees Reliable
 Overwriting Pages on Disk
 
 In a B-tree, the main operation is to overwrite a page on disk with new data.
@@ -828,7 +843,13 @@ Queries aren’t interrupted.
 
 Old segments are swapped out atomically.
 
-B-tree Optimizations
+
+
+
+######  B-tree Optimizations
+
+
+
 Copy-on-Write (instead of WAL)
 
 Some databases (e.g., LMDB) use copy-on-write instead of WAL.
@@ -883,7 +904,12 @@ Fractal trees borrow ideas from log-structured storage to reduce disk seeks.
 
 (Despite the name, they have nothing to do with fractals.)
 
-Comparing B-Trees and LSM-Trees
+
+
+
+######  Comparing B-Trees and LSM-Trees
+
+
 
 General rule of thumb:
 
@@ -895,7 +921,11 @@ Reads on LSM-trees are slower since they must check multiple SSTables and struct
 
 Benchmarks: Results vary a lot depending on workload; you must test with your actual workload.
 
-Advantages of LSM-trees
+
+
+######  Advantages of LSM-trees
+
+
 Less Redundant Writing
 
 In B-trees:
@@ -967,7 +997,9 @@ More compact data → more I/O operations fit within bandwidth.
 
 
 
-Downsides of LSM-trees
+######  Downsides of LSM-trees
+
+
 Compaction Interfering with Performance
 
 LSM-trees rely on compaction (merging smaller SSTables into larger ones) to keep storage efficient.
@@ -1026,7 +1058,11 @@ However, log-structured (LSM) indexes are becoming popular in modern datastores 
 
 There is no universal rule about which is better; the choice depends on workload → requires empirical testing.
 
-Other Indexing Structures
+
+
+######  Other Indexing Structures
+
+
 Secondary Indexes
 
 A primary key index ensures that each row/document/vertex is uniquely identified.
@@ -1043,7 +1079,11 @@ Solution 1: Store a list of row IDs for each key (like a postings list).
 
 Solution 2: Make each key unique by appending row ID.
 
-Storing Values within the Index
+
+
+###### Storing Values within the Index
+
+
 Heap File Approach
 
 An index stores keys and either:
@@ -1097,7 +1137,9 @@ Databases must also ensure consistency across duplicates, which increases comple
 
 
 
-Multi-column indexes
+######  Multi-column indexes
+
+
 
 So far, we looked at indexes that map a single key → value. But many queries need filtering by multiple columns/fields at once.
 
@@ -1162,7 +1204,11 @@ With a 2D index, both filters (date + temperature) apply simultaneously.
 
 Example system: HyperDex uses such multi-dimensional indexes.
 
-Full-text search and fuzzy indexes
+
+
+###### Full-text search and fuzzy indexes
+
+
 
 So far, indexes assumed exact values (exact key matches, or range queries).
 But sometimes we want fuzzy matching — e.g., misspelled words, similar terms.
@@ -1203,7 +1249,12 @@ Other fuzzy search methods use document classification + ML techniques.
 
 For deeper study → look into information retrieval textbooks.
 
-Keeping everything in memory
+
+
+
+######  Keeping everything in memory
+
+
 
 The earlier data structures were designed mainly for disk limitations.
 
@@ -1383,7 +1434,8 @@ Table 3-1: OLTP vs OLAP
 
 
 
-Data Warehousing
+######  Data Warehousing
+
 
 At first, companies used the same databases for both OLTP and OLAP queries, since SQL worked well for both.
 
@@ -1447,7 +1499,9 @@ A data warehouse is optimized for analytics → faster queries and better perfor
 
 
 
-The Divergence Between OLTP Databases and Data Warehouses
+######  The Divergence Between OLTP Databases and Data Warehouses
+
+
 
 At first glance, OLTP (Online Transaction Processing) databases and data warehouses may seem similar because both typically use SQL as a query interface. However, internally, they are optimized for very different use cases.
 
@@ -1497,7 +1551,11 @@ Many of these systems are inspired by Google’s Dremel (a highly scalable query
 
 These are relatively new but aim to compete with the big commercial systems.
 
-Stars and Snowflakes: Schemas for Analytics
+
+
+######  Stars and Snowflakes: Schemas for Analytics
+
+
 
 In transaction processing systems, there’s a wide variety of data models depending on the application.
 But in analytics systems (data warehouses), the data model is far more standardized.
@@ -1594,7 +1652,9 @@ Fact & dimension tables can be very large and wide, supporting deep analytics at
 
 
 
-Column-Oriented Storage
+######  Column-Oriented Storage
+
+
 
 When handling trillions of rows and petabytes of data in fact tables (common in data warehouses), efficiently storing and querying becomes a challenge.
 
@@ -1660,7 +1720,10 @@ Column storage works not just in relational DBs but also in non-relational syste
 
 Parquet → columnar storage format for documents (based on Google’s Dremel).
 
-Column Compression
+
+
+######   Column Compression
+
 
 Column storage also enables better compression because values are often repetitive.
 
@@ -1702,7 +1765,10 @@ Use Run-Length Encoding (RLE) to compress further.
 
 Result → Very compact column representation.
 
-Column-Oriented Storage and Column Families
+
+
+######  Column-Oriented Storage and Column Families
+
 
 Some systems (Cassandra, HBase, Bigtable) use column families.
 
@@ -1720,7 +1786,9 @@ Thus → Bigtable model is still mostly row-oriented, not columnar.
 
 
 
-Memory Bandwidth and Vectorized Processing
+
+######  Memory Bandwidth and Vectorized Processing
+
 
 When running data warehouse queries that scan millions of rows, one big bottleneck is getting data from disk into memory. But this is not the only problem:
 
@@ -1742,7 +1810,11 @@ Operators like bitwise AND/OR can be applied directly on compressed chunks.
 
 This style of processing is called vectorized processing.
 
-Sort Order in Column Storage
+
+
+######  Sort Order in Column Storage
+
+
 
 In column stores, the order of rows doesn’t matter much, but choosing a sort order can bring performance benefits:
 
@@ -1768,7 +1840,11 @@ With run-length encoding, these can compress to very small sizes even for billio
 
 Compression works best on the first sort key, weaker on later ones.
 
-Several Different Sort Orders
+
+
+######  Several Different Sort Orders
+
+
 
 A key innovation from C-Store (and later Vertica):
 
@@ -1784,7 +1860,11 @@ In row stores, the main table is stored once, and secondary indexes only store p
 
 In column stores, there are usually no pointers, just the actual values in columns.
 
-Writing to Column-Oriented Storage
+
+
+###### Writing to Column-Oriented Storage
+
+
 
 While column stores are great for reads, they make writes harder:
 
@@ -1804,7 +1884,12 @@ This is how Vertica handles writes.
 
 Queries must read from both disk and memory data, but the query optimizer hides this from users—so updates appear immediately.
 
-Aggregation: Data Cubes and Materialized Views
+
+
+
+######  Aggregation: Data Cubes and Materialized Views
+
+
 
 Column stores are not the only choice for data warehouses, but they are very fast for analytical queries. Another important optimization is precomputing aggregates.
 
@@ -1842,6 +1927,124 @@ Keep as much raw data as possible.
 
 Use data cubes/materialized views only as performance boosts for specific frequent queries.
 
+
+
+
+
+## summary
+
+
+Storage and Retrieval Recap
+
+The chapter focused on understanding how databases handle storage and retrieval:
+
+What happens when data is stored in a database?
+
+What the database does when that data is queried later?
+
+Two Broad Categories of Storage Engines
+
+On a high level, storage engines fall into two major categories:
+
+OLTP (Online Transaction Processing) – optimized for transactions.
+
+OLAP (Online Analytical Processing) – optimized for analytics.
+
+Differences in Access Patterns
+
+The main difference between OLTP and OLAP systems is in query access patterns:
+
+OLTP Systems
+
+User-facing systems (e.g., web or mobile apps).
+
+Handle a huge volume of requests.
+
+Each query usually touches only a small number of records.
+
+Queries typically use a key lookup to retrieve records.
+
+The storage engine uses an index to quickly locate the data.
+
+Disk seek time is often the main bottleneck.
+
+OLAP / Data Warehouses
+
+Analyst-facing systems, not usually exposed directly to end users.
+
+Handle a lower query volume compared to OLTP.
+
+But each query is very demanding, scanning millions of records.
+
+Here, the bottleneck is disk bandwidth (how much data can be streamed from disk per second), not seek time.
+
+Column-oriented storage is increasingly used to optimize for these workloads.
+
+Storage Engines for OLTP
+
+Two main philosophies exist for building OLTP storage engines:
+
+1. Log-Structured Storage Engines
+
+Data is only appended to files.
+
+Obsolete files are deleted, but files are never updated in place.
+
+Examples: Bitcask, SSTables, LSM-trees, LevelDB, Cassandra, HBase, Lucene.
+
+Key idea: turn random-access writes into sequential writes, which are much faster on both hard drives and SSDs.
+
+Provides higher write throughput.
+
+Considered a newer approach.
+
+2. Update-in-Place Storage Engines
+
+Disk is treated as a set of fixed-size pages that can be directly overwritten.
+
+The main example: B-trees, used in almost all major relational databases and many non-relational ones.
+
+Considered the traditional approach.
+
+Further OLTP Topics
+
+The chapter also briefly looked at:
+
+Advanced indexing structures (beyond simple B-trees and LSM-trees).
+
+Databases optimized for keeping all data in memory (in-memory databases).
+
+Shift to Data Warehouses (OLAP)
+
+The discussion then shifted from OLTP engines to data warehouse architecture:
+
+In analytic workloads, queries often scan sequentially across many rows.
+
+Because of this, indexes are less important.
+
+Instead, the focus is on compact encoding of data to reduce how much must be read from disk.
+
+Column-oriented storage was shown as a key method to achieve this efficiency.
+
+Practical Takeaways for Developers
+
+Understanding these storage engine details helps application developers:
+
+Choosing the right tool:
+Knowing OLTP vs OLAP trade-offs helps pick the right database for the job.
+
+Tuning databases:
+If you adjust database configuration parameters, this knowledge helps you predict the impact (e.g., how increasing cache size or changing write buffer size affects performance).
+
+Final Note
+
+The chapter does not make you an expert in tuning one specific storage engine.
+
+Instead, it provides enough vocabulary and conceptual understanding so that:
+
+You can understand database documentation better.
+
+You are equipped to make informed decisions when working with databases.
 
 
 
