@@ -1,9 +1,13 @@
-PART II
+######    PART II
+
+
 Distributed Data
 
-Richard Feynman’s quote reminds us that in technology, reality matters more than appearances. Distributed systems bring real-world trade-offs that developers cannot ignore.
+Richard Feynman’s quote reminds us that in technology, reality matters more than appearances. 
+Distributed systems bring real-world trade-offs that developers cannot ignore.
 
-In Part I, we studied databases that fit on a single machine. Now, in Part II, we move into distributed systems—databases that involve multiple machines.
+In Part I, we studied databases that fit on a single machine. Now, in Part II, 
+we move into distributed systems—databases that involve multiple machines.
 
 Why Distribute a Database?
 
@@ -25,7 +29,8 @@ Latency
 
 Users around the world can be served by nearby datacenters instead of waiting for requests to travel long distances.
 
-Scaling to Higher Load
+
+######    Scaling to Higher Load
 
 The simplest way to handle higher load is vertical scaling (scaling up): buying a more powerful machine.
 
@@ -53,7 +58,9 @@ Used in some data warehousing systems.
 
 Problems: contention and locking overhead limit scalability.
 
-Shared-Nothing Architectures
+
+
+######    Shared-Nothing Architectures
 
 The most popular today: horizontal scaling (scaling out).
 
@@ -115,10 +122,15 @@ Fundamental limitations (Chapters 8–9): trade-offs of distributed systems.
 
 Part III: combining distributed datastores into larger systems.
 
-CHAPTER 5
-Replication
 
-Douglas Adams’ quote highlights a truth: when something that “cannot fail” does fail, it often fails in the worst possible way. This applies strongly to replication.
+
+######    CHAPTER 5
+
+
+######    Replication
+
+Douglas Adams’ quote highlights a truth: when something that “cannot fail” does fail, it often fails in the worst possible way. 
+This applies strongly to replication.
 
 What is Replication?
 
@@ -163,7 +175,9 @@ These differ between databases, but principles are similar.
 
 Replication has been studied since the 1970s, but mainstream use is recent. Misunderstandings exist (e.g., eventual consistency).
 
-Leaders and Followers
+
+
+######   Leaders and Followers
 
 Each machine storing a copy is a replica.
 
@@ -227,9 +241,11 @@ Distributed filesystems / block devices (e.g., DRBD)
 
 
 
-Synchronous Versus Asynchronous Replication
+######    Synchronous Versus Asynchronous Replication
 
-Replication in distributed systems can happen synchronously or asynchronously. In relational databases, this is usually configurable, while in other systems, it may be hardcoded.
+
+Replication in distributed systems can happen synchronously or asynchronously. In relational databases,
+this is usually configurable, while in other systems, it may be hardcoded.
 
 To understand the difference, imagine a user updating their profile image on a website:
 
@@ -313,7 +329,10 @@ There are many followers, or
 
 Followers are geographically distributed.
 
-Research on Replication
+
+
+######   Research on Replication
+
 
 The main issue with asynchronous replication is data loss if the leader fails.
 
@@ -329,9 +348,14 @@ Chain replication → a variant of synchronous replication.
 
 Successfully used in Microsoft Azure Storage.
 
-Replication consistency is closely related to consensus (agreement between nodes). More about consensus comes in Chapter 9, but here we focus on practical replication methods.
+Replication consistency is closely related to consensus (agreement between nodes). More about consensus comes in Chapter 9,
+but here we focus on practical replication methods.
 
-Setting Up New Followers
+
+
+######  Setting Up New Followers
+
+
 
 Sometimes you need to add new followers:
 
@@ -378,9 +402,11 @@ Others require a manual, multi-step process by an administrator.
 
 
 
-Handling Node Outages
+######   Handling Node Outages
 
-In a distributed system, any node can go down—either unexpectedly (e.g., due to a crash or hardware failure) or planned (e.g., rebooting for a security patch).
+
+In a distributed system, any node can go down—either unexpectedly (e.g., due to a crash or hardware failure) or planned 
+(e.g., rebooting for a security patch).
 The goal is:
 
 Keep the overall system running despite individual node failures.
@@ -389,7 +415,10 @@ Minimize the impact of node outages.
 
 Leader-based replication helps achieve high availability, but failures of followers and leaders are handled differently.
 
-Follower Failure: Catch-up Recovery
+
+
+######   Follower Failure: Catch-up Recovery
+
 
 Each follower keeps a log of the data changes it has received from the leader.
 
@@ -405,9 +434,13 @@ After catching up, the follower continues streaming changes from the leader as n
 
 ➡️ This process ensures that temporary follower outages do not cause permanent data loss.
 
-Leader Failure: Failover
 
-Leader failures are much harder to handle. A follower must be promoted to become the new leader, clients must redirect writes, and other followers must follow the new leader. This process is called failover.
+
+######   Leader Failure: Failover
+
+
+Leader failures are much harder to handle. A follower must be promoted to become the new leader, 
+clients must redirect writes, and other followers must follow the new leader. This process is called failover.
 
 Failover can be:
 
@@ -417,7 +450,9 @@ Automatic – system detects failure and switches leader without human intervent
 
 Automatic Failover Process
 
-Determining that the leader has failed
+
+######   Determining that the leader has failed
+
 
 Causes: crash, power outage, network issue.
 
@@ -427,7 +462,8 @@ Most systems use a timeout (e.g., 30 seconds without response → assume dead).
 
 Planned maintenance does not count as failure.
 
-Choosing a new leader
+
+######   Choosing a new leader
 
 Could be done by:
 
@@ -439,7 +475,9 @@ Best candidate: follower with the most up-to-date data (minimizes data loss).
 
 This is a consensus problem (covered in depth in Chapter 9).
 
-Reconfiguring the system
+
+######   Reconfiguring the system
+
 
 Clients must send writes to the new leader.
 
@@ -447,9 +485,12 @@ If the old leader comes back, it may think it’s still the leader.
 
 System must force the old leader to step down and become a follower.
 
-Failover Risks and Problems
 
-Asynchronous replication problem
+
+######  Failover Risks and Problems
+
+
+######   Asynchronous replication problem
 
 New leader may not have received all writes from the old leader.
 
@@ -457,7 +498,9 @@ If old leader rejoins, its unreplicated writes may conflict with new leader’s 
 
 Solution: discard the old leader’s unreplicated writes.
 
-Problem: this may violate durability guarantees (clients think their write succeeded, but it’s lost).
+
+######   Problem: this may violate durability guarantees (clients think their write succeeded, but it’s lost).
+
 
 ⚠️ Example: GitHub incident
 
@@ -467,7 +510,8 @@ Used autoincrement primary keys → reused keys already assigned by old leader.
 
 Keys were also used in Redis → caused inconsistency and data leakage to wrong users.
 
-Split brain
+
+######   Split brain
 
 Happens if two nodes both believe they are leader.
 
@@ -477,7 +521,9 @@ Some systems use fencing (STONITH – Shoot The Other Node In The Head) to shut 
 
 Risk: poor design may shut down both nodes.
 
-Timeout issues
+
+######  Timeout issues
+
 
 If timeout too long → recovery is slow.
 
@@ -493,15 +539,23 @@ Unnecessary failovers under high load → makes things worse, not better.
 
 Fundamental Issue
 
-Node failures, unreliable networks, and trade-offs between consistency, durability, availability, and latency are fundamental problems in distributed systems.
+Node failures, unreliable networks, and trade-offs between consistency, durability, availability, 
+and latency are fundamental problems in distributed systems.
 
 They require deeper study (covered in Chapter 8 and 9).
 
-Implementation of Replication Logs
+
+
+
+######   Implementation of Replication Logs
+
+
 
 Leader-based replication requires sending changes to followers. Several methods exist:
 
-Statement-based Replication
+
+######  Statement-based Replication
+
 
 Leader logs every write request (statement) and forwards it to followers.
 
@@ -531,7 +585,9 @@ MySQL automatically switches to row-based replication if nondeterminism is detec
 
 VoltDB uses statement-based replication safely by requiring all transactions to be deterministic.
 
-Write-Ahead Log (WAL) Shipping
+
+######   Write-Ahead Log (WAL) Shipping
+
 
 Storage engines usually log every write before applying it (write-ahead log).
 
@@ -569,7 +625,8 @@ If not (as with WAL shipping), upgrades usually require downtime.
 
 
 
-Logical (row-based) log replication
+######   Logical (row-based) log replication
+
 
 Some databases separate replication logs from the storage engine’s internal logs.
 
@@ -601,7 +658,8 @@ At the end, a commit record is written.
 
 Advantages of logical logs:
 
-Backward compatibility: Since they’re not tied to storage engine internals, leader and follower can run different DB versions or storage engines.
+Backward compatibility: Since they’re not tied to storage engine internals, 
+leader and follower can run different DB versions or storage engines.
 
 Easier parsing for external apps: Logical logs can be read by outside systems.
 
@@ -609,7 +667,10 @@ Useful for data warehouses, offline analysis, building custom indexes, caches.
 
 This practice of exporting database changes is called Change Data Capture (CDC).
 
-Trigger-based replication
+
+######   Trigger-based replication
+
+
 Why use triggers for replication?
 
 Built-in replication methods usually don’t need application code.
@@ -644,7 +705,13 @@ More bugs and limitations.
 
 But still useful for flexibility.
 
-Problems with Replication Lag
+
+
+
+######   Problems with Replication Lag
+
+
+
 Why replication is used:
 
 Fault tolerance (node failures).
@@ -683,7 +750,11 @@ But under high load or network issues → lag can be seconds or minutes.
 
 This makes inconsistencies a real problem for apps.
 
-Reading Your Own Writes
+
+
+######   Reading Your Own Writes
+
+
 The problem:
 
 A user submits data (goes to leader).
@@ -754,7 +825,10 @@ For consistency, requests may need to be routed to the leader’s datacenter.
 
 
 
-Monotonic Reads
+######   Monotonic Reads
+
+
+
 The Problem
 
 When reading from asynchronous replicas (followers), it’s possible for a user to see data move backward in time.
@@ -791,7 +865,13 @@ Example: assign replicas based on a hash of user ID.
 
 Problem: If that replica fails, the user must be rerouted to another replica.
 
-Consistent Prefix Reads
+
+
+
+######  Consistent Prefix Reads
+
+
+
 The Problem
 
 This anomaly occurs when the order of causally related writes is violated.
@@ -844,7 +924,11 @@ Use algorithms that track causal dependencies.
 
 This relates to the “happens-before” relationship in concurrency (covered later in Chapter 6).
 
-Solutions for Replication Lag
+
+
+######  Solutions for Replication Lag
+
+
 
 Replication lag can sometimes be just a few seconds, but it can also extend to minutes or hours.
 
@@ -884,7 +968,14 @@ But this view is too simplistic.
 
 The book promises to explore a more nuanced perspective on transactions (in Chapters 7 & 9, and Part III).
 
-Multi-Leader Replication
+
+
+
+
+######   Multi-Leader Replication
+
+
+
 Recap of Leader-Based Replication
 
 So far, only single-leader replication has been considered.
@@ -901,14 +992,21 @@ Each leader also acts as a follower to other leaders.
 
 This is called multi-leader replication (also known as master–master or active/active replication).
 
-Use Cases for Multi-Leader Replication
+
+
+######  Use Cases for Multi-Leader Replication
+
+
+
 When It Makes Sense
 
 Rarely useful inside a single datacenter (complexity > benefit).
 
 Useful for multi-datacenter deployments.
 
-1. Multi-Datacenter Operation
+
+
+######  Multi-Datacenter Operation
 
 Normal (single-leader) setup:
 
@@ -924,19 +1022,19 @@ Writes processed locally.
 
 Changes replicated asynchronously across datacenters.
 
-2. Performance
+1. Performance
 
 Single-leader: all writes must cross the internet to the leader’s datacenter → high latency.
 
 Multi-leader: each datacenter processes local writes → better user performance.
 
-3. Tolerance of Datacenter Outages
+2. Tolerance of Datacenter Outages
 
 Single-leader: if leader datacenter fails, must do failover.
 
 Multi-leader: each datacenter can continue independently. When one comes back online, replication catches up.
 
-4. Tolerance of Network Problems
+3. Tolerance of Network Problems
 
 Single-leader: sensitive to inter-datacenter link failures (since writes must cross datacenters).
 
@@ -972,10 +1070,9 @@ Multi-leader replication is often considered dangerous and should be avoided unl
 
 
 
+######   Clients with Offline Operation
 
 
-
-Clients with Offline Operation
 
 Multi-leader replication is useful when applications must work even without an internet connection.
 
@@ -989,13 +1086,18 @@ Each device acts as a leader because it accepts writes.
 
 Synchronization between devices happens asynchronously (may lag hours or days).
 
-Architecturally, it’s similar to multi-leader replication between datacenters—but here, each device is a “datacenter” and connections are highly unreliable.
+Architecturally, it’s similar to multi-leader replication between datacenters—but here, 
+each device is a “datacenter” and connections are highly unreliable.
 
 History shows calendar sync is tricky, proving multi-leader replication is hard to get right.
 
 Tool example: CouchDB is designed for this offline/online sync mode.
 
-Collaborative Editing
+
+
+######  Collaborative Editing
+
+
 
 Real-time collaboration (e.g., Google Docs, Etherpad) resembles offline editing but with instant updates.
 
@@ -1021,7 +1123,12 @@ Multiple users edit simultaneously.
 
 Brings challenges of multi-leader replication → requires conflict resolution.
 
-Handling Write Conflicts
+
+
+
+######   Handling Write Conflicts
+
+
 
 The biggest challenge in multi-leader replication is conflicting writes.
 
@@ -1035,7 +1142,9 @@ Both succeed locally, but during sync a conflict is detected.
 
 This issue does not happen in single-leader databases.
 
-Synchronous versus Asynchronous Conflict Detection
+
+######   Synchronous versus Asynchronous Conflict Detection
+
 
 Single-Leader:
 
@@ -1049,11 +1158,14 @@ Conflict is detected later (during replication).
 
 Too late to ask users to retry.
 
-In theory, conflict detection could be synchronous (replicate first, then confirm success), but this removes the independence benefit of multi-leader replication.
+In theory, conflict detection could be synchronous (replicate first, then confirm success),
+but this removes the independence benefit of multi-leader replication.
 
 If synchronous detection is needed → single-leader is better.
 
-Conflict Avoidance
+
+######   Conflict Avoidance
+
 
 Best strategy: avoid conflicts entirely.
 
@@ -1073,7 +1185,9 @@ Problem:
 
 If leader changes (due to failure, user relocation, etc.), conflicts may still occur.
 
-Converging toward a Consistent State
+
+######   Converging toward a Consistent State
+
 
 Replication must converge (all replicas agree eventually).
 
@@ -1117,7 +1231,9 @@ Store both versions.
 
 Resolve later via app logic (maybe ask the user).
 
-Custom Conflict Resolution Logic
+
+######  Custom Conflict Resolution Logic
+
 
 Applications may define their own rules.
 
@@ -1141,7 +1257,10 @@ Example: CouchDB.
 
 ⚠️ Note: Conflict resolution happens per row/document, not for whole transactions.
 
-Automatic Conflict Resolution
+
+######   Automatic Conflict Resolution
+
+
 
 Manual conflict rules are complex and error-prone.
 
@@ -1175,7 +1294,9 @@ Designed for ordered lists (like characters in text).
 
 👉 These techniques are still young, but promising for the future of replication systems.
 
-What is a Conflict?
+
+######  What is a Conflict?
+
 
 Conflicts can be obvious or subtle.
 
@@ -1195,7 +1316,9 @@ Even if app checks availability, if two users book on different leaders simultan
 
 
 
-Multi-Leader Replication Topologies
+######   Multi-Leader Replication Topologies
+
+
 
 A replication topology defines how writes are propagated between nodes in a system with multiple leaders.
 
@@ -1215,13 +1338,13 @@ Every leader sends its writes to every other leader.
 
 Provides better fault tolerance.
 
-Circular Topology (default in MySQL)
+######   Circular Topology (default in MySQL)
 
 Each node receives writes from one node.
 
 Forwards those writes (plus its own) to another node, forming a ring.
 
-Star Topology
+######   Star Topology
 
 One designated root node forwards writes to all other nodes.
 
@@ -1249,7 +1372,7 @@ Other nodes may become unable to communicate until the failed node is fixed.
 
 Reconfiguration is possible but usually must be done manually.
 
-All-to-All Topology
+######   All-to-All Topology
 
 More fault-tolerant since messages can take alternate paths.
 
@@ -1289,9 +1412,14 @@ Tungsten Replicator (MySQL) → does not detect conflicts.
 
 Takeaway:
 
-If you use multi-leader replication, carefully read the documentation and test the database to ensure it provides the guarantees you need.
+If you use multi-leader replication, carefully read the documentation and test the database to 
+ensure it provides the guarantees you need.
 
-Leaderless Replication
+
+
+######  Leaderless Replication
+
+
 
 Unlike leader-based systems (single-leader or multi-leader), leaderless systems allow any replica to accept writes directly.
 
@@ -1315,7 +1443,10 @@ Via a coordinator node (but unlike leaders, coordinators don’t enforce order).
 
 No fixed order of writes → has big implications for how databases behave.
 
-Writing When a Node is Down
+
+
+######   Writing to the Database When a Node is Down
+
 
 Example: Database with 3 replicas, and one node goes down (reboot/maintenance).
 
@@ -1349,7 +1480,9 @@ They may receive different versions (new vs stale).
 
 Version numbers are used to determine which value is newer.
 
-Read Repair and Anti-Entropy
+
+######   Read Repair and Anti-Entropy
+
 
 To ensure eventual consistency (all replicas eventually have the same data), leaderless systems use:
 
@@ -1385,7 +1518,8 @@ This reduces durability since read repair only happens on reads.
 
 
 
-Quorums for Reading and Writing
+######   Quorums for Reading and Writing
+
 
 In Figure 5-10 (from the book’s example), a write was considered successful when it reached 2 out of 3 replicas.
 
@@ -1407,11 +1541,7 @@ A read is successful if it queries at least r nodes.
 
 Quorum condition:
 
-𝑤
-+
-𝑟
->
-𝑛
+𝑤+𝑟>𝑛
 w+r>n
 
 ensures that the sets of nodes used for reads and writes overlap, so at least one up-to-date replica is always included.
@@ -1442,7 +1572,8 @@ w = n, r = 1.
 
 This makes reads faster, but writes fail if even one node is unavailable.
 
-👉 Note: The cluster can be bigger than n, but any given key is only stored on n nodes, supporting partitioning of datasets across the cluster.
+👉 Note: The cluster can be bigger than n, but any given key is only stored on n nodes, 
+supporting partitioning of datasets across the cluster.
 
 Quorum Condition and Fault Tolerance
 
@@ -1466,7 +1597,9 @@ But only w or r successful responses are required to declare success.
 
 If fewer than w or r nodes respond, the operation fails.
 
-Limitations of Quorum Consistency
+
+######  Limitations of Quorum Consistency
+
 
 Even if w + r > n, some edge cases mean you may still read stale values:
 
@@ -1502,13 +1635,15 @@ Later reads may or may not return it.
 
 5. Node Failure with New Value
 
-If a replica storing the new value crashes, and its state is restored from a stale replica, the number of replicas with the new value falls below w, breaking the quorum guarantee.
+If a replica storing the new value crashes, and its state is restored from a stale replica,
+the number of replicas with the new value falls below w, breaking the quorum guarantee.
 
 6. Timing Issues
 
 Even in a healthy system, unlucky timing (like in linearizability problems) can cause stale reads.
 
-👉 So while quorums appear to ensure fresh reads, in practice they don’t guarantee it. Dynamo-style systems optimize for eventual consistency instead.
+👉 So while quorums appear to ensure fresh reads, in practice they don’t guarantee it. Dynamo-style systems optimize 
+for eventual consistency instead.
 
 Parameters w and r only adjust the probability of staleness, not guarantee freshness.
 
@@ -1516,9 +1651,14 @@ Applications must be tolerant of anomalies.
 
 Also note:
 
-Stronger guarantees (like read-your-writes, monotonic reads, consistent prefix reads) require transactions or consensus protocols (covered later in Chapters 7 & 9).
+Stronger guarantees (like read-your-writes, monotonic reads, consistent prefix reads) require transactions or 
+consensus protocols (covered later in Chapters 7 & 9).
 
-Monitoring Staleness
+
+
+######  Monitoring Staleness
+
+
 
 Operationally, it’s important to track whether your database is serving up-to-date values.
 
@@ -1555,8 +1695,9 @@ Ideally, databases should expose staleness metrics.
 
 
 
+######  Sloppy Quorums and Hinted Handoff
 
-Sloppy Quorums and Hinted Handoff
+
 Quorums and Leaderless Replication
 
 In leaderless replication (like Dynamo, Cassandra, Riak, Voldemort), data is stored on n replicas.
@@ -1587,9 +1728,11 @@ From the client’s perspective, the disconnected nodes look dead.
 
 If the client cannot reach enough nodes (w or r), it cannot form a quorum.
 
-Sloppy Quorums
 
-Imagine a large cluster (more nodes than n). During a network issue, a client might still reach some nodes, just not the designated “home nodes” where the data is supposed to live.
+######  Sloppy Quorums
+
+Imagine a large cluster (more nodes than n). During a network issue, a client might still reach some nodes,
+just not the designated “home nodes” where the data is supposed to live.
 
 Trade-off faced by designers:
 
@@ -1605,7 +1748,8 @@ But those acknowledgments may come from non-home nodes.
 
 Analogy: If you’re locked out of your house, you sleep on your neighbor’s couch until you get your keys.
 
-Hinted Handoff
+
+######  Hinted Handoff
 
 Once the network heals, the system sends those temporarily stored writes back to the correct home nodes.
 
@@ -1617,9 +1761,11 @@ Benefits and Limitations
 
 Benefit: Increases write availability → as long as any w nodes are up, the system accepts writes.
 
-Limitation: Even if w + r > n, you might not read the latest value immediately, since the latest write might be sitting on temporary nodes until hinted handoff completes.
+Limitation: Even if w + r > n, you might not read the latest value immediately, since the latest write might be
+sitting on temporary nodes until hinted handoff completes.
 
-So → a sloppy quorum isn’t a real quorum. It’s just a guarantee that the data exists on some w nodes somewhere, but not necessarily that a read will see it right away.
+So → a sloppy quorum isn’t a real quorum. It’s just a guarantee that the data exists on some w nodes somewhere, 
+but not necessarily that a read will see it right away.
 
 Defaults in systems:
 
@@ -1627,7 +1773,10 @@ Riak → sloppy quorums enabled by default.
 
 Cassandra, Voldemort → disabled by default.
 
-Multi-Datacenter Operation
+
+
+######  Multi-Datacenter Operation
+
 
 Leaderless replication can also be used for multi-datacenter setups, since it tolerates:
 
@@ -1657,7 +1806,11 @@ n = number of replicas within that datacenter only.
 
 Cross-datacenter replication is asynchronous in the background, similar to multi-leader replication.
 
-Detecting Concurrent Writes
+
+
+######  Detecting Concurrent Writes
+
+
 
 Dynamo-style databases allow multiple clients to write to the same key at the same time.
 
@@ -1683,7 +1836,9 @@ Nodes 1 and 3 think final value is A.
 
 To be eventually consistent, replicas must converge. But many databases leave conflict resolution to the application developer.
 
-Last Write Wins (LWW)
+
+######  Last Write Wins (LWW)
+
 
 Simplest conflict resolution: only keep the most “recent” value, discard others.
 
@@ -1711,7 +1866,11 @@ Treat keys as immutable (never update the same key twice).
 
 Example: Use a UUID as the key in Cassandra.
 
-The “Happens-Before” Relationship and Concurrency
+
+
+######  The “Happens-Before” Relationship and Concurrency
+
+
 Example: Causality
 
 If A’s operation is required for B’s operation, then A happens before B.
@@ -1742,7 +1901,11 @@ B before A
 
 A and B concurrent (conflict).
 
-Concurrency, Time, and Relativity
+
+
+######  Concurrency, Time, and Relativity
+
+
 
 One might think concurrency = “same time.”
 
@@ -1762,15 +1925,17 @@ Even if one operation technically happened first, if network delays prevent the 
 
 
 
+######  Capturing the Happens-Before Relationship
 
 
-Capturing the Happens-Before Relationship
-
-This section explains how a database can determine whether two operations are concurrent or whether one happened before another. The idea is to first understand this on a single replica and then generalize to leaderless replication with multiple replicas.
+This section explains how a database can determine whether two operations are concurrent or whether one 
+happened before another. The idea is to first understand this on a single replica and then generalize to 
+leaderless replication with multiple replicas.
 
 Example: Shopping Cart with Concurrent Writes
 
-Imagine two clients concurrently editing the same shopping cart (instead of just a simple trivial cart, think of it as something critical like air traffic controllers adding aircraft).
+Imagine two clients concurrently editing the same shopping cart (instead of just a simple trivial cart, 
+think of it as something critical like air traffic controllers adding aircraft).
 
 Initially, the cart is empty.
 
@@ -1868,7 +2033,11 @@ Overwrites values ≤ that version (they’re merged).
 
 Keeps values with higher version (they’re concurrent).
 
-Merging Concurrently Written Values
+
+
+######  Merging Concurrently Written Values
+
+
 
 The algorithm ensures no data loss, but requires clients to do extra work.
 
@@ -1911,7 +2080,11 @@ Some databases (like Riak with CRDTs) use Conflict-Free Replicated Data Types.
 
 CRDTs automatically merge siblings in sensible ways (including deletions).
 
-Version Vectors
+
+
+######  Version Vectors
+
+
 
 So far: single replica only.
 
@@ -1962,9 +2135,13 @@ Tombstones are needed to handle deletions correctly.
 
 
 
-Summary: Replication
+######   Summary: Replication
 
-Replication refers to the practice of keeping copies of the same data across multiple machines. Although the idea is simple, it becomes complex in real-world systems due to issues like concurrency, failures, and replication lag. Below are the main purposes, approaches, and challenges of replication.
+
+
+Replication refers to the practice of keeping copies of the same data across multiple machines. 
+Although the idea is simple, it becomes complex in real-world systems due to issues like concurrency, 
+failures, and replication lag. Below are the main purposes, approaches, and challenges of replication.
 
 Purposes of Replication
 
@@ -2058,7 +2235,8 @@ Example problem: promoting an asynchronously updated follower to leader may caus
 
 Effects of Replication Lag and Consistency Models
 
-Replication lag can cause strange effects, where users see inconsistent or outdated states. To manage this, several consistency models are applied:
+Replication lag can cause strange effects, where users see inconsistent or outdated states. 
+To manage this, several consistency models are applied:
 
 Read-After-Write Consistency
 
@@ -2088,9 +2266,11 @@ Happens-before relationships: determine whether one operation occurred before an
 
 Conflict resolution: merging concurrent updates (e.g., last-write-wins, application-specific merge rules).
 
-Conclusion
 
-Replication is essential for building robust, scalable, and high-performance distributed systems. However, it introduces challenges in consistency, concurrency, and fault tolerance.
+######  Conclusion
+
+Replication is essential for building robust, scalable, and high-performance distributed systems. 
+However, it introduces challenges in consistency, concurrency, and fault tolerance.
 In the next step, after replication, systems address another crucial aspect of distribution: partitioning large datasets across machines.
 
 
