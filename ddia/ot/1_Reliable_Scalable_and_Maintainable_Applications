@@ -1,1 +1,1048 @@
-..
+PART I
+
+Foundations of Data Systems
+
+The first four chapters lay the foundation for understanding data systems. These ideas apply whether a system runs on one computer or is spread across a cluster of many machines.
+
+Chapter 1 – Introduces the core terminology and approach. It explains what is meant by reliability, scalability, and maintainability, and how to achieve these goals.
+
+Chapter 2 – Compares different data models and query languages, which are the most visible differences between databases. Different models suit different situations.
+
+Chapter 3 – Looks at the internals of storage engines and how data is organized on disk. The choice of storage engine greatly affects performance depending on workload.
+
+Chapter 4 – Compares data encoding formats (serialization) and discusses how they adapt when application requirements change and schemas evolve.
+
+Later, Part II focuses specifically on distributed data systems.
+
+DESIGNING Data-Intensive Applications
+The big ideas behind reliable, scalable, & maintainable systems
+
+The three core properties we aim for are:
+
+Reliability → Tolerating hardware faults, software faults, and human errors.
+
+Scalability → Measuring and improving load handling, latency, throughput, etc.
+
+Maintainability → Ensuring operability, simplicity, and evolvability.
+
+CHAPTER 1
+Reliable, Scalable, and Maintainable Applications
+
+Alan Kay once said in 2012:
+
+“The Internet was done so well that most people think of it as a natural resource like the Pacific Ocean, rather than something that was man-made. When was the last time a technology with a scale like that was so error-free?”
+
+This sets the tone: great systems feel invisible and natural, but they are carefully engineered.
+
+Data-Intensive vs Compute-Intensive
+
+Many modern applications are data-intensive (problems come from data volume, complexity, or rapid change), not compute-intensive (limited by CPU).
+
+The challenges are handling, processing, and storing data efficiently.
+
+Building Blocks of Data-Intensive Applications
+
+Such applications usually reuse standard components instead of reinventing from scratch:
+
+Databases → Store data for later retrieval.
+
+Caches → Save results of expensive operations to speed up reads.
+
+Search Indexes → Allow keyword search and filtering.
+
+Stream Processing → Send messages to other processes asynchronously.
+
+Batch Processing → Periodically crunch large amounts of accumulated data.
+
+👉 These abstractions are successful and widely used—most engineers don’t build custom engines anymore.
+
+Why Not So Simple?
+
+Despite having these building blocks, reality is complex:
+
+Many databases exist, each with different trade-offs.
+
+Multiple approaches to caching, indexing, etc.
+
+Choosing the right tool is hard, and combining tools introduces new complexity.
+
+This Book’s Goal
+
+Explore both principles and practicalities of data systems.
+
+Show commonalities and differences between tools.
+
+Explain how systems achieve reliability, scalability, maintainability.
+
+This chapter focuses on these fundamentals before moving layer by layer into design decisions.
+
+Thinking About Data Systems
+Traditional View
+
+We usually think of databases, queues, caches as distinct categories.
+
+Example:
+
+Databases and message queues both store data, but:
+
+Their access patterns differ → leading to different performance characteristics and implementations.
+
+Why Group Them as Data Systems?
+
+Boundaries Are Blurring
+
+Many modern tools don’t fit neatly into categories:
+
+Redis → datastore but also used as a message queue.
+
+Apache Kafka → message queue but with database-like durability.
+
+Applications Need Multiple Tools
+
+One tool cannot cover all needs.
+
+Applications combine databases, caches, search systems, etc.
+
+Example:
+
+Main database + Memcached cache + Elasticsearch search index.
+
+Application code must keep them in sync.
+
+👉 When combined, these tools form a new composite data system, with its own guarantees (e.g., cache consistency).
+
+This means developers are not only writing applications, but also designing data systems.
+
+The Challenges of Designing Data Systems
+
+Key questions arise:
+
+How to keep data correct and complete, even with failures?
+
+How to provide consistent performance, even when parts fail?
+
+How to scale gracefully with growing load?
+
+How to design a good API for client use?
+
+Other influencing factors:
+
+Team skills and experience.
+
+Legacy system dependencies.
+
+Delivery deadlines.
+
+Risk tolerance.
+
+Regulatory constraints.
+
+Three Core Concerns in Data Systems
+
+Most systems must address three main areas:
+
+Reliability
+
+System should continue to function correctly (doing the right thing, at acceptable performance) even with:
+
+Hardware faults
+
+Software faults
+
+Human errors
+
+Scalability
+
+As data volume, traffic, or complexity grows, there must be reasonable strategies to handle it.
+
+Maintainability
+
+Over time, many people work on the system.
+
+They should be able to:
+
+Maintain current behavior.
+
+Adapt the system to new use cases.
+
+Requires productivity-friendly design.
+
+Why Define These Clearly?
+
+Words like reliability, scalability, maintainability are often used casually.
+
+To do thoughtful engineering, we need clear, precise definitions.
+
+
+
+
+Reliability
+
+Reliability in software means that the system continues to work correctly even when things go wrong.
+
+Expectations of Reliable Software
+
+For software to be considered reliable, users generally expect:
+
+Correct functionality → The software does what the user intended.
+
+Tolerance of user mistakes → It can handle unexpected or incorrect user input.
+
+Good performance → It works fast enough under the expected load and data size.
+
+Security → It prevents unauthorized access and misuse.
+
+If these conditions are met, the system is considered to be "working correctly." Reliability is then the ability of the system to keep working correctly even in the presence of problems (faults).
+
+Faults vs. Failures
+
+Fault → A single component deviates from its specification (e.g., a disk crashes).
+
+Failure → The entire system stops providing its required service to the user.
+
+Since faults cannot be completely eliminated, systems are designed to be fault-tolerant (i.e., they handle faults without turning into failures).
+
+Fault-Tolerance Techniques
+
+Some systems deliberately trigger faults (e.g., killing processes at random) to test if they can recover properly.
+
+This helps reveal bugs in error handling, which is a common cause of failures.
+
+Example: Netflix Chaos Monkey, which randomly shuts down services to ensure resilience.
+
+⚖️ However, not all faults should be tolerated—some should be prevented. For example, in security, if an attacker gains access, the damage cannot be undone. Thus, prevention is better here.
+
+Hardware Faults
+
+When we think of failures, hardware issues usually come first.
+
+Common Hardware Issues
+
+Disk crashes
+
+Faulty RAM
+
+Power failures (blackouts)
+
+Human errors (e.g., unplugging a cable)
+
+Large data centers experience these regularly because of the sheer number of machines.
+
+Mean Time to Failure (MTTF)
+
+Disks have an MTTF of 10–50 years.
+
+In a cluster of 10,000 disks, statistically one disk will fail per day.
+
+Hardware Redundancy
+
+To reduce failure risk, redundancy is added:
+
+RAID for disks
+
+Dual power supplies
+
+Hot-swappable CPUs
+
+Backup batteries & diesel generators
+
+This ensures that when one component fails, another takes over.
+
+➡️ While redundancy cannot prevent all failures, it makes systems more robust and allows them to run continuously for years.
+
+Trend Shift: From Hardware to Software Fault-Tolerance
+
+Earlier, hardware redundancy was enough since full machine failure was rare.
+
+As applications scale to use many machines, the chance of faults increases proportionally.
+
+Cloud providers like AWS often let virtual machines disappear without warning (favoring scalability and flexibility).
+
+So now, systems are built to tolerate entire machine failures using software fault-tolerance.
+
+💡 Benefit: Enables rolling upgrades (updating one machine at a time without full downtime).
+
+Software Errors
+
+Unlike hardware faults (which are usually random and independent), software faults are systematic and often affect many nodes simultaneously.
+
+Examples of Software Faults
+
+Bugs triggered by certain inputs → e.g., the 2012 leap second bug in Linux that froze many apps.
+
+Runaway processes → one process consuming all CPU, memory, disk, or bandwidth.
+
+Dependent service failures → slowdowns, unresponsiveness, or corrupted responses from another service.
+
+Cascading failures → a small fault spreads across components, causing a chain reaction.
+
+Why Software Faults Are Dangerous
+
+They are correlated, meaning many systems fail at once.
+
+They often lie dormant until triggered by unusual circumstances.
+
+Root cause: the software makes assumptions about its environment, which may eventually stop being true.
+
+Coping with Software Faults
+
+There’s no single fix, but several practices help:
+
+Careful design → explicitly think about assumptions and dependencies.
+
+Thorough testing → to catch bugs early.
+
+Process isolation → prevent one crash from spreading.
+
+Crash & restart approach → instead of trying to keep failing processes alive.
+
+Monitoring & measurement → constantly track system behavior in production.
+
+Self-checking mechanisms → e.g., message queues verifying incoming messages = outgoing messages, raising alerts if not.
+
+✅ In summary:
+
+Reliability = software keeps working correctly even when faults occur.
+
+Hardware faults are common but manageable with redundancy.
+
+Software faults are trickier since they are correlated and systematic, requiring proactive design, testing, and monitoring.
+
+
+
+
+
+Human Errors
+
+Humans design, build, and operate software systems. Since humans are inherently error-prone, mistakes are inevitable—even with the best intentions.
+
+A study of large internet services found that configuration errors by operators were the leading cause of outages, whereas hardware faults (servers, network, etc.) accounted for only 10–25% of outages.
+
+So, the question becomes: How do we make systems reliable despite unreliable humans?
+
+Approaches to Handle Human Errors
+
+Minimize opportunities for error
+
+Design abstractions, APIs, and admin interfaces in a way that makes it easy to do the right thing and hard to do the wrong thing.
+
+However, being overly restrictive backfires, because people will find workarounds. Balance is key.
+
+Decouple mistakes from failures
+
+Give operators safe spaces (like non-production sandbox environments).
+
+In these environments, people can experiment with real data without affecting real users.
+
+Thorough testing
+
+Test at all levels: unit tests, integration tests, and manual tests.
+
+Automated testing is especially valuable for covering rare corner cases that don’t appear in normal operation.
+
+Quick recovery from errors
+
+Make rollbacks fast for configuration or code changes.
+
+Roll out new code gradually so unexpected bugs affect only a small subset of users.
+
+Provide tools to recompute data in case old computations turn out wrong.
+
+Detailed monitoring (telemetry)
+
+Track performance metrics, error rates, and other signals.
+
+Monitoring provides early warnings if assumptions are violated.
+
+Metrics are essential for diagnosing problems after they occur.
+
+Good management and training
+
+Human factors like training and leadership are vital to reduce operator mistakes.
+
+This is complex and beyond the scope of the text.
+
+How Important Is Reliability?
+
+Reliability isn’t only critical in high-stakes domains like nuclear power plants or air traffic control—it matters in everyday software too.
+
+Business applications: Bugs cause lost productivity and can create legal risks if numbers are misreported.
+
+E-commerce: Outages mean lost revenue and reputational damage.
+
+Consumer apps: Even non-critical apps carry responsibility. For example, if a parent loses all photos/videos of their children because of a corrupted database, the emotional cost is huge.
+
+When Reliability Can Be Sacrificed
+
+Sometimes, teams may consciously trade reliability for cost savings:
+
+Development cost: Prototypes for unproven markets might cut corners.
+
+Operational cost: Low-margin services may not justify very high reliability.
+
+But—such trade-offs should always be made consciously and carefully.
+
+Scalability
+
+A system may be reliable today but fail in the future when load increases. Scalability describes a system’s ability to handle growth.
+
+Importantly, scalability is not binary—we can’t just say “X is scalable.” Instead, scalability discussions involve:
+
+“If the system grows in this way, how can we cope?”
+
+“How can we add computing resources to meet increased load?”
+
+Describing Load
+
+To talk about scalability, we first describe the current load using load parameters.
+
+Examples of load parameters:
+
+Requests per second to a web server.
+
+Ratio of reads to writes in a database.
+
+Active users in a chat room.
+
+Cache hit rate.
+
+The choice of parameters depends on the system’s architecture.
+
+Twitter Example (2012)
+
+Twitter’s operations (as of Nov 2012):
+
+Post Tweet: 4.6k requests/sec on average, peak 12k requests/sec.
+
+Home Timeline: 300k requests/sec.
+
+The Challenge: Fan-Out
+
+The bottleneck isn’t just tweet volume but fan-out:
+
+Each user follows many others.
+
+Each user has many followers.
+
+A single tweet might need to be delivered to millions of users.
+
+Two Implementation Approaches
+Approach 1: On-demand home timeline construction
+
+Store tweets in a global collection.
+
+When a user requests their home timeline:
+
+Look up all people they follow.
+
+Fetch all their tweets.
+
+Merge them (sorted by time).
+
+This can be done with a relational database query (joins).
+
+👉 Problem: Queries become too slow at large scale.
+
+Approach 2: Precomputed home timeline (fan-out on write)
+
+Maintain a cache of tweets per user.
+
+When a tweet is posted:
+
+Find all the followers of the poster.
+
+Insert the tweet into each follower’s timeline cache.
+
+Reading the timeline is now cheap, since it’s precomputed.
+
+👉 Works better because reads (300k/sec) are much more frequent than writes (12k/sec).
+
+Trade-offs of Approach 2
+
+Advantage: Timeline reads are fast and scalable.
+
+Disadvantage: Tweet posting is expensive.
+
+On average, one tweet goes to 75 followers → 4.6k tweets/sec = 345k writes/sec.
+
+Some users (celebrities) have 30M+ followers → one tweet = 30M writes.
+
+Twitter aims to deliver tweets within 5 seconds, so this is a massive scaling challenge.
+
+Hybrid Approach
+
+Twitter later adopted a hybrid of both approaches:
+
+Normal users’ tweets → fan-out at write time (Approach 2).
+
+Celebrities’ tweets → delivered on-demand when reading timelines (Approach 1).
+
+👉 This balances performance, avoids huge fan-out writes, and ensures consistent user experience.
+
+
+
+
+
+
+
+
+Describing Performance
+
+Once you have described the load on your system, you can investigate what happens when that load increases. There are two main perspectives to consider:
+
+Fixed resources, increasing load:
+
+When you increase a load parameter (e.g., number of requests, dataset size) but keep system resources (CPU, memory, network bandwidth, etc.) unchanged, you measure how system performance is affected.
+
+Scaling resources with load:
+
+When you increase a load parameter, you can ask: How much do I need to increase resources in order to keep performance unchanged?
+
+Both questions require performance numbers, which we now look at.
+
+Batch vs. Online Systems
+
+Batch processing systems (e.g., Hadoop):
+
+The key metric is throughput: number of records processed per second, or total job completion time for a dataset.
+
+Ideally: Running Time = Dataset Size ÷ Throughput
+
+Reality: jobs often take longer due to issues like data skew (uneven distribution of data across workers) or waiting for the slowest task to complete.
+
+Online systems:
+
+The key metric is response time: the time from sending a request to receiving the response.
+
+Latency and Response Time
+
+Response time:
+
+What the client perceives.
+
+Includes service time (actual request processing), network delays, and queueing delays.
+
+Latency:
+
+Specifically the waiting duration before a request is handled (i.e., time spent latent).
+
+👉 Even identical requests do not always have the same response time, because of unpredictable factors like:
+
+Context switches to background processes
+
+Network packet loss and retransmission
+
+Garbage collection pauses
+
+Page faults (reading from disk)
+
+Mechanical vibrations in the server rack
+
+Other random system events
+
+Distribution of Response Times
+
+Response times vary → treat them as a distribution instead of a single value.
+
+Example:
+
+Most requests are fast
+
+Some requests are outliers (very slow)
+
+Mean vs. Percentiles
+
+Mean (average):
+
+Sum of all response times ÷ number of requests.
+
+Not a good measure of "typical" user experience, since a few very slow requests can skew it.
+
+Median (p50):
+
+The halfway point when all response times are sorted.
+
+Example: Median = 200 ms → half of requests are faster, half are slower.
+
+Better for showing what a "typical" user sees.
+
+Percentiles (p95, p99, p999):
+
+Higher percentiles show the worst-case performance for a percentage of users.
+
+Example: p95 = 1.5 seconds → 95% of requests are faster, 5% are slower.
+
+These are called tail latencies.
+
+Why High Percentiles Matter
+
+Outliers (high percentiles) affect user experience significantly.
+
+Amazon’s approach:
+
+Focuses on p999 (99.9th percentile), because these users are often the most valuable (e.g., heavy customers with large accounts).
+
+Example impact:
+
++100 ms in response time = 1% sales loss
+
++1 s slowdown = 16% drop in customer satisfaction
+
+However, optimizing extreme outliers (like p9999) is often not cost-effective, since random external events dominate.
+
+Percentiles in SLAs and SLOs
+
+Service Level Objectives (SLOs): Internal performance goals.
+
+Service Level Agreements (SLAs): External contracts with customers.
+
+Example SLA:
+
+Median < 200 ms
+
+p99 < 1 second
+
+Availability ≥ 99.9% uptime
+
+If unmet → customers may get refunds.
+
+Queueing Delays and Head-of-Line Blocking
+
+At high percentiles, delays are often due to queueing.
+
+Servers can only handle a limited number of requests concurrently (e.g., CPU cores).
+
+A few slow requests block subsequent requests → known as head-of-line blocking.
+
+Important: measure response times on the client side, not just the server side.
+
+Load Testing Considerations
+
+When simulating load, the client must send requests independently of response time.
+
+If the client waits for one request to finish before sending the next, it artificially reduces queueing → inaccurate scalability test.
+
+Percentiles in Practice
+
+High percentiles are especially critical in backend systems.
+
+If an end-user request requires multiple backend calls:
+
+The overall response time depends on the slowest call.
+
+Even if only a small fraction of backend calls are slow, the chance of hitting one grows as more calls are needed.
+
+This is called tail latency amplification.
+
+Monitoring Percentiles
+
+To monitor services, calculate response time percentiles over a rolling time window (e.g., last 10 minutes).
+
+Update metrics (median, p95, p99, etc.) regularly and plot them.
+
+Calculating Percentiles
+
+Naïve method: Store all response times, sort them, then calculate percentiles.
+
+Efficient alternatives (approximation algorithms):
+
+Forward decay
+
+t-digest
+
+HdrHistogram
+
+⚠️ Important:
+
+Do not average percentiles across time or across servers.
+
+Instead, aggregate histograms of response times.
+
+
+
+
+Approaches for Coping with Load
+
+Now that we understand how to describe load parameters (e.g., number of requests, data volume) and measure performance metrics (e.g., throughput, latency), the question becomes:
+
+👉 How do we keep performance good when load increases?
+
+An architecture that works at one load level usually fails at 10x the load. This means that fast-growing services often need architectural redesigns every time the load grows by an order of magnitude—or even sooner.
+
+Scaling Up vs. Scaling Out
+
+Scaling Up (Vertical Scaling)
+
+Moving to a more powerful single machine (e.g., more CPU, RAM, storage).
+
+Easier to manage because the system remains centralized.
+
+Problem: high-end machines are extremely expensive, and there are physical limits.
+
+Scaling Out (Horizontal Scaling)
+
+Distributing the load across multiple smaller machines.
+
+This is often called a shared-nothing architecture since each node works independently.
+
+More cost-effective for very intensive workloads, but adds complexity.
+
+👉 In practice, most architectures use a mixture:
+
+Example: using a few powerful machines instead of hundreds of small VMs can be simpler and cheaper.
+
+Elastic vs. Manual Scaling
+
+Elastic Scaling
+
+System automatically detects increased load and adds more computing resources (auto-scaling).
+
+Useful when load is highly unpredictable (e.g., sudden traffic spikes).
+
+Manual Scaling
+
+Humans analyze system capacity and decide when to add resources.
+
+Simpler and often more stable (fewer surprises).
+
+Example issue: Elastic scaling may cause “rebalancing partitions” challenges.
+
+Stateless vs. Stateful Scaling
+
+Stateless Services
+
+Easy to distribute across multiple machines.
+
+Each request can be handled independently.
+
+Stateful Data Systems
+
+Much harder to scale from a single node to a distributed system.
+
+Traditionally, the rule of thumb was:
+
+Keep the database on one node (scale up)
+
+Only move to distributed systems when absolutely necessary (due to cost or high availability needs).
+
+👉 But today, distributed system tools are improving. In the future, distributed data systems may become the default, even for moderate workloads.
+
+No “Magic Scaling Sauce”
+
+There’s no one-size-fits-all scalable architecture. Each system must be tailored to its specific needs:
+
+Possible bottlenecks include:
+
+High read volume
+
+High write volume
+
+Large data storage requirements
+
+Complex data relationships
+
+Strict response time requirements
+
+Unusual access patterns
+
+Example:
+
+A system handling 100,000 requests/sec of 1 KB each is very different from
+
+A system handling 3 requests/min of 2 GB each,
+
+Even though both transfer the same total data volume.
+
+👉 Good scalable architecture is built around assumptions about common vs. rare operations (load parameters). If assumptions are wrong, scaling work can be wasted or harmful.
+
+For startups or new products, fast iteration is usually more important than scaling for a hypothetical future load.
+
+Building Scalable Architectures
+
+Even though each scalable system is application-specific, they are built from general-purpose building blocks (e.g., caches, queues, load balancers, distributed databases).
+
+These blocks are combined into familiar patterns that engineers reuse.
+
+Maintainability
+
+Most of the true cost of software lies not in development but in ongoing maintenance:
+
+Fixing bugs
+
+Keeping systems operational
+
+Investigating failures
+
+Adapting to new platforms
+
+Modifying for new use cases
+
+Repaying technical debt
+
+Adding new features
+
+👉 Many engineers dislike working on “legacy systems” because they may:
+
+Contain old mistakes
+
+Run on outdated platforms
+
+Be misused for things they weren’t designed for
+
+Every legacy system is painful in its own way, but we can design software to minimize future pain.
+
+Three Principles for Maintainable Systems
+
+Operability
+
+Make it easy for operations teams to keep systems running smoothly.
+
+Includes good monitoring, automation, logging, and alerting.
+
+Simplicity
+
+Make it easy for new engineers to understand the system.
+
+Achieved by removing unnecessary complexity.
+
+⚠️ Note: This does not mean the user interface is simple—it's about internal design simplicity.
+
+Evolvability
+
+Make it easy to change and extend the system in the future.
+
+Adaptable to new, unanticipated requirements.
+
+Also called extensibility, modifiability, or plasticity.
+
+Summary
+
+Scalability: No universal solution. Requires balancing scaling up vs. scaling out, elastic vs. manual scaling, and designing for specific workloads.
+
+Maintainability: Most long-term cost lies here, so design with operability, simplicity, and evolvability in mind.
+
+
+
+
+
+Operability: Making Life Easy for Operations
+
+There’s a saying:
+👉 “Good operations can work around bad software, but even the best software will fail under poor operations.”
+
+This highlights why operations teams are critical. While some tasks can be automated, humans are still needed to:
+
+Set up automation correctly.
+
+Ensure it runs as expected.
+
+Responsibilities of Operations Teams
+
+A strong operations team usually handles tasks such as:
+
+Monitoring system health and restoring service quickly if it breaks.
+
+Investigating problems, like failures or slow performance.
+
+Keeping software up to date, including applying security patches.
+
+Watching system interactions so that one bad change doesn’t damage the whole system.
+
+Planning ahead, e.g., capacity planning to prevent future failures.
+
+Defining best practices/tools for deployment and configuration management.
+
+Handling complex maintenance, like moving apps to a new platform.
+
+Maintaining security while making configuration changes.
+
+Creating predictable processes to keep production stable.
+
+Preserving organizational knowledge so expertise isn’t lost when people leave.
+
+What Good Operability Looks Like
+
+Good operability means routine tasks are simple, so the operations team can focus on important, high-value work.
+
+Data systems can improve operability by:
+
+Offering visibility into runtime behavior through monitoring.
+
+Supporting automation and integration with standard tools.
+
+Avoiding dependence on individual machines, so maintenance doesn’t cause downtime.
+
+Providing clear documentation and an understandable operational model (e.g., “If I do X, Y happens”).
+
+Having sensible default behavior, but allowing administrators to override when needed.
+
+Supporting self-healing mechanisms, but still giving admins manual control.
+
+Showing predictable behavior, avoiding surprises.
+
+Simplicity: Managing Complexity
+
+Small projects often start clean and simple, but as they grow, they become complex and harder to manage. This complexity:
+
+Slows down development.
+
+Increases maintenance costs.
+
+Raises the risk of bugs when changes are made.
+
+Symptoms of Complexity
+
+Some warning signs include:
+
+Too many possible states (“explosion of the state space”).
+
+Tight coupling between modules.
+
+Tangled dependencies.
+
+Inconsistent naming and terminology.
+
+Hacks and workarounds for performance.
+
+Special cases added to fix unrelated issues.
+
+When this happens, the system may turn into a “big ball of mud.”
+
+Why Simplicity Matters
+
+Less complexity → easier maintenance → fewer bugs.
+
+Simplicity doesn’t mean fewer features. Instead, it means removing accidental complexity (complexity caused by implementation details, not by the real-world problem).
+
+Abstraction as a Tool for Simplicity
+
+Abstraction helps reduce accidental complexity by hiding details behind a clean interface.
+
+Examples:
+
+Programming languages hide machine code and hardware details.
+
+SQL hides the complexity of data storage, concurrency, and crash recovery.
+
+Benefits of good abstraction:
+
+Easier understanding.
+
+Reuse across applications.
+
+Improvements benefit all systems that use the abstraction.
+
+⚠️ But: finding good abstractions—especially in distributed systems—is very difficult.
+
+Evolvability: Making Change Easy
+
+No system’s requirements stay the same forever. Changes will always come from:
+
+New discoveries.
+
+New use cases.
+
+Shifting business priorities.
+
+User feature requests.
+
+Technology/platform upgrades.
+
+Legal or regulatory changes.
+
+Scaling needs requiring architectural changes.
+
+How Organizations Adapt
+
+Agile practices help manage change by:
+
+Using iterative processes.
+
+Applying techniques like Test-Driven Development (TDD) and refactoring.
+
+Most Agile tools focus on small-scale changes (like improving code files). But for large data systems with multiple services, the challenge is much bigger.
+
+Example: Evolving Twitter’s home timeline system required refactoring the entire architecture, not just a few code files.
+
+Link Between Simplicity and Evolvability
+
+Simple systems with clear abstractions are easier to evolve.
+
+Complex systems make changes risky and expensive.
+
+That’s why at the data system level, the ability to evolve easily is called evolvability (sometimes also called agility at scale).
+
+✅ In short:
+
+Operability = Make life easy for operations.
+
+Simplicity = Reduce accidental complexity using good abstractions.
+
+Evolvability = Make adapting to change easy, especially for large-scale systems.
+
+
+
+
+Summary
+
+In this chapter, we explored the fundamental ways of thinking about data-intensive applications. These principles serve as a foundation for the rest of the book, where deeper technical details will be discussed.
+
+Applications must meet different types of requirements to be useful. These include:
+
+Functional requirements → What the system should do (e.g., store, retrieve, search, process data).
+
+Nonfunctional requirements → General system properties (e.g., security, reliability, compliance, scalability, compatibility, maintainability).
+
+This chapter focused on three major nonfunctional requirements: reliability, scalability, and maintainability.
+
+Reliability
+
+Definition: Making systems work correctly, even when faults occur.
+
+Types of faults:
+
+Hardware faults → Usually random and uncorrelated (e.g., disk failures, power outages).
+
+Software faults → Typically systematic bugs, harder to detect and fix.
+
+Human faults → Mistakes made by people (inevitable at times).
+
+Fault-tolerance techniques: These are methods that allow the system to continue operating correctly despite faults, so that the end user does not experience failures.
+
+Scalability
+
+Definition: Having strategies to keep performance good, even as load increases.
+
+Key aspects:
+
+To discuss scalability, we need quantitative ways to describe load and performance.
+
+Example (Twitter home timeline) → Used as a case to describe system load.
+
+Response time percentiles → Used to measure system performance under load.
+
+Scalable system property: The system should allow adding more processing capacity (e.g., more servers, CPUs) to remain reliable and performant under high demand.
+
+Maintainability
+
+Definition: Making life easier for engineering and operations teams who build, run, and maintain the system.
+
+Facets of maintainability:
+
+Good abstractions → Reduce complexity, making the system easier to modify and adapt to new use cases.
+
+Good operability → Provides visibility into the system’s health and effective ways to manage and control it.
+
+Key Takeaway
+
+There is no simple fix for making applications reliable, scalable, or maintainable.
+
+However, patterns and techniques exist that reappear in many applications to address these challenges.
+
+The following chapters will examine examples of data systems and analyze how they achieve these goals.
+
+Later, in Part III, the book will discuss patterns for systems with multiple components working together (such as the one shown in Figure 1-1).
+
+
+
+
