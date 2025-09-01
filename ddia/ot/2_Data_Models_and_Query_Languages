@@ -1195,10 +1195,9 @@ Relational databases can do it, but the queries are clumsy and harder to write.
 
 
 
+######    Triple-Stores and SPARQL
 
 
-
-Triple-Stores and SPARQL
 
 The triple-store model is very similar to the property graph model, but it uses different terminology. It’s worth discussing because it comes with tools and languages that can be useful when building applications.
 
@@ -1436,7 +1435,9 @@ Graph databases → can be imperative or declarative (Cypher, SPARQL).
 
 
 
-The Foundation: Datalog
+######   The Foundation: Datalog
+
+
 Background
 
 Datalog is an older query language, studied heavily in the 1980s by academics.
@@ -1559,7 +1560,12 @@ Disadvantages:
 
 Less convenient for simple one-off queries.
 
-Summary
+
+
+######    Summary
+
+
+
 Historical Evolution of Data Models
 
 Hierarchical model:
