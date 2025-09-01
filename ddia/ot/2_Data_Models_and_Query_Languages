@@ -1,1 +1,1639 @@
 Data Models and Query Languages
+
+
+
+CHAPTER 2
+Data Models and Query Languages
+
+“The limits of my language mean the limits of my world.” — Ludwig Wittgenstein, Tractatus Logico-Philosophicus (1922)
+
+Importance of Data Models
+
+Data models are crucial in software development because they strongly influence:
+
+How software is written.
+
+How we think about the problems we are solving.
+
+Most applications are built by layering one data model on top of another.
+
+Key question at each layer: How is it represented in terms of the next-lower layer?
+
+Example layers of modeling:
+
+Application developer’s view: Model real-world entities (people, organizations, goods, actions, money, sensors, etc.) as objects or data structures + APIs. These are often application-specific.
+
+Storage expression: Store data structures using general-purpose data models (JSON, XML, relational tables, graph models).
+
+Database engineers’ view: Decide how to represent JSON/XML/relational/graph data in bytes (memory, disk, network). Representation must allow querying, searching, manipulation, and processing.
+
+Hardware layer: Bytes represented physically (electrical currents, light pulses, magnetic fields, etc.).
+
+Complex applications often add more intermediary layers (e.g., APIs built on APIs).
+
+Key idea: Each layer hides complexity by providing a clean abstraction → enables different groups (e.g., DB engineers & application developers) to work together effectively.
+
+Different Kinds of Data Models
+
+Every data model makes assumptions about usage:
+
+Some operations are easy, others unsupported.
+
+Some are fast, others slow.
+
+Some transformations feel natural, others awkward.
+
+Mastering one data model (e.g., relational modeling) already requires lots of effort.
+
+Since a data model affects what software can/can’t do, choosing the right model for the application is critical.
+
+This chapter (Chapter 2) focuses on:
+
+General-purpose data models for data storage and querying (layer 2 above).
+
+Comparing the relational model, document model, and some graph-based models.
+
+Looking at query languages and their use cases.
+
+Chapter 3 will then cover storage engines (layer 3 above → actual implementation).
+
+Relational Model Versus Document Model
+Relational Model
+
+Best-known model today: SQL, based on relational model by Edgar Codd (1970).
+
+Data organized into relations (tables).
+
+Each relation = unordered collection of tuples (rows).
+
+Initially seen as too theoretical → doubts about efficiency.
+
+By mid-1980s, RDBMS + SQL became the standard tools for structured data storage & querying.
+
+Dominance lasted ~25–30 years (a very long time in computing history).
+
+Origins:
+
+Grew out of business data processing on mainframes (1960s–70s).
+
+Use cases included:
+
+Transaction processing: sales, banking, airline reservations, warehouse stock-keeping.
+
+Batch processing: invoicing, payroll, reporting.
+
+Earlier databases forced developers to think about internal data representation.
+
+Relational model’s goal: hide these details behind a cleaner interface.
+
+Competitors through history:
+
+1970s–80s: Network model and hierarchical model (but relational won).
+
+Late 1980s–90s: Object databases (faded away).
+
+Early 2000s: XML databases (niche adoption only).
+
+Each alternative had hype, but relational stayed dominant.
+
+Strength of Relational Databases:
+
+Adapted beyond business use → generalized to many domains.
+
+Still power much of the modern web: publishing, forums, social networking, e-commerce, gaming, SaaS, etc.
+
+The Birth of NoSQL
+
+In the 2010s, NoSQL emerged as an attempt to challenge relational dominance.
+
+Name origin:
+
+Coined in 2009 as a Twitter hashtag for a meetup on open-source, distributed, non-relational DBs.
+
+Spread quickly in web startup communities.
+
+Later reinterpreted as “Not Only SQL”.
+
+Reasons for adoption of NoSQL:
+
+Scalability needs: very large datasets, high write throughput (hard for relational DBs).
+
+Preference for open-source over commercial DBs.
+
+Specialized queries unsupported by relational model.
+
+Frustration with rigid schemas → desire for more dynamic & expressive data models.
+
+Future trend:
+
+Likely polyglot persistence → relational DBs used alongside various non-relational datastores.
+
+The Object-Relational Mismatch
+
+Most development today uses object-oriented programming.
+
+Criticism of SQL: data stored in tables (rows, columns) → translation needed between objects ↔ tables.
+
+This mismatch = impedance mismatch.
+
+Solutions:
+
+ORM (Object-Relational Mapping) frameworks (ActiveRecord, Hibernate).
+
+Reduce boilerplate code.
+
+But can’t fully hide differences between the two models.
+
+Example: Résumé (LinkedIn profile)
+
+Profile identified by user_id.
+
+Some fields (e.g., first_name, last_name) → appear once → modeled as columns in users table.
+
+Others (jobs, education, contacts) → one-to-many relationships.
+
+Ways to represent these relationships in SQL:
+
+Traditional SQL (pre-SQL:1999): Normalize into separate tables (positions, education, contacts) with foreign keys to users.
+
+Later SQL standards (SQL:1999+): Support structured datatypes & XML.
+
+Allowed multi-valued data in a single row.
+
+Supported querying/indexing inside documents.
+
+Implemented by Oracle, IBM DB2, MS SQL Server, PostgreSQL.
+
+JSON datatype also supported in DB2, MySQL, PostgreSQL.
+
+Encoded column approach: Store jobs/education/contact info as JSON/XML text inside a column.
+
+Application must interpret the structure.
+
+Typically, DB cannot query inside the column.
+
+(“Impedance mismatch” is borrowed from electronics: power transfer is optimal when impedances match. A mismatch causes inefficiency — analogy applied to databases vs. objects.)
+
+JSON Representation of Résumé
+
+For self-contained documents like résumés, JSON is a good fit.
+
+JSON is simpler than XML.
+
+Document databases (MongoDB, RethinkDB, CouchDB, Espresso) support this model.
+
+Advantages of JSON Representation:
+
+Reduced impedance mismatch: closer to object structures in code.
+
+Better locality:
+
+Relational model → requires multiple queries or multi-way joins.
+
+JSON → one document contains all relevant info → one query is enough.
+
+Tree structure explicit:
+
+One-to-many relationships (positions, education, contacts) form a tree.
+
+JSON captures this tree naturally.
+
+Limitations:
+
+JSON lacks schema → often cited as advantage, but also causes issues (discussed later in Chapter 4).
+
+
+
+
+Many-to-One and Many-to-Many Relationships
+Why Use IDs Instead of Plain Text?
+
+In Example 2-1, region_id and industry_id are stored as IDs, not as raw text like "Greater Seattle Area" or "Philanthropy".
+
+If the user interface allowed free text fields, it would make sense to store plain strings. But storing standardized IDs instead of raw text has several advantages:
+
+Consistent style and spelling
+Everyone’s data follows the same naming convention (no typos or variations like “Seattle area” vs. “Greater Seattle Area”).
+
+Avoiding ambiguity
+Multiple places can have the same name. IDs remove confusion.
+
+Ease of updating
+Since the name is stored in only one place, any change (e.g., renaming a city due to political reasons) automatically applies everywhere.
+
+Localization support
+IDs can link to translations, so regions/industries can be displayed in the user’s own language.
+
+Better search
+Because IDs can encode hierarchies (e.g., Seattle → Washington), queries like “philanthropists in Washington” will work correctly.
+
+Duplication vs. Normalization
+
+When you store text directly → every record duplicates human-readable data.
+
+When you use IDs → only one canonical copy of human-readable data is stored.
+
+👉 Benefit of IDs:
+IDs have no human meaning, so they never need to change. Text, however, may need updates, and if duplicated, this creates:
+
+Write overheads (updating many rows)
+
+Risk of inconsistencies (some updated, others not)
+
+➡️ Normalization principle: remove duplication by storing data once and referencing it via IDs.
+
+The Normalization Debate
+
+Database experts often argue about:
+
+Normalization (remove duplication for consistency)
+
+Denormalization (add duplication for performance, caching, derived data)
+
+This book delays judgment and will revisit caching/denormalization later.
+
+Normalization and Many-to-One
+
+To normalize, we need many-to-one relationships:
+
+Many people live in one region
+
+Many people work in one industry
+
+💡 Problem:
+
+In relational databases, this is fine because joins are easy.
+
+In document databases, joins are weak or missing.
+
+If joins aren’t supported, you must:
+
+Emulate joins in application code (extra work)
+
+Or cache small lists (like industries, regions) in memory
+
+Data Becomes More Interconnected Over Time
+
+Even if a join-free document model works initially, new features add complexity. Examples:
+
+Organizations and Schools as Entities
+
+Instead of plain strings, organizations/schools could be separate entities.
+
+Each gets its own page (logo, feed, info).
+
+Résumés then reference these entities, not raw text.
+
+Recommendations
+
+A user can recommend another.
+
+Recommendation must reference the author’s profile.
+
+If the author updates their photo, all recommendations update automatically.
+
+➡️ Both cases require references and joins, leading to many-to-many relationships.
+
+Historical Context: Are Document Databases Repeating History?
+
+In the 1970s, IBM’s IMS (Information Management System) used a hierarchical model (like JSON trees).
+
+Worked well for one-to-many relationships.
+
+Struggled with many-to-many (no joins).
+
+Developers either:
+
+Duplicated (denormalized) data, or
+
+Manually followed references.
+
+⚡ This is the same problem faced by modern document databases.
+
+The Network Model
+
+To fix hierarchical model limits, the network model (CODASYL) was introduced:
+
+Records could have multiple parents (not just one).
+
+Example: One "Greater Seattle Area" record linked to many users.
+
+Supported many-to-one and many-to-many relationships.
+
+How It Worked
+
+Links were like pointers, not foreign keys.
+
+Data access required following access paths (chains of links).
+
+Queries meant navigating these paths (like linked lists).
+
+Problems
+
+Application code had to manage multiple access paths.
+
+Queries became complex and inflexible.
+
+Changing paths required rewriting lots of code.
+
+Hard to evolve the data model.
+
+👉 Efficient on 1970s hardware but painful for developers.
+
+The Relational Model
+
+The relational model solved these issues by:
+
+Representing data as tables (relations) = collections of rows (tuples).
+
+No complex nested structures or access paths.
+
+Any row can be read by condition or key.
+
+You can insert rows independently of others.
+
+Query Optimization
+
+The query optimizer automatically decides access paths (indexes, order of execution).
+
+Developers don’t worry about access paths.
+
+New indexes can be added without rewriting queries.
+
+👉 Key insight: build the query optimizer once, and all applications benefit.
+
+Comparison to Document Databases
+
+Document DBs are like hierarchical DBs:
+
+Good at one-to-many nesting (subdocuments).
+
+But for many-to-one/many-to-many:
+
+Both relational DBs and document DBs use unique IDs (foreign keys vs. references).
+
+IDs are resolved at read time with joins or follow-up queries.
+
+⚡ Document DBs did not adopt CODASYL’s path-based navigation approach.
+
+
+
+
+Relational Versus Document Databases Today
+
+When comparing relational databases and document databases, there are several factors to consider (such as fault-tolerance and concurrency), but here we will focus only on the differences in the data model.
+
+Which Data Model Leads to Simpler Application Code?
+
+Document data model works best when data has a document-like structure (a tree of one-to-many relationships that is usually loaded all at once).
+
+Example: A user profile with positions, education, and contact info.
+
+In relational databases, this requires splitting (shredding) into multiple tables, which creates complicated schemas and more complex application code.
+
+Limitations of document databases:
+
+Cannot directly reference deeply nested items.
+
+Accessing requires paths like “the second item in the list of positions for user 251.”
+
+Usually okay if documents are not deeply nested.
+
+Poor join support in document databases:
+
+May not matter in analytics applications that don’t need many-to-many relationships.
+
+But if many-to-many relationships are needed:
+
+Document model is less useful.
+
+Denormalization can reduce joins but makes consistency harder to maintain.
+
+Joins in application code are slower and more complex than joins inside the database.
+
+Overall takeaway:
+
+No universal answer for simpler application code.
+
+Depends on relationships between data:
+
+Highly interconnected data → Document model is awkward, relational is better, and graph databases are the most natural.
+
+Schema Flexibility in the Document Model
+
+Document databases and JSON in RDBMS usually do not enforce schema.
+
+XML in relational DBs often has optional schema validation.
+
+Means:
+
+Arbitrary keys/values can be added.
+
+Clients have no guarantees on what fields documents contain.
+
+Misconception: Calling document databases "schemaless" is misleading.
+
+There is always an implicit schema in the application code.
+
+Better term: schema-on-read (schema is applied only when data is read).
+
+Relational DBs use schema-on-write (schema enforced when data is written).
+
+Analogy with programming languages:
+
+Schema-on-read = dynamic typing (runtime type checking).
+
+Schema-on-write = static typing (compile-time type checking).
+
+Both approaches are debated, no universally correct choice.
+
+Changing data formats example:
+
+If storing user’s full name and later splitting into first name + last name:
+
+In document DB: Just start writing new documents with new fields. Application handles old data.
+
+In relational DB: Need schema migration with ALTER TABLE + UPDATE.
+
+Performance of schema changes:
+
+Most relational DBs execute ALTER TABLE very fast.
+
+MySQL copies the entire table → can take minutes/hours on large tables. Workarounds exist.
+
+UPDATE on large tables is slow (rewrites all rows). Workaround: leave field NULL and handle at read time.
+
+When schema-on-read is useful:
+
+Data is heterogeneous (different structures).
+
+Reasons:
+
+Many object types, impractical to have separate tables.
+
+Data format is controlled by external systems that may change anytime.
+
+In such cases, schema hurts more than helps.
+
+When schema is useful:
+
+When all records have the same structure.
+
+Acts as documentation and ensures consistency.
+
+Data Locality for Queries
+
+Document storage:
+
+Stored as one continuous string (JSON, XML, BSON).
+
+Advantage: If the entire document is needed (e.g., to render a page), retrieval is faster.
+
+In relational DBs: Need multiple index lookups across tables → slower.
+
+Limitations:
+
+Even if only part of the document is needed, the entire document is loaded.
+
+Updates often rewrite the entire document unless the size remains unchanged.
+
+Recommendation: Keep documents small and avoid updates that increase size.
+
+Not unique to document databases:
+
+Other databases also optimize locality:
+
+Google Spanner → interleaved tables.
+
+Oracle → multi-table index cluster tables.
+
+Cassandra/HBase → column families manage locality.
+
+Convergence of Document and Relational Databases
+
+Relational databases support document features:
+
+Since mid-2000s: XML support in most relational DBs (except MySQL).
+
+Functions allow local modifications, indexing, querying inside XML.
+
+JSON support:
+
+PostgreSQL (since 9.3)
+
+MySQL (since 5.7)
+
+IBM DB2 (since 10.5)
+
+Other relational DBs likely to add JSON support due to web API popularity.
+
+Document databases adopting relational features:
+
+RethinkDB supports relational-style joins.
+
+MongoDB drivers can resolve references (like client-side joins).
+
+But client-side joins are slower (extra network trips, less optimized).
+
+Overall trend:
+
+Relational and document DBs are becoming more similar.
+
+Hybrid approach is beneficial:
+
+Handle document-like data.
+
+Perform relational queries when needed.
+
+Applications get flexibility to choose best features of both.
+
+✅ In summary:
+
+Document DBs are great for flexible schemas, tree-like data, and locality.
+
+Relational DBs are better for joins, many-to-many relationships, and structured consistency.
+
+The choice depends on data structure and relationships.
+
+Both models are converging, offering hybrid capabilities for the future.
+
+
+
+
+Query Languages for Data
+
+When the relational model was introduced, it came with a new way of querying data. This was declarative query languages (like SQL), unlike earlier database models such as IMS and CODASYL, which used imperative code. Let’s break down what this means.
+
+Imperative Querying
+
+Many traditional programming languages are imperative.
+
+In imperative programming, you tell the computer step-by-step instructions on how to get the result.
+
+Example: if you had a list of animal species and wanted to return only sharks, you might write:
+
+function getSharks() {
+  var sharks = [];
+  for (var i = 0; i < animals.length; i++) {
+    if (animals[i].family === "Sharks") {
+      sharks.push(animals[i]);
+    }
+  }
+  return sharks;
+}
+
+
+Here you explicitly:
+
+Initialize a new list (sharks = [])
+
+Loop through all animals
+
+Check the family of each animal
+
+Push sharks into the result list
+
+Return the final list
+
+You can imagine stepping line by line through this code, updating variables, and deciding whether to loop again.
+
+Declarative Querying
+
+In relational algebra (the foundation of SQL), you would write the query as:
+
+sharks = σ family = "Sharks" (animals)
+
+
+σ (Greek sigma) is the selection operator that filters rows meeting a condition.
+
+This doesn’t specify how to loop or filter—it only specifies what you want.
+
+In SQL, it looks very similar:
+
+SELECT * FROM animals WHERE family = 'Sharks';
+
+
+This is declarative: you describe the pattern of the data you want, not the step-by-step algorithm.
+
+It’s up to the database query optimizer to decide how to execute (e.g., which indexes to use, which join methods, in what order).
+
+Advantages of Declarative Query Languages
+
+Conciseness and ease of use
+
+Declarative queries are usually shorter and easier to write than imperative code.
+
+Hides implementation details
+
+The database engine can optimize performance internally without requiring query changes.
+
+Example: in imperative code, the database cannot safely rearrange records, because the code might depend on ordering.
+
+In SQL, unless you explicitly use ORDER BY, no ordering is assumed—so the database is free to reorder and optimize internally.
+
+Automatic optimizations
+
+Declarative queries allow the database to improve execution (e.g., use better indexes or join algorithms) without affecting correctness.
+
+Parallel execution
+
+CPUs today improve performance mostly by adding more cores.
+
+Imperative code is hard to parallelize (it enforces a strict execution order).
+
+Declarative queries only describe what result is wanted, so the database is free to use parallel strategies.
+
+Example: filtering, sorting, or joining data can be distributed across multiple cores or even machines.
+
+Declarative Queries on the Web
+
+Declarative query languages are useful beyond databases. Web technologies show the same contrast between declarative and imperative approaches.
+
+Declarative CSS Example
+
+Suppose you have an animal website. On the Sharks page, the navigation looks like this:
+
+<ul>
+  <li class="selected">
+    <p>Sharks</p>
+    <ul>
+      <li>Great White Shark</li>
+      <li>Tiger Shark</li>
+      <li>Hammerhead Shark</li>
+    </ul>
+  </li>
+  <li>
+    <p>Whales</p>
+    <ul>
+      <li>Blue Whale</li>
+      <li>Humpback Whale</li>
+      <li>Fin Whale</li>
+    </ul>
+  </li>
+</ul>
+
+
+The selected item (Sharks) is marked with class "selected".
+
+You want the title <p>Sharks</p> to have a blue background.
+
+With CSS, you can write:
+
+li.selected > p {
+  background-color: blue;
+}
+
+
+This is declarative: it states the pattern of elements (all <p> inside a <li class="selected">) and applies styling.
+
+It doesn’t specify how to find the element—the browser does the work.
+
+Declarative XSL Example
+
+Using XSL, you can do something similar:
+
+<xsl:template match="li[@class='selected']/p">
+  <fo:block background-color="blue">
+    <xsl:apply-templates/>
+  </fo:block>
+</xsl:template>
+
+
+The XPath expression li[@class='selected']/p matches the same pattern as CSS’s li.selected > p.
+
+Again, it’s declarative: specify what elements should look like, not how to traverse the document.
+
+Imperative JavaScript Example
+
+If you did this imperatively with the DOM API:
+
+var liElements = document.getElementsByTagName("li");
+for (var i = 0; i < liElements.length; i++) {
+  if (liElements[i].className === "selected") {
+    var children = liElements[i].childNodes;
+    for (var j = 0; j < children.length; j++) {
+      var child = children[j];
+      if (child.nodeType === Node.ELEMENT_NODE && child.tagName === "P") {
+        child.setAttribute("style", "background-color: blue");
+      }
+    }
+  }
+}
+
+
+Problems with this approach:
+
+Hard to maintain – the code is long, verbose, and difficult to read compared to CSS/XSL.
+
+Incorrect behavior – if the selected class is removed (e.g., user switches pages), the blue background won’t disappear automatically. With CSS, the browser automatically applies and removes styles.
+
+Poor adaptability – if new APIs become available (getElementsByClassName, document.evaluate()), you must rewrite the code. With CSS/XSL, browsers can improve performance internally without breaking your code.
+
+Conclusion (Databases vs Web)
+
+In browsers, declarative CSS/XSL is far better than imperative JavaScript style manipulation.
+
+Similarly, in databases, declarative query languages (SQL, relational algebra) turned out to be much better than imperative APIs.
+
+The key advantages:
+
+Conciseness
+
+Independence from implementation details
+
+Automatic optimization
+
+Parallel execution
+
+
+
+
+
+
+MapReduce Querying
+What is MapReduce?
+
+MapReduce is a programming model used to process large volumes of data across many machines.
+
+Google popularized it.
+
+Some NoSQL databases (e.g., MongoDB, CouchDB) support a limited form of MapReduce for read-only queries across many documents.
+
+👉 It’s not purely declarative like SQL, nor fully imperative like procedural APIs—it’s a mix. Queries are expressed with small code snippets that are executed repeatedly by the framework.
+
+Functional Programming Connection
+
+MapReduce is based on functions found in many functional programming languages:
+
+map (collect) → transforms/collects data
+
+reduce (fold/inject) → aggregates data
+
+Example: Counting Sharks
+
+Imagine a marine biologist recording ocean animal sightings. They want to count how many sharks were seen per month.
+
+In SQL (PostgreSQL)
+SELECT date_trunc('month', observation_timestamp) AS observation_month,
+       sum(num_animals) AS total_animals
+FROM observations
+WHERE family = 'Sharks'
+GROUP BY observation_month;
+
+
+date_trunc('month', timestamp) → rounds down timestamp to the beginning of the month.
+
+Steps:
+
+Filter observations where family = 'Sharks'
+
+Group by month of observation
+
+Sum total animals seen in each month
+
+In MongoDB MapReduce
+db.observations.mapReduce(
+  function map() {
+    var year = this.observationTimestamp.getFullYear();
+    var month = this.observationTimestamp.getMonth() + 1;
+    emit(year + "-" + month, this.numAnimals);
+  },
+  function reduce(key, values) {
+    return Array.sum(values);
+  },
+  {
+    query: { family: "Sharks" },
+    out: "monthlySharkReport"
+  }
+);
+
+
+map() → called for each matching document.
+
+Emits key = "YYYY-MM", value = numAnimals.
+
+reduce() → aggregates values with the same key.
+
+query → declaratively filters only sharks (MongoDB-specific extension).
+
+out → results stored in monthlySharkReport.
+
+Example Data
+{
+  observationTimestamp: Date.parse("Mon, 25 Dec 1995 12:34:56 GMT"),
+  family: "Sharks",
+  species: "Carcharodon carcharias",
+  numAnimals: 3
+}
+{
+  observationTimestamp: Date.parse("Tue, 12 Dec 1995 16:17:18 GMT"),
+  family: "Sharks",
+  species: "Carcharias taurus",
+  numAnimals: 4
+}
+
+
+map() results → emit("1995-12", 3) and emit("1995-12", 4)
+
+reduce() result → reduce("1995-12", [3,4]) → 7
+
+Restrictions on MapReduce Functions
+
+Must be pure functions:
+
+Use only provided input
+
+No database queries
+
+No side effects
+
+This allows:
+
+Parallel execution across machines
+
+Reruns in case of failure
+
+Still powerful → can parse strings, do calculations, use libraries.
+
+Comparison with SQL
+
+MapReduce = low-level model for distributed execution.
+
+SQL = higher-level declarative language, but it can also be implemented via MapReduce pipelines.
+
+SQL is not limited to one machine, and MapReduce is not the only distributed approach.
+
+Aggregation Pipeline in MongoDB
+
+Writing map() + reduce() functions is harder than writing one query.
+
+Declarative query languages also allow query optimizers to improve performance.
+
+To fix this, MongoDB 2.2 introduced the aggregation pipeline.
+
+Shark Counting with Aggregation Pipeline
+db.observations.aggregate([
+  { $match: { family: "Sharks" } },
+  { $group: {
+      _id: {
+        year: { $year: "$observationTimestamp" },
+        month: { $month: "$observationTimestamp" }
+      },
+      totalAnimals: { $sum: "$numAnimals" }
+  } }
+]);
+
+
+$match → filter sharks
+
+$group → group by year+month, sum animals
+
+Similar in expressiveness to SQL but uses JSON-based syntax
+
+👉 Moral: NoSQL systems often reinvent SQL in disguise.
+
+Graph-Like Data Models
+When Graphs Are Needed
+
+If relationships are one-to-many or rare → document model works.
+
+If many-to-many relationships are common → graph model fits better.
+
+What is a Graph?
+
+Consists of:
+
+Vertices (nodes/entities)
+
+Edges (relationships/arcs)
+
+Examples
+
+Social Graph → vertices = people, edges = friendships
+
+Web Graph → vertices = web pages, edges = hyperlinks
+
+Road/Rail Networks → vertices = junctions, edges = connections
+
+👉 Algorithms work on graphs (shortest path, PageRank).
+
+Heterogeneous Graphs
+
+Not limited to one type of vertex.
+
+Example: Facebook’s graph
+
+Vertices: people, locations, events, checkins, comments
+
+Edges: friendships, checkin locations, comments, attendance
+
+Example Graph
+
+Lucy (from Idaho) and Alain (from Beaune, France).
+
+Married, living in London.
+
+Shows different types of vertices and edges (people, places, relationships).
+
+Property Graphs
+Definition
+
+In the property graph model, each element has properties:
+
+Vertex
+
+Unique ID
+
+Outgoing edges
+
+Incoming edges
+
+Properties (key-value pairs)
+
+Edge
+
+Unique ID
+
+Tail vertex (start)
+
+Head vertex (end)
+
+Label (relationship type)
+
+Properties (key-value pairs)
+
+Representing Property Graph in Relational Schema
+CREATE TABLE vertices (
+  vertex_id integer PRIMARY KEY,
+  properties json
+);
+
+CREATE TABLE edges (
+  edge_id integer PRIMARY KEY,
+  tail_vertex integer REFERENCES vertices (vertex_id),
+  head_vertex integer REFERENCES vertices (vertex_id),
+  label text,
+  properties json
+);
+
+CREATE INDEX edges_tails ON edges (tail_vertex);
+CREATE INDEX edges_heads ON edges (head_vertex);
+
+
+Two tables: vertices & edges
+
+Edges store head & tail vertex IDs
+
+Indexes allow efficient traversal in both directions
+
+Important Aspects
+
+Flexibility → Any vertex can connect to any other (no schema restriction).
+
+Traversal → Easy to find incoming/outgoing edges using indexes.
+
+Multiple relationship types → Different labels allow mixing data cleanly.
+
+Why Graphs Are Flexible
+
+Can represent complex structures (countries with different regional divisions, historical quirks, varied granularity).
+
+Can evolve → e.g., add allergens as vertices, connect them to foods and people to query what is safe to eat.
+
+👉 Graphs are powerful for evolvability and handling complex, interconnected data.
+
+
+
+
+The Cypher Query Language
+What is Cypher?
+
+Cypher is a declarative query language for working with property graphs.
+
+It was created for the Neo4j graph database.
+
+The name comes from a character in The Matrix movie — it is not related to cryptography ciphers.
+
+Example of a Cypher Query
+
+Figure 2-5 (not shown here) represents some data.
+
+Example 2-3 shows how to insert part of that data into the graph using Cypher.
+
+Example 2-3
+CREATE
+(NAmerica:Location {name:'North America', type:'continent'}),
+(USA:Location {name:'United States', type:'country' }),
+(Idaho:Location {name:'Idaho', type:'state' }),
+(Lucy:Person {name:'Lucy' }),
+(Idaho) -[:WITHIN]-> (USA) -[:WITHIN]-> (NAmerica),
+(Lucy) -[:BORN_IN]-> (Idaho)
+
+
+Explanation of this query:
+
+Each vertex (node) is created with a symbolic name (e.g., USA, Idaho, Lucy).
+
+These symbolic names can be reused later in the query to create edges (relationships).
+
+Example:
+
+(Idaho) -[:WITHIN]-> (USA) means Idaho is within the United States.
+
+(Lucy) -[:BORN_IN]-> (Idaho) means Lucy was born in Idaho.
+
+Querying the Graph
+
+Once the graph is created, we can ask interesting questions.
+Example: Find all people who emigrated from the United States to Europe.
+
+More precisely:
+
+People with a BORN_IN edge to somewhere in the US.
+
+People with a LIVES_IN edge to somewhere in Europe.
+
+Return their names.
+
+Example 2-4: Cypher Query for Emigrants
+MATCH
+(person) -[:BORN_IN]-> () -[:WITHIN*0..]-> (us:Location {name:'United States'}),
+(person) -[:LIVES_IN]-> () -[:WITHIN*0..]-> (eu:Location {name:'Europe'})
+RETURN person.name
+
+
+Explanation of this query:
+
+Find any vertex person that meets both conditions:
+
+Has a BORN_IN edge leading to some location, and by following WITHIN*0.. edges (zero or more times), we eventually reach "United States".
+
+Has a LIVES_IN edge leading to some location, and by following WITHIN*0.. edges, we eventually reach "Europe".
+
+Return the name property of such people.
+
+How Cypher Executes This Query
+
+Different strategies are possible:
+
+Start from all people and check birthplace and residence.
+
+Or start from United States and Europe vertices (using indexes on name) and work backward through the graph.
+
+The query optimizer automatically decides the most efficient execution plan.
+
+This is the advantage of a declarative query language: developers only describe what they want, not how to get it.
+
+Graph Queries in SQL
+Representing Graph Data in SQL
+
+Graph data can be represented in a relational database using tables.
+
+But querying it in SQL is more difficult because:
+
+In SQL, the number of joins is usually known in advance.
+
+In graph queries, you may need to traverse a variable number of edges, so the number of joins is not fixed.
+
+The Problem: Variable-Length Traversals
+
+In Cypher, this is expressed as:
+
+() -[:WITHIN*0..]-> ()
+
+
+WITHIN*0.. means follow a WITHIN edge zero or more times, like the * operator in regular expressions.
+
+Example:
+
+LIVES_IN may point to a street, city, region, state, or directly to a country.
+
+We need to traverse up the hierarchy until we reach the location we want.
+
+SQL:1999 and Recursive Queries
+
+SQL supports this using recursive common table expressions (CTEs) with WITH RECURSIVE.
+
+Supported in: PostgreSQL, IBM DB2, Oracle, SQL Server.
+
+However, the syntax is much more complex compared to Cypher.
+
+Example 2-5: Same Query in SQL
+WITH RECURSIVE
+-- in_usa is the set of vertex IDs of all locations within the United States
+in_usa(vertex_id) AS (
+  SELECT vertex_id FROM vertices WHERE properties->>'name' = 'United States'
+  UNION
+  SELECT edges.tail_vertex FROM edges
+  JOIN in_usa ON edges.head_vertex = in_usa.vertex_id
+  WHERE edges.label = 'within'
+),
+-- in_europe is the set of vertex IDs of all locations within Europe
+in_europe(vertex_id) AS (
+  SELECT vertex_id FROM vertices WHERE properties->>'name' = 'Europe'
+  UNION
+  SELECT edges.tail_vertex FROM edges
+  JOIN in_europe ON edges.head_vertex = in_europe.vertex_id
+  WHERE edges.label = 'within'
+),
+-- born_in_usa is the set of vertex IDs of all people born in the US
+born_in_usa(vertex_id) AS (
+  SELECT edges.tail_vertex FROM edges
+  JOIN in_usa ON edges.head_vertex = in_usa.vertex_id
+  WHERE edges.label = 'born_in'
+),
+-- lives_in_europe is the set of vertex IDs of all people living in Europe
+lives_in_europe(vertex_id) AS (
+  SELECT edges.tail_vertex FROM edges
+  JOIN in_europe ON edges.head_vertex = in_europe.vertex_id
+  WHERE edges.label = 'lives_in'
+)
+SELECT vertices.properties->>'name'
+FROM vertices
+JOIN born_in_usa ON vertices.vertex_id = born_in_usa.vertex_id
+JOIN lives_in_europe ON vertices.vertex_id = lives_in_europe.vertex_id;
+
+Step-by-Step Explanation
+
+in_usa:
+
+Start with the vertex "United States".
+
+Follow all incoming within edges to include states, cities, etc.
+
+in_europe:
+
+Same logic, starting with "Europe".
+
+born_in_usa:
+
+For all in_usa locations, follow born_in edges to find people born there.
+
+lives_in_europe:
+
+For all in_europe locations, follow lives_in edges to find people living there.
+
+Final SELECT:
+
+Intersect the two sets (people who were both born in the US and live in Europe).
+
+Return their names.
+
+Cypher vs SQL
+
+Cypher: 4 lines
+
+SQL: 29 lines
+
+This shows:
+
+Different data models suit different use cases.
+
+Graph databases with Cypher are more natural for graph-like queries.
+
+Relational databases can do it, but the queries are clumsy and harder to write.
+
+
+
+
+
+
+Triple-Stores and SPARQL
+
+The triple-store model is very similar to the property graph model, but it uses different terminology. It’s worth discussing because it comes with tools and languages that can be useful when building applications.
+
+The Triple-Store Model
+
+In a triple-store, all information is stored as three-part statements called triples:
+
+(subject, predicate, object)
+
+
+Example:
+
+(Jim, likes, bananas)
+
+subject → Jim
+
+predicate → likes (the verb / relation)
+
+object → bananas
+
+Relation to Graphs
+
+Subject = a vertex in the graph.
+
+Object = two possible things:
+
+Primitive value (string, number, etc.)
+
+Example: (lucy, age, 33)
+
+Equivalent to vertex lucy with property {"age": 33}
+
+Another vertex
+
+Example: (lucy, marriedTo, alain)
+
+Both lucy and alain are vertices.
+
+marriedTo is the edge label connecting them.
+
+Example in Turtle (Notation3 Subset)
+Example 2-6
+
+The same data can be written in Turtle format, which is human-readable.
+
+@prefix : <urn:example:>.
+_:lucy a :Person.
+_:lucy :name "Lucy".
+_:lucy :bornIn _:idaho.
+_:idaho a :Location.
+_:idaho :name "Idaho".
+_:idaho :type "state".
+_:idaho :within _:usa.
+_:usa a :Location.
+_:usa :name "United States".
+_:usa :type "country".
+_:usa :within _:namerica.
+_:namerica a :Location.
+_:namerica :name "North America".
+_:namerica :type "continent".
+
+
+Vertices are written as _:someName.
+
+The underscore means the name is local only to this file.
+
+When predicate = edge, object = vertex → e.g., _:idaho :within _:usa.
+
+When predicate = property, object = literal → e.g., _:usa :name "United States".
+
+Example 2-7 (Concise Form)
+
+Turtle allows semicolons to group multiple properties of the same subject:
+
+@prefix : <urn:example:>.
+_:lucy a :Person; :name "Lucy"; :bornIn _:idaho.
+_:idaho a :Location; :name "Idaho"; :type "state"; :within _:usa.
+_:usa a :Location; :name "United States"; :type "country"; :within _:namerica.
+_:namerica a :Location; :name "North America"; :type "continent".
+
+
+This makes Turtle much more readable.
+
+The Semantic Web
+
+The semantic web idea: websites publish human-readable info → why not publish machine-readable data too?
+
+RDF (Resource Description Framework) was designed for this.
+
+Goal: allow data from different websites to combine into an internet-wide web of data.
+
+Problems
+
+Overhyped in early 2000s → failed to take off.
+
+Problems included:
+
+Too many acronyms
+
+Overly complex standards
+
+Unrealistic ambitions (hubris)
+
+Value
+
+Despite its failure as a global web, it produced useful tools and standards.
+
+Triples can still be an excellent internal data model for applications (even without publishing on the semantic web).
+
+The RDF Data Model
+
+Turtle (N3) → human-readable RDF format.
+
+RDF can also be written in XML, but it’s very verbose.
+
+Example 2-8 (RDF/XML)
+<rdf:RDF xmlns="urn:example:"
+xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<Location rdf:nodeID="idaho">
+  <name>Idaho</name>
+  <type>state</type>
+  <within>
+    <Location rdf:nodeID="usa">
+      <name>United States</name>
+      <type>country</type>
+      <within>
+        <Location rdf:nodeID="namerica">
+          <name>North America</name>
+          <type>continent</type>
+        </Location>
+      </within>
+    </Location>
+  </within>
+</Location>
+<Person rdf:nodeID="lucy">
+  <name>Lucy</name>
+  <bornIn rdf:nodeID="idaho"/>
+</Person>
+</rdf:RDF>
+
+Key RDF Features
+
+Subjects, predicates, objects are often URIs, not plain words.
+
+Example:
+
+<http://my-company.com/namespace#within> instead of within.
+
+Reason: prevents conflicts when combining data from different sources.
+
+URIs don’t need to resolve to real websites (e.g., urn:example:within).
+
+You can define a prefix once and reuse it → avoids repetition.
+
+The SPARQL Query Language
+
+SPARQL = SPARQL Protocol and RDF Query Language (pronounced “sparkle”).
+
+Predates Cypher.
+
+Cypher’s pattern matching was inspired by SPARQL.
+
+Example 2-9 (SPARQL Query)
+
+Find people born in the US and living in Europe:
+
+PREFIX : <urn:example:>
+SELECT ?personName WHERE {
+  ?person :name ?personName.
+  ?person :bornIn / :within* / :name "United States".
+  ?person :livesIn / :within* / :name "Europe".
+}
+
+Similarity to Cypher
+
+Cypher:
+
+(person) -[:BORN_IN]-> () -[:WITHIN*0..]-> (location)
+
+
+SPARQL:
+
+?person :bornIn / :within* ?location.
+
+
+Both describe traversals in graph data.
+
+RDF doesn’t distinguish between properties vs. edges → both are just predicates.
+
+Example:
+
+Cypher:
+
+(usa {name:'United States'})
+
+
+SPARQL:
+
+?usa :name "United States".
+
+
+➡️ SPARQL is powerful for internal application queries, even if semantic web isn’t widely adopted.
+
+Graph Databases Compared to the Network Model
+
+The network model (CODASYL) from the 1970s looks similar to modern graph databases—but they are not the same.
+
+Key Differences
+
+Schema restrictions
+
+CODASYL → strict schema defining which record type can nest inside which.
+
+Graph databases → no restriction, any vertex can connect to any other.
+
+Accessing data
+
+CODASYL → only via predefined access paths.
+
+Graph databases → can directly use vertex IDs or indexes.
+
+Ordering of children
+
+CODASYL → children of a record are an ordered set (important for storage & insertion).
+
+Graph databases → vertices & edges are unordered (ordering only happens at query time).
+
+Query style
+
+CODASYL → imperative queries, complex and fragile.
+
+Graph databases → can be imperative or declarative (Cypher, SPARQL).
+
+
+
+
+
+The Foundation: Datalog
+Background
+
+Datalog is an older query language, studied heavily in the 1980s by academics.
+
+Compared to SPARQL or Cypher, it is less known among software engineers.
+
+Still, it is important because it provided the foundation for later query languages.
+
+Usage in Practice
+
+Datomic: a database that uses Datalog as its query language.
+
+Cascalog: a Datalog implementation for querying large datasets in Hadoop.
+
+Both use Clojure S-expression syntax, but here examples are given in Prolog-style syntax (easier to read, same functionality).
+
+Datalog’s Data Model
+
+Similar to the triple-store model (used in RDF).
+
+Instead of a triple (subject, predicate, object), Datalog writes it as:
+
+predicate(subject, object)
+
+Example 2-10: Representing Data as Datalog Facts
+name(namerica, 'North America').
+type(namerica, continent).
+name(usa, 'United States').
+type(usa, country).
+within(usa, namerica).
+name(idaho, 'Idaho').
+type(idaho, state).
+within(idaho, usa).
+name(lucy, 'Lucy').
+born_in(lucy, idaho).
+
+
+These are facts stored in the database.
+
+Writing Queries in Datalog
+Example 2-11: Querying with Rules
+within_recursive(Location, Name) :- name(Location, Name).   /* Rule 1 */
+within_recursive(Location, Name) :- within(Location, Via), within_recursive(Via, Name).   /* Rule 2 */
+
+migrated(Name, BornIn, LivingIn) :-
+    name(Person, Name),  /* Rule 3 */
+    born_in(Person, BornLoc),
+    within_recursive(BornLoc, BornIn),
+    lives_in(Person, LivingLoc),
+    within_recursive(LivingLoc, LivingIn).
+
+?- migrated(Who, 'United States', 'Europe').
+/* Who = 'Lucy'. */
+
+Key Points
+
+Cypher and SPARQL: start queries with SELECT.
+
+Datalog: builds queries step by step using rules.
+
+Rules define new predicates (derived facts).
+
+Example rules here define:
+
+within_recursive → to trace geographic containment recursively.
+
+migrated → to describe people moving from one place to another.
+
+Rules can refer to each other (like functions in programming).
+
+How Rules Work
+
+Variables: start with uppercase letters.
+
+Example: name(Location, Name) matches name(namerica, 'North America').
+
+Produces variable bindings: Location = namerica, Name = 'North America'.
+
+Rule Application:
+
+If all conditions on the right-hand side (RHS) of :- are satisfied, the left-hand side (LHS) is added as a new fact.
+
+Example Walkthrough (Steps of Rule Application)
+
+name(namerica, 'North America') exists → Rule 1 applies.
+→ Produces within_recursive(namerica, 'North America').
+
+within(usa, namerica) exists, and from step 1 we know within_recursive(namerica, 'North America').
+→ Rule 2 applies.
+→ Produces within_recursive(usa, 'North America').
+
+within(idaho, usa) exists, and from step 2 we know within_recursive(usa, 'North America').
+→ Rule 2 applies again.
+→ Produces within_recursive(idaho, 'North America').
+
+By repeating Rules 1 and 2, the system builds knowledge about all locations inside North America.
+
+Rule 3:
+
+Finds people (Name) born in some location (BornIn) and living in another (LivingIn).
+
+If we query:
+
+?- migrated(Who, 'United States', 'Europe').
+
+
+The system returns:
+
+Who = 'Lucy'
+
+Graph-Like Data Models
+
+Datalog requires a different mindset compared to Cypher or SPARQL.
+
+Advantages:
+
+Rules can be combined and reused, making queries powerful for complex data.
+
+Disadvantages:
+
+Less convenient for simple one-off queries.
+
+Summary
+Historical Evolution of Data Models
+
+Hierarchical model:
+
+Early representation of data as a big tree.
+
+Bad at handling many-to-many relationships.
+
+Relational model:
+
+Solved many-to-many relationship problems.
+
+Became dominant.
+
+NoSQL (Non-relational) models:
+
+Emerged because some applications didn’t fit relational databases well.
+
+Two main directions:
+
+Document databases: store self-contained documents, rare relationships.
+
+Graph databases: focus on data where “everything is related to everything.”
+
+Today, all three (document, relational, graph) are widely used.
+
+One model can be emulated in another, but it’s usually awkward → different models exist for different needs.
+
+Schema Flexibility
+
+Document and graph databases usually don’t enforce schemas.
+
+Applications still assume data has structure, but:
+
+Explicit schema → enforced on write (e.g., relational DB).
+
+Implicit schema → handled on read (e.g., many NoSQL DBs).
+
+Query Languages and Frameworks Covered
+
+SQL
+
+MapReduce
+
+MongoDB Aggregation Pipeline
+
+Cypher
+
+SPARQL
+
+Datalog
+
+CSS & XSL/XPath (not DB query languages but related).
+
+Other Specialized Data Models (examples not covered deeply)
+
+Genome databases (GenBank):
+
+Needed for sequence similarity searches (match long strings to similar ones).
+
+Particle physics (Large Hadron Collider):
+
+Deals with hundreds of petabytes of data.
+
+Requires custom large-scale solutions to manage cost.
+
+Full-text search:
+
+Considered a kind of data model.
+
+Commonly used alongside databases.
+
+Relates to information retrieval (covered later in the book).
+
+
+
+
