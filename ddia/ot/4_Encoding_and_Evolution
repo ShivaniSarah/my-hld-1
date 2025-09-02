@@ -1,8 +1,6 @@
 Encoding and Evolution
 
-
-CHAPTER 4
-Encoding and Evolution
+CHAPTER 4 Encoding and Evolution
 
 Heraclitus said, “Everything changes and nothing stands still.”
 This chapter is about how data and applications evolve over time and how we can design systems to handle change smoothly.
@@ -51,7 +49,11 @@ Forward compatibility → old code can read data written by new code.
 👉 Backward compatibility is easier, because developers of new code already know the old format.
 👉 Forward compatibility is harder, because old code must safely ignore unknown fields added by newer code.
 
-Formats for Encoding Data
+
+
+######   Formats for Encoding Data
+
+
 
 Programs deal with data in two forms:
 
@@ -81,7 +83,12 @@ To avoid confusion, this book uses encoding instead.
 
 Since this problem is universal, many encoding libraries and formats exist.
 
-Language-Specific Formats
+
+
+######   Language-Specific Formats
+
+
+
 
 Many programming languages include built-in ways to encode objects into byte sequences:
 
@@ -136,8 +143,9 @@ Example: Java serialization is infamous for being both inefficient and bloated.
 
 
 
+######    JSON, XML, and Binary Variants
 
-JSON, XML, and Binary Variants
+
 
 When choosing standardized encodings that can be written and read by many programming languages, JSON and XML are the most common options. Both are widely supported but often disliked. Let’s analyze their strengths, weaknesses, and alternatives.
 
@@ -226,7 +234,11 @@ Especially useful for data interchange between organizations.
 
 In these scenarios, agreeing on a format is more important than efficiency.
 
-Binary Encoding
+
+
+######   Binary Encoding
+
+
 
 When data is used internally (within one organization), you can choose a more compact or faster format.
 
@@ -309,8 +321,8 @@ The text suggests that with other encoding methods, the same record can be compr
 
 
 
+######   Thrift and Protocol Buffers
 
-Thrift and Protocol Buffers
 
 Apache Thrift and Protocol Buffers (protobuf) are binary encoding libraries.
 
@@ -433,7 +445,11 @@ It does not affect binary encoding → the data itself does not indicate if a fi
 
 Required fields: cause runtime errors if missing (useful for debugging).
 
-Field Tags and Schema Evolution
+
+
+######   Field Tags and Schema Evolution
+
+
 
 Schemas must change over time → this is called schema evolution.
 
@@ -494,7 +510,9 @@ New code must ignore old fields safely.
 
 
 
-Datatypes and Schema Evolution
+######    Datatypes and Schema Evolution
+
+
 Changing the Datatype of a Field
 
 Changing the datatype of a field may be possible, but it comes with risks.
@@ -535,7 +553,11 @@ Cannot evolve from single-valued to multi-valued fields.
 
 Advantage: supports nested lists.
 
-Avro
+
+
+######   Avro
+
+
 
 Apache Avro (started 2009 as part of Hadoop).
 
@@ -592,7 +614,11 @@ Correct decoding requires exact same schema on reader and writer side.
 
 Any schema mismatch → incorrectly decoded data.
 
-The Writer’s Schema and the Reader’s Schema
+
+
+######   The Writer’s Schema and the Reader’s Schema
+
+
 
 Writer’s schema = schema used when data is encoded (e.g., embedded in the writer application).
 
@@ -610,7 +636,11 @@ If a field exists in writer’s schema but not reader’s schema → it is ignor
 
 If a field exists in reader’s schema but not writer’s schema → it is filled with the default value.
 
-Schema Evolution Rules
+
+
+######    Schema Evolution Rules
+
+
 
 Forward compatibility = new schema as writer, old schema as reader.
 
@@ -661,7 +691,9 @@ Adding a branch to a union type → also backward compatible, but not forward co
 
 
 
-But what is the writer’s schema?
+######   But what is the writer’s schema?
+
+
 
 The writer’s schema is the schema that was used to encode a piece of data.
 But there’s a challenge: how does the reader know which schema the writer used?
@@ -722,7 +754,11 @@ A simple incrementing integer, or
 
 A hash of the schema.
 
-Dynamically generated schemas
+
+
+######   Dynamically generated schemas
+
+
 
 Avro’s advantage over Thrift and Protocol Buffers:
 
@@ -750,7 +786,11 @@ Contrast:
 
 With Thrift or Protocol Buffers, field tags must be manually assigned and maintained, making automatic schema generation harder.
 
-Code generation and dynamically typed languages
+
+
+######   Code generation and dynamically typed languages
+
+
 
 Thrift and Protocol Buffers rely on code generation (auto-generating classes/structures from the schema).
 
@@ -788,7 +828,11 @@ Start analyzing immediately.
 
 Write output back in Avro format without worrying about schemas.
 
-The Merits of Schemas
+
+
+######   The Merits of Schemas
+
+
 
 Protocol Buffers, Thrift, and Avro all use schemas for binary encoding.
 
@@ -843,7 +887,9 @@ Better tooling.
 
 
 
-Modes of Dataflow
+######   Modes of Dataflow
+
+
 
 At the beginning of this chapter, the key idea is that whenever you need to send data to another process that does not share memory with you (e.g., sending over a network or writing to a file), the data must first be encoded into a sequence of bytes.
 
@@ -863,7 +909,11 @@ Via service calls (REST and RPC)
 
 Via asynchronous message passing
 
-Dataflow Through Databases
+
+
+######   Dataflow Through Databases
+
+
 
 In databases, the writer process encodes data, while the reader process decodes it.
 
@@ -899,7 +949,12 @@ If the application decodes into model objects and re-encodes → unknown fields 
 
 Solution: Be aware of this issue and preserve unknown fields at the application level.
 
-Different values written at different times
+
+
+
+######    Different values written at different times
+
+
 
 A database stores data written at any point in time.
 
@@ -923,7 +978,11 @@ LinkedIn’s Espresso DB → uses Avro, relying on its schema evolution rules.
 
 Effect: Database appears to have a single schema, even though data is stored in multiple historical schemas.
 
-Archival storage
+
+
+######   Archival storage
+
+
 
 Sometimes, databases are snapshotted (e.g., for backup or loading into a data warehouse).
 
@@ -939,7 +998,13 @@ Avro object container files (good for immutable dumps).
 
 Parquet (column-oriented, analytics-friendly).
 
-Dataflow Through Services: REST and RPC
+
+
+
+######    Dataflow Through Services: REST and RPC
+
+
+
 
 When processes communicate over a network, the typical setup involves clients and servers:
 
@@ -1014,7 +1079,9 @@ Therefore → API data encoding must be backward and forward compatible.
 
 
 
-Web Services
+######   Web Services
+
+
 
 When HTTP is used as the underlying protocol to communicate with a service, it is called a web service.
 This term is a bit misleading because web services are not only used “on the web,” but also in other contexts.
@@ -1100,7 +1167,14 @@ Favor simplicity with less code generation.
 
 Use OpenAPI (Swagger) for API description and documentation.
 
-The Problems with Remote Procedure Calls (RPCs)
+
+
+
+######    The Problems with Remote Procedure Calls (RPCs)
+
+
+
+
 
 Web services are the latest form of Remote Procedure Calls (RPCs).
 But RPCs historically have serious issues despite hype.
@@ -1165,7 +1239,11 @@ Conclusion:
 RPC abstraction hides these differences, which is fundamentally flawed.
 REST is more honest by acknowledging the network nature.
 
-Current Directions for RPC
+
+
+######    Current Directions for RPC
+
+
 
 Even with issues, RPC is still widely used, but in improved forms.
 
@@ -1207,7 +1285,11 @@ REST dominates public APIs.
 
 RPC mainly used for internal services (same datacenter/organization).
 
-Data Encoding and Evolution for RPC
+
+
+######    Data Encoding and Evolution for RPC
+
+
 
 RPC must support evolvability → clients and servers update independently.
 
@@ -1257,7 +1339,9 @@ Allow updating via an admin interface.
 
 
 
-Message-Passing Dataflow
+######    Message-Passing Dataflow
+
+
 
 We have been looking at different ways encoded data flows from one process to another.
 So far, we discussed:
@@ -1308,7 +1392,10 @@ Replies, if needed, are usually sent on a separate channel (e.g., reply queue).
 
 Asynchronous communication → sender sends and forgets, does not wait for delivery confirmation.
 
-Message Brokers
+
+
+######    Message Brokers
+
 
 Earlier: dominated by commercial enterprise software (e.g., TIBCO, IBM WebSphere, webMethods).
 
@@ -1342,7 +1429,11 @@ If encoding is backward/forward compatible, publishers and consumers can evolve 
 
 If republishing messages, need to preserve unknown fields to avoid data loss (similar issue seen in databases).
 
-Distributed Actor Frameworks
+
+
+######    Distributed Actor Frameworks
+
+
 The Actor Model (Basics)
 
 A concurrency model within a single process.
@@ -1415,7 +1506,9 @@ New maps datatype (JSON-like, introduced in Erlang R17, 2014) may make upgrades 
 
 
 
-Summary (Explained)
+######    Summary (Explained)
+
+
 
 In this chapter, the main focus is on how to turn data structures into bytes (for network transfer or disk storage), and how the chosen encoding method affects not only efficiency but also the architecture, deployment strategies, and evolvability of applications.
 
