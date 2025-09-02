@@ -1,9 +1,8 @@
-Data Models and Query Languages
+######    Data Models and Query Languages
 
 
 
-CHAPTER 2
-Data Models and Query Languages
+CHAPTER 2 Data Models and Query Languages
 
 “The limits of my language mean the limits of my world.” — Ludwig Wittgenstein, Tractatus Logico-Philosophicus (1922)
 
@@ -57,7 +56,12 @@ Looking at query languages and their use cases.
 
 Chapter 3 will then cover storage engines (layer 3 above → actual implementation).
 
-Relational Model Versus Document Model
+
+
+######    Relational Model Versus Document Model
+
+
+
 Relational Model
 
 Best-known model today: SQL, based on relational model by Edgar Codd (1970).
@@ -102,7 +106,12 @@ Adapted beyond business use → generalized to many domains.
 
 Still power much of the modern web: publishing, forums, social networking, e-commerce, gaming, SaaS, etc.
 
-The Birth of NoSQL
+
+
+######    The Birth of NoSQL
+
+
+
 
 In the 2010s, NoSQL emerged as an attempt to challenge relational dominance.
 
@@ -128,7 +137,12 @@ Future trend:
 
 Likely polyglot persistence → relational DBs used alongside various non-relational datastores.
 
-The Object-Relational Mismatch
+
+
+######    The Object-Relational Mismatch
+
+
+
 
 Most development today uses object-oriented programming.
 
@@ -205,7 +219,10 @@ JSON lacks schema → often cited as advantage, but also causes issues (discusse
 
 
 
-Many-to-One and Many-to-Many Relationships
+######    Many-to-One and Many-to-Many Relationships
+
+
+
 Why Use IDs Instead of Plain Text?
 
 In Example 2-1, region_id and industry_id are stored as IDs, not as raw text like "Greater Seattle Area" or "Philanthropy".
@@ -294,7 +311,11 @@ If the author updates their photo, all recommendations update automatically.
 
 ➡️ Both cases require references and joins, leading to many-to-many relationships.
 
-Historical Context: Are Document Databases Repeating History?
+
+
+######    Historical Context: Are Document Databases Repeating History?
+
+
 
 In the 1970s, IBM’s IMS (Information Management System) used a hierarchical model (like JSON trees).
 
@@ -310,7 +331,11 @@ Manually followed references.
 
 ⚡ This is the same problem faced by modern document databases.
 
-The Network Model
+
+
+######    The Network Model
+
+
 
 To fix hierarchical model limits, the network model (CODASYL) was introduced:
 
@@ -340,7 +365,12 @@ Hard to evolve the data model.
 
 👉 Efficient on 1970s hardware but painful for developers.
 
-The Relational Model
+
+
+######    The Relational Model
+
+
+
 
 The relational model solved these issues by:
 
@@ -362,7 +392,11 @@ New indexes can be added without rewriting queries.
 
 👉 Key insight: build the query optimizer once, and all applications benefit.
 
-Comparison to Document Databases
+
+
+######    Comparison to Document Databases
+
+
 
 Document DBs are like hierarchical DBs:
 
@@ -379,11 +413,13 @@ IDs are resolved at read time with joins or follow-up queries.
 
 
 
-Relational Versus Document Databases Today
+######    Relational Versus Document Databases Today
+
+
 
 When comparing relational databases and document databases, there are several factors to consider (such as fault-tolerance and concurrency), but here we will focus only on the differences in the data model.
 
-Which Data Model Leads to Simpler Application Code?
+######    Which Data Model Leads to Simpler Application Code?
 
 Document data model works best when data has a document-like structure (a tree of one-to-many relationships that is usually loaded all at once).
 
@@ -419,7 +455,10 @@ Depends on relationships between data:
 
 Highly interconnected data → Document model is awkward, relational is better, and graph databases are the most natural.
 
-Schema Flexibility in the Document Model
+
+######    Schema Flexibility in the Document Model
+
+
 
 Document databases and JSON in RDBMS usually do not enforce schema.
 
@@ -481,7 +520,11 @@ When all records have the same structure.
 
 Acts as documentation and ensures consistency.
 
-Data Locality for Queries
+
+
+######    Data Locality for Queries
+
+
 
 Document storage:
 
@@ -509,7 +552,11 @@ Oracle → multi-table index cluster tables.
 
 Cassandra/HBase → column families manage locality.
 
-Convergence of Document and Relational Databases
+
+
+######    Convergence of Document and Relational Databases
+
+
 
 Relational databases support document features:
 
@@ -560,7 +607,9 @@ Both models are converging, offering hybrid capabilities for the future.
 
 
 
-Query Languages for Data
+######    Query Languages for Data
+
+
 
 When the relational model was introduced, it came with a new way of querying data. This was declarative query languages (like SQL), unlike earlier database models such as IMS and CODASYL, which used imperative code. Let’s break down what this means.
 
@@ -645,7 +694,11 @@ Declarative queries only describe what result is wanted, so the database is free
 
 Example: filtering, sorting, or joining data can be distributed across multiple cores or even machines.
 
-Declarative Queries on the Web
+
+
+######    Declarative Queries on the Web
+
+
 
 Declarative query languages are useful beyond databases. Web technologies show the same contrast between declarative and imperative approaches.
 
@@ -748,9 +801,10 @@ Parallel execution
 
 
 
+######    MapReduce Querying
 
 
-MapReduce Querying
+
 What is MapReduce?
 
 MapReduce is a programming model used to process large volumes of data across many machines.
@@ -892,7 +946,13 @@ Similar in expressiveness to SQL but uses JSON-based syntax
 
 👉 Moral: NoSQL systems often reinvent SQL in disguise.
 
-Graph-Like Data Models
+
+
+
+######    Graph-Like Data Models
+
+
+
 When Graphs Are Needed
 
 If relationships are one-to-many or rare → document model works.
@@ -935,7 +995,11 @@ Married, living in London.
 
 Shows different types of vertices and edges (people, places, relationships).
 
-Property Graphs
+
+
+######    Property Graphs
+
+
 Definition
 
 In the property graph model, each element has properties:
@@ -1005,7 +1069,10 @@ Can evolve → e.g., add allergens as vertices, connect them to foods and people
 
 
 
-The Cypher Query Language
+######    The Cypher Query Language
+
+
+
 What is Cypher?
 
 Cypher is a declarative query language for working with property graphs.
@@ -1084,7 +1151,12 @@ The query optimizer automatically decides the most efficient execution plan.
 
 This is the advantage of a declarative query language: developers only describe what they want, not how to get it.
 
-Graph Queries in SQL
+
+
+######    Graph Queries in SQL
+
+
+
 Representing Graph Data in SQL
 
 Graph data can be represented in a relational database using tables.
@@ -1281,7 +1353,12 @@ _:namerica a :Location; :name "North America"; :type "continent".
 
 This makes Turtle much more readable.
 
-The Semantic Web
+
+
+
+######    The Semantic Web
+
+
 
 The semantic web idea: websites publish human-readable info → why not publish machine-readable data too?
 
@@ -1307,7 +1384,11 @@ Despite its failure as a global web, it produced useful tools and standards.
 
 Triples can still be an excellent internal data model for applications (even without publishing on the semantic web).
 
-The RDF Data Model
+
+
+######    The RDF Data Model
+
+
 
 Turtle (N3) → human-readable RDF format.
 
@@ -1352,7 +1433,12 @@ URIs don’t need to resolve to real websites (e.g., urn:example:within).
 
 You can define a prefix once and reuse it → avoids repetition.
 
-The SPARQL Query Language
+
+
+######    The SPARQL Query Language
+
+
+
 
 SPARQL = SPARQL Protocol and RDF Query Language (pronounced “sparkle”).
 
@@ -1401,7 +1487,12 @@ SPARQL:
 
 ➡️ SPARQL is powerful for internal application queries, even if semantic web isn’t widely adopted.
 
-Graph Databases Compared to the Network Model
+
+
+
+######    Graph Databases Compared to the Network Model
+
+
 
 The network model (CODASYL) from the 1970s looks similar to modern graph databases—but they are not the same.
 
