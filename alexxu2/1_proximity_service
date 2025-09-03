@@ -1,1 +1,893 @@
-..
+1. Proximity Service
+
+A proximity service helps users discover nearby places such as restaurants, hotels, theaters, and museums. It powers features like:
+
+Finding the best restaurants nearby (Yelp).
+
+Finding k-nearest gas stations (Google Maps).
+
+Example: Figure 1.1 in the book shows Yelp’s nearby search interface. Users can see locations on a map with distance, travel mode (driving, biking, walking), and nearby businesses.
+
+Step 1 - Understand the Problem and Establish Design Scope
+
+Yelp has many features, so in an interview, you narrow the scope by asking questions:
+
+Example Questions and Answers:
+
+Candidate: Can a user specify the search radius?
+
+Interviewer: Assume we only care about businesses within a specified radius.
+
+Candidate: What's the maximal radius allowed?
+
+Interviewer: Assume 20 km (12.5 miles).
+
+Candidate: Can users change the search radius in the UI?
+
+Interviewer: Options: 0.5 km, 1 km, 2 km, 5 km, 20 km.
+
+Candidate: How are business info updates handled?
+
+Interviewer: Updates take effect the next day.
+
+Candidate: Does the search update if a user moves?
+
+Interviewer: No constant refresh needed; assume slow movement.
+
+Functional Requirements
+
+Focus on 3 key features:
+
+Return all businesses within a user’s location (latitude/longitude) and radius.
+
+Business owners can add, delete, or update businesses (not in real-time).
+
+Customers can view detailed business information.
+
+Non-Functional Requirements
+
+Low latency: Fast response for nearby businesses.
+
+Data privacy: User location is sensitive; must comply with laws like GDPR and CCPA.
+
+High availability & scalability: Handle traffic spikes during peak hours.
+
+Back-of-the-Envelope Estimation
+
+Assumptions:
+
+100 million daily active users.
+
+200 million businesses.
+
+Users make 5 search queries/day.
+
+Calculating QPS (Queries per Second):
+
+Seconds in a day = 24 × 60 × 60 = 86,400 ≈ 10^5.
+
+Total queries/day = 100M × 5 = 500M.
+
+Search QPS = 500M ÷ 10^5 = 5,000 QPS.
+
+This helps understand system load.
+
+Step 2 - Propose High-Level Design and Get Buy-in
+API Design
+
+Use RESTful APIs for simplicity:
+
+1. Search nearby businesses
+
+GET /v1/search/nearby
+
+
+Request Parameters:
+
+
+| Field     | Description              | Type    |
+| --------- | ------------------------ | ------- |
+| latitude  | User’s latitude          | decimal |
+| longitude | User’s longitude         | decimal |
+| radius    | Optional, default 5000 m | int     |
+
+
+Response:
+
+{
+  "total": 10,
+  "businesses": [{business object}]
+}
+
+
+
+2. Business APIs
+
+| Method | Endpoint            | Purpose                 |
+| ------ | ------------------- | ----------------------- |
+| GET    | /v1/businesses/\:id | Get detailed info       |
+| POST   | /v1/businesses      | Add a business          |
+| PUT    | /v1/businesses/\:id | Update business details |
+| DELETE | /v1/businesses/\:id | Delete a business       |
+
+
+Data Model
+Read/Write Ratio
+
+Read-heavy system:
+
+Searching nearby businesses.
+
+Viewing business details.
+
+Low write volume:
+
+Add/update/delete business infrequent.
+
+Database Choice
+
+Relational DB (e.g., MySQL) works well for read-heavy systems.
+
+Schema Design
+
+1. Business Table
+
+| Column       | Description      |
+| ------------ | ---------------- |
+| business\_id | Primary Key      |
+| address      | Business address |
+| city         | City             |
+| state        | State            |
+| country      | Country          |
+| latitude     | Latitude         |
+| longitude    | Longitude        |
+
+
+2. Geo Index Table
+
+For efficient spatial operations.
+
+Uses concepts like geohash (discussed in scaling section).
+
+High-Level Design
+
+System Components:
+
+Load Balancer: Distributes traffic across services based on API paths.
+
+Location-Based Service (LBS):
+
+Core part, finds nearby businesses for a given location and radius.
+
+Characteristics: read-heavy, high QPS, stateless → easy horizontal scaling.
+
+Business Service:
+
+Handles create/update/delete by business owners (write-heavy).
+
+Provides detailed business info to customers (read-heavy).
+
+Database Cluster:
+
+Primary-Replica setup:
+
+Primary handles writes.
+
+Replicas handle reads.
+
+Minor replication delays are acceptable.
+
+Scalability:
+
+Both services are stateless → can scale horizontally.
+
+Cloud deployment can use regions & availability zones for better availability.
+
+Algorithms to Fetch Nearby Businesses
+
+Real-world databases:
+
+Redis Geohash, Postgres with PostGIS.
+
+Two Main Approaches to Geospatial Indexing:
+
+Two-Dimensional Search (Naive):
+
+Draw a circle of radius R around the location and search all points inside.
+
+Geospatial Indexing (Recommended):
+
+Hash-based: Even grid, geohash, Cartesian tiers.
+
+Tree-based: Quadtree, Google S2, RTree.
+
+Key Idea: Divide the map into smaller areas → fast search.
+
+Most widely used in industry: Geohash, Quadtree, Google S2.
+
+Reminder:
+
+In interviews, focus on why indexing is needed, how it works at a high level, and its limitations. Implementation details are less important.
+
+
+
+
+Option 2: Evenly Divided Grid
+
+One simple way to partition the world for proximity services is to evenly divide the globe into small grids (Figure 1.6).
+
+Each grid can contain multiple businesses, and each business on the map belongs to one specific grid.
+
+This method is straightforward but has a major drawback: uneven business distribution.
+
+Challenges
+
+Dense vs Sparse Areas:
+
+Cities like downtown New York may have a very high concentration of businesses, while deserts or oceans have none.
+
+As a result, an evenly divided grid produces uneven data distribution.
+
+Grid Neighbors:
+
+Finding neighboring grids for a given fixed grid can be challenging.
+
+Ideal Approach:
+
+Use smaller, more granular grids in dense areas.
+
+Use larger grids in sparse areas.
+
+Option 3: Geohash
+
+Geohash improves upon the evenly divided grid method.
+
+How Geohash Works (High-Level)
+
+Convert 2D Coordinates into 1D String:
+
+Longitude and latitude are reduced into a one-dimensional string of letters and digits.
+
+Recursive Grid Division:
+
+The world is divided recursively into smaller grids with each additional bit.
+
+Step 1: Initial Division
+
+Divide the world into four quadrants along the prime meridian and equator:
+
+
+| Latitude  | Value |
+| --------- | ----- |
+| \[-90, 0] | 0     |
+| (0, 90]   | 1     |
+
+
+
+| Longitude  | Value |
+| ---------- | ----- |
+| \[-180, 0] | 0     |
+| \[0, 180]  | 1     |
+
+
+
+Step 2: Recursive Subdivision
+
+Each quadrant is subdivided into four smaller grids.
+
+Grids are represented by alternating longitude and latitude bits.
+
+Subdivision continues until the grid reaches desired precision.
+
+Geohash commonly uses base32 representation.
+
+Examples
+
+Google Headquarters (length=6) → 9q9hvu
+
+Facebook Headquarters (length=6) → 9q9jhr
+
+Precision
+
+Geohash has 12 levels of precision (Table 1.4).
+
+Recommended lengths for proximity search: 4 to 6.
+
+>6 → grid too small
+
+<4 → grid too large
+
+Choosing Right Precision
+
+Find the minimal geohash length that covers the user-defined search radius.
+
+Radius → geohash length mapping is in Table 1.5.
+
+Boundary Issues
+
+Issue 1: Close locations, no shared prefix
+
+Two nearby locations may belong to different halves of the world and have no shared prefix.
+
+Example:
+
+La Roche-Chalais (geohash: u008)
+
+Pomerol (geohash: ezzz)
+
+Distance = 30 km, but no shared prefix → simple SQL LIKE 'prefix%' query fails.
+
+Issue 2: Shared prefix, but different grids
+
+Two positions may have long shared prefixes but actually belong to different geohashes.
+
+Solution
+
+Fetch businesses from both the current grid and neighboring grids.
+
+Neighbor geohashes can be calculated in constant time.
+
+Handling Not Enough Businesses
+
+If the current grid and neighbors don’t provide enough businesses:
+
+Option 1:
+
+Only return businesses within the radius.
+
+Drawback: May not satisfy user needs.
+
+Option 2 (Recommended):
+
+Increase search radius:
+
+Remove the last digit of the geohash → fetch a larger area.
+
+Repeat until enough results are found.
+
+This gradually expands the search area (Figure 1.12).
+
+Option 4: Quadtree
+
+Another popular solution for proximity search is the quadtree.
+
+What is a Quadtree?
+
+A data structure used to partition 2D space.
+
+Recursively subdivides space into four quadrants until certain criteria are met.
+
+Example criterion: no more than 100 businesses per grid.
+
+Key Characteristics
+
+In-memory data structure (not a database solution).
+
+Built on each LBS server at start-up.
+
+Conceptual Example
+
+Assume 200 million businesses worldwide:
+
+
+NW (40m) NE (30m)
+SW (70m) SE (60m)
+
+
+Each quadrant is further subdivided if it contains more than 100 businesses.
+
+Process
+
+Root node = whole world map.
+
+Recursively split into 4 quadrants.
+
+Stop subdividing when no node has more than 100 businesses.
+
+Quadtree: Memory and Operational Considerations
+1. Pseudocode for Building Quadtree
+
+
+public void buildQuadtree(TreeNode node) {
+    if (countNumberOfBusinessesInCurrentGrid(node) > 100) {
+        node.subdivide();
+        for (TreeNode child : node.getChildren()) {
+            buildQuadtree(child);
+        }
+    }
+}
+
+
+Explanation:
+
+The quadtree subdivides a grid if it contains more than 100 businesses.
+
+This process continues recursively until all grids contain ≤100 businesses.
+
+2. Memory Requirements
+2.1 Data Stored in a Leaf Node
+
+
+| Name                                  | Size                       |
+| ------------------------------------- | -------------------------- |
+| Top-left and bottom-right coordinates | 32 bytes (8 bytes × 4)     |
+| List of business IDs in the grid      | 8 bytes per ID × 100 (max) |
+| **Total**                             | **832 bytes**              |
+
+
+Note: Only the business IDs and coordinates are stored. The number of businesses in a grid is not stored, as it can be inferred from the database.
+
+2.2 Data Stored in Internal Nodes
+
+Internal nodes mainly store metadata (e.g., pointers to children, coordinates).
+
+Typically smaller than leaf nodes (64 bytes each).
+
+2.3 Memory Calculation
+
+Total businesses: 200 million
+
+Number of leaf nodes: ~2 million
+
+Number of internal nodes: ~0.67 million
+
+Memory requirement:
+
+2
+ 
+million
+×
+832
+ 
+bytes
++
+0.67
+ 
+million
+×
+64
+ 
+bytes
+≈
+1.71
+ 
+GB
+2million×832bytes+0.67million×64bytes≈1.71GB
+
+Key takeaway: The quadtree index is memory-efficient and fits easily on a single server.
+
+Caution: Single-server storage may not be enough for high read traffic; multiple servers might be needed for load distribution.
+
+3. Build Time
+
+Each leaf node contains ~100 businesses.
+
+Time complexity: 
+𝑂
+(
+𝑛
+log
+⁡
+100
+)
+O(nlog100), where 
+𝑛
+n = total businesses.
+
+For 200 million businesses, building the quadtree may take a few minutes.
+
+4. Searching Nearby Businesses
+
+Build the quadtree in memory.
+
+Start search from the root and traverse to the leaf node containing the search origin.
+
+If the leaf has 100 businesses, return the node.
+
+Otherwise, include businesses from neighboring nodes until the required number of results is obtained.
+
+5. Operational Considerations
+5.1 Server Start-up
+
+Building a quadtree at startup can take a few minutes.
+
+During this time, the server cannot serve traffic.
+
+Solution: Incrementally roll out new releases to a small subset of servers to avoid downtime.
+
+Alternative: Blue/green deployment, but fetching 200 million businesses simultaneously can strain the database.
+
+5.2 Updating the Quadtree
+
+Incremental rebuild: Update small subsets of servers. Some servers may serve stale data temporarily.
+
+On-the-fly updates: Complicated due to multi-threading and locking mechanisms.
+
+Nightly job approach: Newly added/updated businesses effective the next day; mitigates cache invalidation spikes.
+
+6. Real-world Quadtree Example
+
+Yext built a quadtree around Denver.
+
+Dense areas → smaller grids; sparse areas → larger grids.
+
+Allows dynamic grid size adjustment based on population density.
+
+7. Alternative: Google S2 Library
+
+Maps a sphere to a 1D ID index using a Hilbert curve.
+
+Advantages:
+
+Efficient 1D search.
+
+Supports geofencing with flexible cell sizes.
+
+Provides Region Cover algorithm for variable levels of precision.
+
+Usage: Google Maps, Tinder.
+
+8. Geo Index Comparison
+
+
+| Index Type | Companies Using                |
+| ---------- | ------------------------------ |
+| Geohash    | Bing Map, Redis, MongoDB, Lyft |
+| Quadtree   | Yext, Elasticsearch            |
+| S2         | Google Maps, Tinder            |
+
+
+9. Quadtree vs Geohash
+
+| Feature           | Geohash                | Quadtree                                               |
+| ----------------- | ---------------------- | ------------------------------------------------------ |
+| Implementation    | Easy                   | Slightly harder (tree building)                        |
+| k-nearest search  | Not ideal              | Excellent                                              |
+| Grid size         | Fixed                  | Dynamic (adjusts to density)                           |
+| Update complexity | Easy (remove from row) | Hard (traverse tree, lock nodes, possible rebalancing) |
+
+
+Geohash: Best for simple radius-based queries.
+
+Quadtree: Best for k-nearest queries and dynamic population density adjustments.
+
+✅ Key Takeaways
+
+Quadtree is memory-efficient (~1.71 GB for 200M businesses).
+
+Build time is reasonable (~few minutes).
+
+Good for k-nearest queries and dynamic grid sizing.
+
+Updating is complex in multi-threaded systems.
+
+Alternative options (Geohash, S2) exist, each with trade-offs.
+
+
+
+Step 3 - Design Deep Dive
+
+By this stage, you should already have a good understanding of the overall system. Now, we dive deeper into certain critical areas:
+
+Scale the database
+
+Caching
+
+Region and availability zones
+
+Filter results by time or business type
+
+Final architecture diagram
+
+Scale the Database
+
+We focus on scaling two important tables:
+
+Business table
+
+Geospatial index table
+
+Business Table
+
+The business table may contain a large amount of data, which might not fit on a single server.
+
+Sharding is a good approach here. Sharding means splitting the table across multiple database servers.
+
+Sharding by business ID is simple and effective:
+
+Ensures load is evenly distributed across servers.
+
+Easy to maintain operationally.
+
+Geospatial Index Table
+
+This table stores the mapping between locations and business IDs. Two widely used structures are geohash and quadtree.
+
+We will use geohash as an example. There are two ways to organize the table:
+
+Option 1: Single row per geohash
+
+Each geohash stores a JSON array of business IDs in one row.
+
+
+| geohash | list\_of\_business\_ids |
+| ------- | ----------------------- |
+| 32feac  | \[343, 347]             |
+| f31cad  | \[112, 113]             |
+
+
+Problems with Option 1:
+
+To update a business: you must fetch the entire array and scan for the business ID.
+
+Inserting a new business: you must scan the array to prevent duplicates.
+
+Row-level locking is needed to handle concurrent updates.
+
+Lots of edge cases to manage.
+
+Option 2: One row per business per geohash
+
+Each business in a geohash gets its own row.
+
+Use a compound key (geohash, business_id).
+
+
+| geohash | business\_id |
+| ------- | ------------ |
+| 32feac  | 343          |
+| 32feac  | 347          |
+| f31cad  | 112          |
+| f31cad  | 113          |
+
+
+
+Advantages of Option 2:
+
+Adding or removing a business is simple.
+
+No need for row locks.
+
+Recommended approach for operational simplicity.
+
+Scale the Geospatial Index
+
+A common mistake is to immediately shard the geospatial index without considering the dataset size.
+
+In reality, the geospatial index is not very large:
+
+Quadtree index: ~1.71 GB of memory
+
+Geohash index: similar size
+
+This can easily fit in the working set of a modern database server.
+
+If read volume is high:
+
+CPU or network bandwidth might become a bottleneck.
+
+Instead of sharding, use read replicas:
+
+Spread read load across multiple database servers.
+
+Simpler to develop and maintain compared to sharding.
+
+Sharding note:
+
+Often engineers mention sharding in interviews.
+
+But for the geospatial index here, sharding adds unnecessary complexity.
+
+Recommendation:
+
+Use read replicas rather than sharding for the geospatial index.
+
+Caching
+
+Before adding a cache, ask: Do we really need it?
+
+Observations:
+
+Workload is read-heavy.
+
+Dataset is small and fits in memory.
+
+Queries may already be almost as fast as an in-memory cache.
+
+Alternative to caching:
+
+If read performance is a bottleneck, add database read replicas to improve throughput.
+
+Caching requires careful consideration:
+
+Must benchmark to check if it actually improves performance.
+
+Must consider cost and maintenance overhead.
+
+Cache Key
+
+The simplest idea: use user location (latitude, longitude) as the cache key.
+
+Problems with this approach:
+
+Inaccuracy of mobile coordinates: Phones provide estimated locations, not exact.
+
+Small movements matter little: Users moving slightly shouldn’t cause cache misses.
+
+Conclusion:
+
+Using raw location coordinates as a cache key is not ideal.
+
+The cache key should be designed so that small changes in location do not invalidate the cache unnecessarily.
+
+
+Caching in a Location-Based Service (LBS)
+
+In a location-based service (like Yelp), caching is crucial to reduce latency and improve system performance. Let’s go step by step.
+
+1. Why Use Caching?
+
+When a user searches for nearby businesses, fetching all the data directly from the database every time is slow. Caching helps by storing frequently accessed data in a fast in-memory store (like Redis).
+
+The challenge is that different user locations should map to the same cache key if they fall in the same area. This is solved using geospatial indexing like geohash or quadtree.
+
+2. Types of Data to Cache
+
+There are two main types of data in this system that should be cached:
+
+| Key          | Value                                         |
+| ------------ | --------------------------------------------- |
+| geohash      | List of business IDs in that grid             |
+| business\_id | Business object (name, address, images, etc.) |
+
+
+2.1 List of Business IDs in a Grid
+
+Businesses are mostly stable, so we can precompute the list of business IDs for a given geohash.
+
+Store this list in Redis.
+
+Example: Fetching nearby businesses with cache
+
+Get list of business IDs for a geohash:
+
+SELECT business_id 
+FROM geohash_index 
+WHERE geohash LIKE '{geohash}%'
+
+
+Use Redis cache in code:
+
+public List<String> getNearbyBusinessIds(String geohash) {
+    String cacheKey = hash(geohash);
+    List<String> listOfBusinessIds = Redis.get(cacheKey);
+    if(listOfBusinessIds == null) {
+        listOfBusinessIds = runSelectSQLQuery();
+        Redis.set(cacheKey, listOfBusinessIds, "1d");
+    }
+    return listOfBusinessIds;
+}
+
+
+
+When a business is added, edited, or deleted, update the database and invalidate the cache.
+
+Updating is easy because operations are infrequent and no locking is required.
+
+2.2 Handling Different Radii
+
+Users can search within four radii: 500m, 1km, 2km, and 5km.
+
+Map radii to geohash lengths:
+
+500m → geohash length 6
+
+1km → geohash length 5
+
+2km → geohash length 5
+
+5km → geohash length 4
+
+Cache data at all three precisions (geohash_4, geohash_5, geohash_6) in Redis.
+
+Memory estimation:
+
+Businesses: 200 million
+
+Each business in 1 grid per precision
+
+Redis value storage: 8 bytes × 200 million × 3 = ~5GB
+
+Redis key storage: negligible
+
+Conclusion: One Redis server can hold this, but for high availability and low latency globally, deploy Redis as a cluster worldwide.
+
+2.3 Business Data Needed for Client Pages
+
+Key = business_id
+
+Value = Business object (name, address, image URLs, etc.)
+
+Stored in a separate Redis cache called “Business info”.
+
+3. Region and Availability Zones
+
+Deploy LBS across multiple regions and availability zones. Benefits:
+
+Reduced latency: Users connect to the nearest region.
+
+Load balancing: High-density regions (Japan, Korea) can have separate regions.
+
+Compliance with privacy laws: Some countries require local storage of user data.
+
+4. Follow-up: Filtering by Time or Business Type
+
+Example: Show only open restaurants.
+
+Solution:
+
+Use geohash/quadtree to get small candidate set of businesses.
+
+Fetch business objects from cache.
+
+Filter by opening time or business type in memory.
+
+Assumption: opening_time and business_type are stored in the business table.
+
+5. Final Design: Get Nearby Businesses
+
+User requests nearby restaurants (e.g., 500m) → sends latitude, longitude, radius.
+
+Load balancer forwards request to LBS.
+
+LBS maps radius to geohash length (500m → 6).
+
+LBS calculates neighboring geohashes:
+
+
+list_of_geohashes = [my_geohash, neighbor_geohash1, neighbor_geohash2, ...]
+
+
+Fetch business IDs for each geohash from “Geohash” Redis cache (parallel calls).
+
+Fetch business objects from “Business info” Redis cache, calculate distances, rank results, and return to client.
+
+6. View, Update, Add, or Delete a Business
+
+Business APIs are separate from LBS.
+
+View: Check Business info Redis cache first, otherwise fetch from DB and cache it.
+
+Update/Add/Delete: Since changes are applied the next day, update the cache via nightly job.
+
+7. Step 4 – Wrap Up
+
+Designed a Proximity Service (LBS) with geospatial indexing.
+
+Indexing options discussed:
+
+Two-dimensional search
+
+Evenly divided grid
+
+Geohash
+
+Quadtree
+
+Google S2
+
+Geohash chosen as example.
+
+Caching reduces latency:
+
+Geohash → business IDs
+
+Business info → business object
+
+Scaled DB with replication and sharding.
+
+Deployed across regions and availability zones for availability, low latency, and compliance.
+
+✅ Takeaway: By combining geospatial indexing and caching, the system can efficiently serve nearby business data, scale globally, and handle updates efficiently.
+
+
