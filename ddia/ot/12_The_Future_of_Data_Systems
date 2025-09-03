@@ -1,8 +1,7 @@
-The Future of Data Systems
+######   The Future of Data Systems
 
 
-CHAPTER 12
-The Future of Data Systems
+CHAPTER 12 The Future of Data Systems
 
 The chapter begins with a quotation from St. Thomas Aquinas, which explains that if something is designed for a higher purpose, its ultimate goal cannot just be its own preservation. For example:
 
@@ -16,7 +15,10 @@ The central idea: applications of the future should be robust, correct, evolvabl
 
 The main themes of the book (reliability, scalability, maintainability) will now be brought together to imagine better systems.
 
-Data Integration
+
+
+######   Data Integration
+
 
 A recurring idea throughout the book is that there are always multiple possible solutions to any given problem, each with its own trade-offs.
 
@@ -50,7 +52,9 @@ One tool is rarely sufficient for all use cases.
 
 As a result, applications often have to integrate multiple tools to achieve their goals.
 
-Combining Specialized Tools by Deriving Data
+
+######   Combining Specialized Tools by Deriving Data
+
 
 A common real-world example:
 
@@ -114,8 +118,9 @@ The diversity of data use cases means flexible, interoperable systems are essent
 
 
 
+######   Reasoning About Dataflows
 
-Reasoning About Dataflows
+
 
 When the same data needs to live in multiple storage systems (e.g., a database and a search index), you must carefully decide:
 
@@ -141,7 +146,11 @@ If CDC is the only way to update the index → index stays consistent with the d
 
 Key: The important part is not CDC vs event sourcing, but ensuring a total order of writes.
 
-Derived Data Versus Distributed Transactions
+
+
+######   Derived Data Versus Distributed Transactions
+
+
 
 Two approaches try to keep multiple systems consistent:
 
@@ -169,7 +178,11 @@ Log-based derived data = scalable and fault-tolerant, but weaker guarantees.
 
 👉 Best path forward: log-based derived data (with guidance on handling eventual consistency), but research continues on stronger guarantees.
 
-The Limits of Total Ordering
+
+
+######   The Limits of Total Ordering
+
+
 
 A totally ordered log (like in leader-based replication) works well at small scale. But scaling brings problems:
 
@@ -184,7 +197,10 @@ Offline clients: Clients update local state immediately (even offline) → serve
 Formally, total ordering = total order broadcast = consensus.
 Problem: Existing consensus algorithms don’t scale beyond a single node’s throughput. Designing scalable, geo-distributed consensus is still an open research problem.
 
-Ordering Events to Capture Causality
+
+
+######   Ordering Events to Capture Causality
+
 
 When events are independent, total order isn’t necessary. But sometimes events have causal dependencies:
 
@@ -234,8 +250,9 @@ Handle causal dependencies carefully (timestamps, event references, conflict res
 
 
 
+######   Batch and Stream Processing
 
-Batch and Stream Processing
+
 
 The main goal of data integration is to ensure data ends up in the right form, in the right places. This involves consuming inputs, transforming, joining, filtering, aggregating, training models, evaluating, and writing to outputs.
 
@@ -265,7 +282,11 @@ Apache Flink → batch processing on top of a streaming engine.
 
 ⚠️ Performance may vary. Example: microbatching struggles with hopping/sliding windows.
 
-Maintaining Derived State
+
+
+######   Maintaining Derived State
+
+
 Batch Processing
 
 Has a functional programming flavor:
@@ -308,7 +329,11 @@ If document-partitioned index → reads go to all partitions.
 
 Maintaining asynchronously → more reliable and scalable.
 
-Reprocessing Data for Application Evolution
+
+
+######   Reprocessing Data for Application Evolution
+
+
 
 Both batch and stream processing are useful:
 
@@ -324,7 +349,11 @@ Without it, schema changes are very limited (e.g., adding optional fields).
 
 With it, you can restructure datasets entirely to meet new needs.
 
-Schema Migrations on Railways (Analogy)
+
+
+######   Schema Migrations on Railways (Analogy)
+
+
 
 In 19th-century England, railways had different track gauges (distance between rails). Trains of one gauge couldn’t run on another.
 
@@ -358,7 +387,11 @@ Reversible at every step → lower risk.
 
 Faster improvement because you’re more confident in migrating.
 
-The Lambda Architecture
+
+
+######   The Lambda Architecture
+
+
 
 When using both batch (for history) and stream (for real-time) processing, the question is: How do you combine them?
 
@@ -422,8 +455,9 @@ Incrementalizing batch processing makes it more like streaming, which defeats th
 
 
 
+######   Unifying Batch and Stream Processing
 
-Unifying Batch and Stream Processing
+
 
 Traditionally, the Lambda Architecture combined batch processing (for historical data) and stream processing (for real-time events), but it had downsides — mainly the complexity of maintaining two separate systems.
 More recent systems allow both to be handled together in one system, giving the benefits of Lambda without the drawbacks.
@@ -456,7 +490,11 @@ This is important because when replaying historical events, processing time is m
 
 Example: Apache Beam provides an API for event-time windowing, and the same programs can run on Apache Flink or Google Cloud Dataflow.
 
-Unbundling Databases
+
+
+######   Unbundling Databases
+
+
 
 At the most abstract level, systems like databases, Hadoop, and operating systems all do the same thing:
 
@@ -506,7 +544,11 @@ The NoSQL movement can be seen as bringing the Unix-style philosophy (low-level 
 
 The author suggests trying to reconcile these two philosophies to combine the best of both worlds.
 
-Composing Data Storage Technologies
+
+
+######   Composing Data Storage Technologies
+
+
 
 Throughout the book, several database features have been discussed:
 
@@ -532,7 +574,11 @@ Change Data Capture (CDC) replicates database changes into other systems.
 
 Thus, the features inside databases look very similar to the derived systems built using modern data pipelines.
 
-Creating an Index
+
+
+######   Creating an Index
+
+
 
 When you run CREATE INDEX in a relational database, this process happens:
 
@@ -590,8 +636,9 @@ Creating an index is basically a mini data reprocessing job, much like setting u
 
 
 
+######   The Meta-Database of Everything
 
-The Meta-Database of Everything
+
 
 The author suggests that if we look at the way data flows across an organization, it starts to resemble one huge database.
 
@@ -633,7 +680,11 @@ Communicate through simple APIs (like pipes).
 
 Composable into bigger systems using higher-level languages (like the shell).
 
-Making Unbundling Work
+
+
+######   Making Unbundling Work
+
+
 
 Both federation (reads) and unbundling (writes) aim to create a cohesive, reliable, and scalable system from diverse components.
 
@@ -659,7 +710,11 @@ System level: more robust. Event logs can buffer when a consumer is slow or down
 
 Human level: teams can work independently, building specialized tools with clean interfaces. Event logs provide durability + ordering = strong enough consistency but general enough for many use cases.
 
-Unbundled versus Integrated Systems
+
+
+######   Unbundled versus Integrated Systems
+
+
 
 Unbundling will not replace databases.
 
@@ -683,7 +738,11 @@ Goal of unbundling: not beating specialized databases at their job, but allowing
 
 If one database product does everything you need, just use it. Unbundling only makes sense when no single product meets all requirements.
 
-What’s Missing?
+
+
+######   What’s Missing?
+
+
 
 The author argues that one critical piece is still missing:
 
@@ -728,7 +787,9 @@ But we still lack a simple, declarative “Unix shell for data” to compose eve
 
 
 
-Designing Applications Around Dataflow
+######   Designing Applications Around Dataflow
+
+
 
 The idea of unbundling databases means breaking apart the traditional “monolithic database” into specialized storage + processing systems that interact with application code. This is sometimes called the “database inside-out” approach. It’s not really a brand-new architecture, more of a design pattern—a way to think and talk about systems.
 
@@ -746,7 +807,11 @@ Even spreadsheets, which already support automatic dataflow updates (changing an
 
 The big challenge: unlike spreadsheets, databases must also be fault-tolerant, scalable, durable, and integrate with many systems written in different languages and frameworks.
 
-Application Code as a Derivation Function
+
+
+######   Application Code as a Derivation Function
+
+
 
 Whenever we build new data from existing data, we apply a transformation (derivation) function. Examples:
 
@@ -763,7 +828,11 @@ Cache for UI → Derived by aggregating or formatting data in the way the UI nee
 
 Relational databases have tools like triggers, stored procedures, and UDFs, but these were bolted-on features and not very developer-friendly.
 
-Separation of Application Code and State
+
+
+######   Separation of Application Code and State
+
+
 
 In theory, databases could execute arbitrary app code (like an operating system). But in practice, databases are bad at being code execution environments because they lack modern dev tooling like:
 
@@ -803,7 +872,12 @@ Similarly, databases don’t push changes to clients. Apps often poll (re-run qu
 
 Only recently have change streams / subscriptions started emerging in databases.
 
-Dataflow: Interplay Between State Changes and Application Code
+
+
+######   Dataflow: Interplay Between State Changes and Application Code
+
+
+
 
 If we think in terms of dataflow, we shift perspective:
 
@@ -886,7 +960,9 @@ This enables scalable, fault-tolerant, reactive applications.
 
 
 
-Stream Processors and Services
+######   Stream Processors and Services
+
+
 
 Modern application development often uses service-oriented architecture (SOA), where functionality is split into independent services that talk to each other using synchronous network requests (like REST APIs).
 
@@ -940,7 +1016,10 @@ Like a spreadsheet: when one value changes, all dependent values update automati
 
 Subscribing to streams makes systems reactive and continuously updated.
 
-Observing Derived State
+
+######   Observing Derived State
+
+
 
 Dataflow systems help create and maintain derived datasets (indexes, materialized views, predictive models).
 
@@ -960,7 +1039,11 @@ Read path → lazy evaluation (compute only when queried).
 
 The derived dataset (like a search index) is where write path and read path meet.
 
-Materialized Views and Caching
+
+
+######   Materialized Views and Caching
+
+
 
 A search index is a good example:
 
@@ -1002,7 +1085,11 @@ Twitter Example (from earlier in the book)
 
 Celebrities vs. ordinary users → boundary between write/read paths drawn differently depending on load.
 
-Stateful, Offline-Capable Clients
+
+
+######   Stateful, Offline-Capable Clients
+
+
 
 Traditionally, client/server model:
 
@@ -1044,8 +1131,9 @@ This unbundles databases, spreading responsibility between server and client.
 
 
 
+######   Pushing State Changes to Clients
 
-Pushing State Changes to Clients
+
 Traditional Web Model
 
 In a normal web page:
@@ -1098,7 +1186,11 @@ When they reconnect, they replay missed events.
 
 Same principle works for individual user devices.
 
-End-to-End Event Streams
+
+
+######   End-to-End Event Streams
+
+
 Stateful Clients Today
 
 Tools like Elm, React, Flux, Redux manage state internally by:
@@ -1143,7 +1235,11 @@ Better offline support.
 
 Key takeaway: when designing systems, support subscribing to changes, not just querying state.
 
-Reads Are Events Too
+
+
+######   Reads Are Events Too
+
+
 Current Model
 
 Write path:
@@ -1204,7 +1300,12 @@ How to optimize logging efficiently.
 
 But if you’re already logging reads for ops/monitoring, turning them into event logs is not a huge shift.
 
-Multi-Partition Data Processing
+
+
+######   Multi-Partition Data Processing
+
+
+
 When Queries Are Simple
 
 For queries that touch only one partition, sending reads through streams may be overkill.
@@ -1261,8 +1362,10 @@ Multi-partition event processing allows for large-scale distributed queries, blu
 
 
 
+######   Aiming for Correctness
 
-Aiming for Correctness
+
+
 Stateless vs. Stateful Services
 
 Stateless services (e.g., web servers that only read data) are easy to recover: if they crash, you fix the bug and restart them—no long-term harm.
@@ -1331,7 +1434,11 @@ Thus, while transactions are still important, they are not the ultimate solution
 
 We need new ways of thinking about correctness in modern, distributed, dataflow-based systems.
 
-The End-to-End Argument for Databases
+
+
+######   The End-to-End Argument for Databases
+
+
 Strong Guarantees Are Not Enough
 
 Even with strong guarantees like serializable transactions, apps are not automatically safe from corruption/loss.
@@ -1360,7 +1467,11 @@ Charging a customer twice.
 
 Incrementing a counter twice.
 
-Exactly-once semantics means:
+
+
+######   Exactly-once semantics means:
+
+
 
 Final outcome looks as if no faults occurred, even if retries happened.
 
@@ -1374,7 +1485,11 @@ Keep metadata (e.g., processed operation IDs).
 
 Use fencing when failing over nodes (to prevent double execution).
 
-Duplicate Suppression
+
+
+######   Duplicate Suppression
+
+
 
 Many systems solve duplicates by tracking them:
 
@@ -1438,8 +1553,9 @@ Workaround like Post/Redirect/Get avoids some cases but doesn’t help with time
 
 
 
+######   Operation Identifiers
 
-Operation Identifiers
+
 
 To make operations idempotent (so that executing them multiple times has the same effect as executing them once), it’s not enough to just rely on database transactions. You need to think about the entire request flow, from the client all the way to the database.
 
@@ -1484,7 +1600,11 @@ Balance updates could be derived later from the log.
 
 What matters is that each request event is processed exactly once, which the request ID ensures.
 
-The End-to-End Argument
+
+
+######   The End-to-End Argument
+
+
 
 This principle (Saltzer, Reed, Clark, 1984) states:
 
@@ -1523,7 +1643,11 @@ Summary:
 
 Low-level reliability features (TCP ordering, Ethernet checksums, WiFi encryption) are useful but not sufficient. They reduce probability of errors but don’t guarantee end-to-end correctness.
 
-Applying End-to-End Thinking in Data Systems
+
+
+######   Applying End-to-End Thinking in Data Systems
+
+
 
 Even if an application uses a database with strong guarantees (like serializable transactions), correctness is not guaranteed.
 
@@ -1555,7 +1679,11 @@ Support application-specific end-to-end correctness.
 
 Still perform well in large-scale distributed environments.
 
-Enforcing Constraints
+
+
+######   Enforcing Constraints
+
+
 
 Beyond duplicate suppression, other application-level constraints must be enforced.
 
@@ -1579,7 +1707,11 @@ Meeting rooms must not have overlapping bookings.
 
 Techniques used for uniqueness can often be adapted to these constraints.
 
-Uniqueness Constraints Require Consensus
+
+
+######   Uniqueness Constraints Require Consensus
+
+
 
 In distributed systems, enforcing uniqueness needs consensus, because multiple clients may try to write conflicting values at the same time.
 
@@ -1617,7 +1749,9 @@ To immediately reject violations, you need synchronous coordination (unavoidable
 
 
 
-Uniqueness in Log-Based Messaging
+######   Uniqueness in Log-Based Messaging
+
+
 
 Guarantee of ordering:
 Logs ensure that all consumers see messages in the same order. This is called total order broadcast, which is equivalent to consensus.
@@ -1654,7 +1788,10 @@ Stream processors can run arbitrary validation logic.
 
 This resembles Bayou’s conflict resolution approach (1990s).
 
-Multi-Partition Request Processing
+
+######   Multi-Partition Request Processing
+
+
 
 The challenge:
 Some operations involve multiple independent partitions.
@@ -1713,7 +1850,11 @@ Relation to earlier concepts:
 
 This is similar to multi-partition data processing and concurrency control ideas.
 
-Timeliness and Integrity
+
+
+######   Timeliness and Integrity
+
+
 
 Transactions vs stream processing:
 
@@ -1769,7 +1910,10 @@ Integrity issue: Balance not matching transactions, or money disappearing → un
 
 
 
-Correctness of Dataflow Systems
+######   Correctness of Dataflow Systems
+
+
+
 ACID Transactions: Timeliness and Integrity
 
 ACID transactions (Atomicity, Consistency, Isolation, Durability) normally provide both:
@@ -1806,7 +1950,11 @@ Immutable messages → allow reprocessing and recovery from bugs.
 
 Result: Comparable correctness to ACID transactions, but with better performance and robustness.
 
-Loosely Interpreted Constraints
+
+
+######   Loosely Interpreted Constraints
+
+
 
 Uniqueness constraints (e.g., unique usernames, one seat per passenger):
 
@@ -1848,7 +1996,12 @@ They can optimistically write data, then validate later.
 
 Integrity (no data loss or mismatched credits/debits) remains crucial, but timeliness in enforcement is not always required.
 
-Coordination-Avoiding Data Systems
+
+
+######   Coordination-Avoiding Data Systems
+
+
+
 Two Key Observations
 
 Dataflow systems can preserve integrity without:
@@ -1907,7 +2060,9 @@ Dataflow systems separate integrity (must always be maintained) from timeliness 
 
 
 
-Trust, but Verify
+######   Trust, but Verify
+
+
 
 This section discusses the idea that while we usually assume systems behave correctly, in reality things can go wrong—sometimes in rare and unexpected ways. Therefore, instead of relying purely on trust, systems should be built with verification and auditing mechanisms.
 
@@ -1947,7 +2102,11 @@ Hardware is not a perfect abstraction—unexpected corruption is possible.
 
 Even though rare, bit-flips deserve attention.
 
-Maintaining Integrity in the Face of Software Bugs
+
+
+######   Maintaining Integrity in the Face of Software Bugs
+
+
 
 Hardware isn’t the only risk—software bugs also corrupt data.
 
@@ -1965,7 +2124,10 @@ Frequently misuses DB features (e.g., ignoring foreign keys).
 
 ACID consistency assumes transactions are correct, but if application logic is buggy or unsafe isolation levels are used → integrity is compromised.
 
-Don’t Just Blindly Trust What They Promise
+
+######   Don’t Just Blindly Trust What They Promise
+
+
 
 Data corruption is inevitable (hardware + software).
 
@@ -1981,7 +2143,11 @@ Backups must be verified → test restore processes, otherwise risk losing data 
 
 Lesson: Don’t blindly trust storage systems or backups.
 
-A Culture of Verification
+
+
+######   A Culture of Verification
+
+
 
 Mature systems (HDFS, S3) assume hardware is “mostly correct” but still verify continuously.
 
@@ -2001,7 +2167,11 @@ But still no auditing → more dangerous.
 
 Need self-auditing, self-validating systems in the future.
 
-Designing for Auditability
+
+
+######   Designing for Auditability
+
+
 
 Problem with transactions:
 
@@ -2031,7 +2201,11 @@ Deterministic dataflow = easier tracing.
 
 “Time-travel debugging” → reproduce past state to understand issues.
 
-The End-to-End Argument Again
+
+
+######   The End-to-End Argument Again
+
+
 
 Since we cannot fully trust every component (hardware, software), we must periodically check integrity.
 
@@ -2057,7 +2231,9 @@ The main message is that systems should not rely purely on trust (in hardware, s
 
 
 
-Tools for Auditable Data Systems
+######   Tools for Auditable Data Systems
+
+
 Current Situation
 
 Most data systems don’t focus on auditability as a primary feature.
@@ -2122,7 +2298,12 @@ Making them scalable
 
 Reducing the performance penalty
 
-Doing the Right Thing
+
+
+######   Doing the Right Thing
+
+
+
 Big Picture
 
 Every system has a purpose and produces intended and unintended consequences.
@@ -2155,7 +2336,11 @@ Engineers must not ignore consequences.
 
 Ethical responsibility belongs to engineers too.
 
-Predictive Analytics
+
+######   Predictive Analytics
+
+
+
 Definition
 
 A big part of the “Big Data” hype.
@@ -2184,7 +2369,11 @@ But: repeated rejections can trap someone in an “algorithmic prison” (system
 
 Unlike criminal law (innocent until proven guilty), algorithms can exclude people without proof and with little chance of appeal.
 
-Bias and Discrimination
+
+
+######   Bias and Discrimination
+
+
 Algorithms vs Humans
 
 Algorithms aren’t inherently better or worse than human decisions.
@@ -2215,7 +2404,11 @@ To improve the future, moral imagination (human input) is essential.
 
 Data and models should be tools, not masters.
 
-Responsibility and Accountability
+
+
+######   Responsibility and Accountability
+
+
 Accountability Gap
 
 Humans can be held responsible for mistakes.
@@ -2283,9 +2476,8 @@ Predictive analytics can be powerful but risks discrimination and exclusion.
 Accountability for algorithmic decisions remains unresolved and urgently needs solutions.
 
 
+######    Feedback Loops
 
-
-Feedback Loops
 
 Predictive systems like recommendation engines can create echo chambers, where people only see content they agree with.
 
@@ -2307,7 +2499,11 @@ Or does it try to fight injustice?
 
 Even with good intentions, unintended consequences must be considered.
 
-Privacy and Tracking
+
+
+######   Privacy and Tracking
+
+
 
 Ethical problems come not just from predictive analytics but also data collection itself.
 
@@ -2331,7 +2527,10 @@ Users’ engagement serves advertisers’ needs, not their own.
 
 This relationship resembles surveillance.
 
-Surveillance
+
+######   Surveillance
+
+
 
 Thought experiment: replace “data” with “surveillance.”
 
@@ -2361,7 +2560,10 @@ Data can be more intrusive than expected (e.g., wearables inferring what you typ
 
 Algorithms will only get more powerful at extracting hidden insights.
 
-Consent and Freedom of Choice
+
+######   Consent and Freedom of Choice
+
+
 
 Common claim: “Users consent by accepting terms of service.”
 
@@ -2389,7 +2591,10 @@ Only a privileged minority can choose not to use such services.
 
 For most people, surveillance is unavoidable.
 
-Privacy and Use of Data
+
+######   Privacy and Use of Data
+
+
 
 Claim “privacy is dead” is false.
 
@@ -2433,8 +2638,9 @@ Internet services enable massive-scale sensitive data collection without meaning
 
 
 
+######   Data as Assets and Power
 
-Data as Assets and Power
+
 Data Exhaust vs. Core Asset
 
 Behavioral data, created when people interact with digital services, is often called “data exhaust”, implying it is just waste.
@@ -2495,7 +2701,12 @@ Totalitarian governments use surveillance for control.
 
 Tech companies may not seek political power, but their data ownership still gives them immense hidden influence.
 
-Remembering the Industrial Revolution
+
+
+######   Remembering the Industrial Revolution
+
+
+
 Data and the Information Age
 
 Data defines the information age—enabled by the internet, data storage, processing, and automation.
@@ -2524,7 +2735,12 @@ Privacy protection is like environmental protection.
 
 Future generations will judge us on how we handle data misuse and surveillance, just as we judge the past for ignoring industrial pollution.
 
-Legislation and Self-Regulation
+
+
+######   Legislation and Self-Regulation
+
+
+
 Data Protection Laws
 
 Example: 1995 European Data Protection Directive requires:
@@ -2585,7 +2801,12 @@ Explore cryptographic access controls (enforcing privacy via technology, not jus
 
 Most importantly: culture and attitude changes in tech.
 
-Summary
+
+
+######   Summary
+
+
+
 Technical Approaches to Data Systems
 
 No single tool fits all cases → need to compose multiple systems.
