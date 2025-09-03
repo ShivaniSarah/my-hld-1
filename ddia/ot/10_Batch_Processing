@@ -1,7 +1,9 @@
 10. Batch Processing
 
 
-PART III — Derived Data
+######   PART III — Derived Data
+
+
 Context
 
 In the earlier parts of the book (Parts I and II), the discussion was about the fundamentals of distributed databases:
@@ -30,7 +32,10 @@ ETL pipelines (moving data between systems)
 
 This part of the book (Part III) explores how to integrate multiple systems with different data models and optimizations into a coherent application architecture.
 
-Systems of Record and Derived Data
+
+######   Systems of Record and Derived Data
+
+
 
 Data systems can be categorized into two broad types:
 
@@ -80,7 +85,9 @@ Avoids confusion about which system’s value is “correct”
 Important note:
 A database itself is neither inherently a system of record nor derived. It depends on how you use it.
 
-Overview of Chapters in Part III
+
+######    Overview of Chapters in Part III
+
 
 Chapter 10 → Batch-oriented dataflow systems (like MapReduce).
 
@@ -96,7 +103,11 @@ MapReduce, Spark, Flink, GraphX, Solr, ETL workflows, etc.
 
 Showing how systems relate in the world of derived data.
 
-CHAPTER 10 — Batch Processing
+
+
+######   CHAPTER 10 — Batch Processing
+
+
 Quote
 
 A system cannot be successful if it is too strongly influenced by a single person… — Donald Knuth
@@ -159,7 +170,11 @@ MapReduce is conceptually similar — processing large datasets in structured st
 
 History repeats: Old ideas reappear in modern computing.
 
-Batch Processing with Unix Tools
+
+
+######   Batch Processing with Unix Tools
+
+
 Example: Web Server Logs
 
 Web servers (like nginx) write logs: one line per request.
@@ -199,10 +214,9 @@ User agent: "Mozilla/5.0 ... Chrome/40.0.2214.115 Safari/537.36" → client brow
 
 
 
+######   Simple Log Analysis
 
 
-
-Simple Log Analysis
 Building Our Own Analysis
 
 Instead of using specialized analytics tools that produce reports from log files, we can roll our own log analysis using basic Unix tools.
@@ -310,7 +324,11 @@ awk '{print $1}'
 
 Tools like awk, sed, grep, sort, uniq, xargs allow you to do a surprising variety of analyses with minimal code.
 
-Chain of Commands versus Custom Program
+
+
+######   Chain of Commands versus Custom Program
+
+
 
 Instead of chaining Unix commands, you could write a program in a language like Ruby.
 
@@ -361,7 +379,10 @@ Unix pipeline → shorter, cryptic, but very efficient.
 
 Ruby program → longer, clearer logic flow, but different execution style.
 
-Sorting versus In-Memory Aggregation
+
+######   Sorting versus In-Memory Aggregation
+
+
 
 Two approaches:
 
@@ -395,7 +416,11 @@ Parallelizes across CPU cores
 
 👉 Advantage: Scales better for very large logs (bigger than memory).
 
-The Unix Philosophy
+
+
+######   The Unix Philosophy
+
+
 Key Idea
 
 Unix was designed to make data processing easy by chaining simple tools together.
@@ -466,8 +491,9 @@ The design decisions of Unix (simple text I/O, pipes, modular programs) make it 
 
 
 
+######   A Uniform Interface
 
-A Uniform Interface
+
 Compatible Interfaces
 
 For programs to be chained together, their input and output formats must be compatible.
@@ -530,7 +556,11 @@ Example: you can’t easily pipe your email + shopping history → analysis tool
 
 Even databases with the same model often don’t interoperate easily → leads to data silos (“Balkanization of data”).
 
-Separation of Logic and Wiring
+
+
+######   Separation of Logic and Wiring
+
+
 stdin and stdout
 
 Default behavior:
@@ -591,7 +621,9 @@ If a program opens files, sockets, or subprocesses on its own, the shell has les
 
 Still configurable via options, but less flexible than pure stdin/stdout wiring.
 
-Transparency and Experimentation
+
+######   Transparency and Experimentation
+
 
 Why Unix tools succeed: they make it easy to see and experiment with data.
 
@@ -621,7 +653,12 @@ No need to rerun the full pipeline.
 
 ⚠️ Limitation: They only run on a single machine. That’s why Hadoop/MapReduce were created.
 
-MapReduce and Distributed Filesystems
+
+
+######   MapReduce and Distributed Filesystems
+
+
+
 Concept
 
 MapReduce = like Unix tools, but distributed across thousands of machines.
@@ -707,7 +744,8 @@ Much cheaper than specialized storage appliances.
 
 
 
-MapReduce Job Execution
+######   MapReduce Job Execution
+
 
 MapReduce is a programming framework for processing large datasets in a distributed filesystem such as HDFS. Its execution pattern is similar to Unix pipelines but designed for parallel, distributed computation.
 
@@ -783,7 +821,11 @@ Mapper → prepares data for sorting.
 
 Reducer → processes sorted data.
 
-Distributed Execution of MapReduce
+
+
+######   Distributed Execution of MapReduce
+
+
 
 The main difference from Unix pipelines:
 
@@ -891,7 +933,11 @@ Processes records (may not fit in memory, so processed incrementally).
 
 Writes output records to HDFS files (local + replicas).
 
-MapReduce Workflows
+
+
+######   MapReduce Workflows
+
+
 
 A single MapReduce job is often not enough.
 
@@ -965,10 +1011,9 @@ Hide low-level details of chaining jobs.
 
 
 
+######   Reduce-Side Joins and Grouping
 
 
-
-Reduce-Side Joins and Grouping
 The Need for Joins in Batch Processing
 
 Many datasets contain associations between records:
@@ -1005,7 +1050,11 @@ In batch jobs, joins mean resolving all associations across the entire dataset (
 
 Example: Instead of looking up data for one user, we process all users’ data together.
 
-Example: Analysis of User Activity Events
+
+
+######   Example: Analysis of User Activity Events
+
+
 
 Scenario:
 
@@ -1051,7 +1100,9 @@ Then use MapReduce to join both datasets locally.
 
 This avoids network lookups and ensures deterministic processing.
 
-Sort-Merge Joins
+
+######   Sort-Merge Joins
+
 
 Mapper extracts key and value from input records.
 
@@ -1081,7 +1132,11 @@ No network requests.
 
 High throughput.
 
-Bringing Related Data Together
+
+
+######     Bringing Related Data Together in the same place
+
+
 
 Sort-merge join ensures all related data is brought to one reducer call.
 
@@ -1101,7 +1156,9 @@ Application code only processes local data.
 
 MapReduce handles failures and retries automatically.
 
-GROUP BY in MapReduce
+
+######   GROUP BY in MapReduce
+
 
 Another use of “bringing related data together” is grouping by key.
 
@@ -1139,7 +1196,11 @@ Problem: With multiple web servers, logs are scattered.
 
 Solution: Use session cookie or user ID as key → bring all events for a user/session to one reducer.
 
-Handling Skew
+
+
+######   Handling Skew
+
+
 
 Problem: Some keys (e.g., celebrities in social networks) are hot keys / linchpin objects with millions of records.
 
@@ -1185,8 +1246,10 @@ Stage 2: Combine partial results into final aggregated value.
 
 
 
-Map-Side Joins
-Reduce-Side Joins Recap
+######   Map-Side Joins
+
+
+######    Reduce-Side Joins Recap
 
 In reduce-side joins:
 
@@ -1200,7 +1263,11 @@ Disadvantage: Sorting, copying data across the network, and merging are expensiv
 
 Data may be written to disk multiple times due to limited memory buffers.
 
-Map-Side Join Basics
+
+
+######   Map-Side Join Basics
+
+
 
 If we can make assumptions about the input data, joins can be faster using a map-side join.
 
@@ -1218,7 +1285,12 @@ Writes one output file.
 
 Much simpler and more efficient.
 
-Broadcast Hash Joins
+
+
+######   Broadcast Hash Joins
+
+
+
 
 Used when:
 
@@ -1260,7 +1332,10 @@ Frequently used parts stay cached in memory (OS page cache).
 
 Allows fast lookups even if dataset doesn’t fully fit in memory.
 
-Partitioned Hash Joins
+
+######   Partitioned Hash Joins
+
+
 
 Assumption: Both datasets are partitioned in the same way.
 
@@ -1288,7 +1363,10 @@ Common when inputs are produced by prior MapReduce jobs.
 
 In Hive → called bucketed map joins.
 
-Map-Side Merge Joins
+
+######   Map-Side Merge Joins
+
+
 
 Applies when datasets are:
 
@@ -1312,7 +1390,11 @@ Sorted datasets are needed for other purposes.
 
 Or if separating jobs makes workflow cleaner.
 
-MapReduce Workflows with Map-Side Joins
+
+
+######   MapReduce Workflows with Map-Side Joins
+
+
 
 Choice of map-side vs. reduce-side join affects the structure of output:
 
@@ -1336,7 +1418,11 @@ Partitioning and sorting keys.
 
 In Hadoop → metadata often managed by HCatalog and Hive Metastore.
 
-The Output of Batch Workflows
+
+
+######   The Output of Batch Workflows
+
+
 Why Run Batch Jobs?
 
 Question: What do we get from these workflows?
@@ -1355,7 +1441,11 @@ Closer to analytics, but different.
 
 Output is often not a report, but a new data structure used elsewhere.
 
-Building Search Indexes
+
+
+######   Building Search Indexes
+
+
 
 Google’s original use of MapReduce → build search engine indexes.
 
@@ -1389,7 +1479,12 @@ Option 1: Re-run workflow for whole dataset (simple, expensive).
 
 Option 2: Incremental updates (new Lucene segments, background merges).
 
-Key-Value Stores as Batch Process Output
+
+
+######   Key-Value Stores as Batch Process Output
+
+
+
 
 Other common use: Build ML systems and recommendation systems.
 
@@ -1452,7 +1547,9 @@ Switching between versions is atomic and safe.
 
 
 
-Philosophy of Batch Process Outputs
+######   Philosophy of Batch Process Outputs
+
+
 
 The Unix philosophy emphasizes simple, predictable programs: each program takes input, processes it, and produces output without altering the original input or causing unintended side effects.
 
@@ -1494,7 +1591,11 @@ Like Unix tools, MapReduce jobs keep the logic (what the program does) separate 
 
 This separation allows code reuse: one team writes the job, other teams decide where/when to run it.
 
-Comparing Hadoop to Distributed Databases
+
+
+######   Comparing Hadoop to Distributed Databases
+
+
 
 Hadoop can be seen as a distributed version of Unix:
 
@@ -1510,7 +1611,11 @@ MPP databases are optimized for running parallel SQL queries.
 
 Hadoop + HDFS is more general-purpose: it can run any kind of program, not just SQL queries.
 
-Diversity of Storage
+
+
+######   Diversity of Storage
+
+
 
 Databases require data to follow a strict model (relational, document, etc.).
 
@@ -1552,7 +1657,11 @@ Data is later loaded into an MPP warehouse for analysis.
 
 This decouples data collection (fast and raw) from data modeling (done later).
 
-Diversity of Processing Models
+
+
+######   Diversity of Processing Models
+
+
 
 MPP databases are monolithic systems:
 
@@ -1613,7 +1722,9 @@ They serve different workloads but coexist on the same system.
 
 
 
-Designing for Frequent Faults
+######   Designing for Frequent Faults
+
+
 
 When comparing MapReduce and MPP (Massively Parallel Processing) databases, two big differences stand out:
 
@@ -1729,7 +1840,11 @@ Result:
 
 In such environments, MapReduce’s design choices (disk-heavy, fault-tolerant) may be less beneficial.
 
-Beyond MapReduce
+
+
+######   Beyond MapReduce
+
+
 
 MapReduce popularity:
 
@@ -1755,7 +1870,11 @@ MapReduce = robust but slow.
 
 Other tools = much faster for some tasks.
 
-Materialization of Intermediate State
+
+
+######   Materialization of Intermediate State
+
+
 
 Job independence:
 
@@ -1785,7 +1904,11 @@ Redundant mappers: often just re-read reducer output.
 
 Files stored in distributed filesystem are replicated unnecessarily (too heavy for temporary data).
 
-Dataflow Engines
+
+
+######    Dataflow Engines
+
+
 
 Developed to fix MapReduce’s inefficiencies.
 
@@ -1833,8 +1956,10 @@ Spark & Flink: larger frameworks with full APIs, schedulers, and communication l
 
 
 
+######   Fault Tolerance
 
-Fault Tolerance
+
+
 Materialization in MapReduce
 
 In MapReduce, intermediate state is fully materialized (saved) to a distributed filesystem like HDFS.
@@ -1897,7 +2022,11 @@ Recomputing is not always efficient.
 
 If intermediate data is much smaller than input, or computation is CPU-intensive, it is cheaper to materialize intermediate results rather than recompute.
 
-Discussion of Materialization
+
+
+######   Discussion of Materialization
+
+
 
 Unix Analogy:
 
@@ -1917,7 +2046,13 @@ Output = completely replaced (like MapReduce).
 
 Advantage: intermediate states don’t need to be written to HDFS, improving performance.
 
-Graphs and Iterative Processing
+
+
+######   Graphs and Iterative Processing
+
+
+
+
 Graph Use in Batch Processing
 
 Graphs are useful for offline analysis, e.g. machine learning (recommendation engines, ranking).
@@ -1950,7 +2085,10 @@ produces a whole new dataset each iteration,
 
 even if only a small part changed.
 
-The Pregel Processing Model
+
+######   The Pregel Processing Model
+
+
 Bulk Synchronous Parallel (BSP)
 
 Pregel (by Google) popularized this model.
@@ -1975,7 +2113,10 @@ each vertex ≈ actor,
 
 difference: Pregel ensures fault tolerance and message timing (synchronous rounds).
 
-Fault Tolerance in Pregel
+
+######    Fault Tolerance in Pregel
+
+
 
 Vertices communicate only via messages, making batching possible.
 
@@ -1991,7 +2132,10 @@ if a node fails → roll back to last checkpoint and restart.
 
 If deterministic + messages logged → can selectively recover only lost partitions.
 
-Parallel Execution
+
+######   Parallel Execution
+
+
 
 A vertex doesn’t know its machine placement; it sends messages by vertex ID.
 
@@ -2009,7 +2153,11 @@ Even if graph exceeds memory but fits on disk → frameworks like GraphChi can b
 
 Only when graph is too big for one machine → distributed Pregel-style system is needed.
 
-High-Level APIs and Languages
+
+
+######   High-Level APIs and Languages
+
+
 
 After MapReduce, execution engines became mature and scalable (10,000+ machines, petabytes of data).
 
@@ -2062,7 +2210,10 @@ machine-level execution efficiency.
 
 
 
-The Move Toward Declarative Query Languages
+######    The Move Toward Declarative Query Languages
+
+
+
 Joins as Relational Operators
 
 Specifying joins declaratively (as relational operators) allows the framework to analyze join properties and automatically choose the best join algorithm.
@@ -2125,7 +2276,12 @@ Batch processing frameworks achieve performance comparable to MPP databases.
 
 But still retain flexibility → can run arbitrary code and read arbitrary data formats.
 
-Specialization for Different Domains
+
+
+######    Specialization for Different Domains
+
+
+
 Need for Reusable Implementations
 
 Running arbitrary code is flexible, but many common patterns repeat → reusable blocks are useful.
@@ -2158,7 +2314,14 @@ MPP databases become more programmable + flexible.
 
 Both are essentially data storage and processing systems.
 
-Summary
+
+
+
+
+######    Summary
+
+
+
 Roots in Unix Philosophy
 
 Inspired by Unix tools like awk, grep, sort.
