@@ -1,1 +1,1262 @@
-..
+4 Distributed Message Queue
+
+In this chapter, we discuss a popular system design interview problem: designing a distributed message queue.
+In modern system architectures, applications are usually broken down into small, independent components that communicate with each other. A message queue enables communication and coordination between those components.
+
+Benefits of Message Queues
+
+Message queues provide several advantages:
+
+• Decoupling
+
+Without queues, producers and consumers must know about each other’s availability and state.
+
+Message queues remove this tight coupling, allowing producers and consumers to operate independently.
+
+This makes updating, scaling, or replacing components easier.
+
+• Improved Scalability
+
+Producers and consumers can scale independently based on workload.
+
+Example: During peak hours, more consumers can be added to handle the increased load without affecting producers.
+
+• Increased Availability
+
+If one part of the system fails (e.g., a consumer crashes), the queue buffers the messages until the consumer is back.
+
+This ensures the rest of the system can still function.
+
+• Better Performance
+
+Queues enable asynchronous communication:
+
+Producers add messages to the queue without waiting for consumers.
+
+Consumers pick up messages when ready.
+
+This reduces waiting time and improves system performance.
+
+Figure 4.1: Popular Distributed Message Queues
+
+Some of the most widely used distributed message queue and event streaming systems are:
+
+Apache Kafka
+
+Apache RocketMQ
+
+RabbitMQ
+
+Apache Pulsar
+
+Apache ActiveMQ
+
+ZeroMQ
+
+Message Queues vs Event Streaming Platforms
+
+Traditional message queues: RocketMQ, ActiveMQ, RabbitMQ, ZeroMQ.
+
+Event streaming platforms: Kafka, Pulsar.
+
+While Kafka and Pulsar are not strictly message queues, the lines are blurred:
+
+RabbitMQ, a traditional message queue, added a streams feature with:
+
+Long message retention
+
+Repeated message consumption
+
+Implementation based on append-only logs (similar to Kafka).
+
+Apache Pulsar, designed as a Kafka competitor, is flexible enough to behave as a traditional message queue too.
+
+👉 In this chapter, we design a distributed message queue with advanced features (long retention, repeated consumption), which makes it closer to an event streaming platform.
+
+Step 1 – Understand the Problem and Establish Design Scope
+
+At its core:
+
+Producers send messages → queue → consumers read messages.
+
+But beyond this, we must clarify requirements. Let’s look at the interview Q&A:
+
+Candidate: What's the format and average size of messages?
+
+Interviewer:
+
+Only text messages
+
+Size in the kilobyte (KB) range
+
+Candidate: Can messages be repeatedly consumed?
+
+Interviewer:
+
+Yes, messages can be consumed by multiple consumers
+
+⚠️ Traditional queues delete a message once delivered, so they don’t support repeated consumption.
+
+This is an extra feature.
+
+Candidate: Are messages consumed in the same order they were produced?
+
+Interviewer:
+
+Yes, order must be preserved.
+
+⚠️ Traditional queues often don’t guarantee ordering.
+
+This is also an added feature.
+
+Candidate: Does data need to be persisted and what is the retention?
+
+Interviewer:
+
+Yes, data must be persisted.
+
+Retention = 2 weeks.
+
+⚠️ Traditional queues keep messages only until they’re consumed. Retention is an extra feature.
+
+Candidate: How many producers and consumers are supported?
+
+Interviewer:
+
+The system should support as many as possible.
+
+Must be highly scalable.
+
+Candidate: What data delivery semantics are needed (at-most-once, at-least-once, exactly-once)?
+
+Interviewer:
+
+At minimum: at-least-once.
+
+Ideally: all three options configurable.
+
+Candidate: What's the target throughput and latency?
+
+Interviewer:
+
+Must support high throughput (e.g., log aggregation).
+
+Must also support low latency (real-time use cases).
+
+Functional Requirements
+
+From the above discussion, our system must support:
+
+Producers send messages.
+
+Consumers read messages.
+
+Messages can be consumed once or repeatedly.
+
+Historical data can be truncated.
+
+Message size in the KB range.
+
+Order-preserving delivery.
+
+Configurable delivery semantics (at-most-once, at-least-once, exactly-once).
+
+Non-Functional Requirements
+
+High throughput / Low latency (configurable).
+
+Scalable – able to handle sudden traffic spikes.
+
+Persistent and durable – data written to disk and replicated across nodes.
+
+Adjustments for Traditional Message Queues
+
+If we were designing a traditional message queue (like RabbitMQ), things are simpler:
+
+Retention is short (messages only live until consumed).
+
+On-disk storage = just overflow capacity (much smaller than streaming platforms).
+
+No strict message ordering requirement.
+
+These simplifications reduce complexity.
+
+Step 2 – Propose High-level Design and Get Buy-in
+
+Now we design the basic structure of a message queue.
+
+Basic Functionalities
+
+Producer → sends messages to the queue.
+
+Consumer → subscribes and consumes messages.
+
+Message Queue Service → middle layer that decouples producer and consumer.
+
+Both producers and consumers are clients. The queue is the server.
+
+Messaging Models
+
+There are two main models:
+
+Point-to-Point Model
+
+Common in traditional queues.
+
+Each message is delivered to one and only one consumer.
+
+If multiple consumers are connected, only one gets the message.
+
+Once acknowledged, the message is deleted.
+
+No long-term retention.
+
+⚠️ In our design, messages are persisted for 2 weeks, so the model can be simulated but isn’t the natural fit.
+
+Publish-Subscribe Model
+
+Introduces the concept of a Topic:
+
+A category for messages, identified by a unique name.
+
+Producers publish messages to topics.
+
+Consumers subscribe to topics.
+
+A single message can be delivered to multiple consumers (all subscribers).
+
+👉 Our distributed message queue will primarily use the publish-subscribe model.
+👉 The point-to-point model can be simulated using consumer groups (to be discussed later).
+
+
+
+Topics, Partitions, and Brokers
+
+Messages are persisted in topics.
+
+If a topic’s data volume is too large for one server, we use partitions (sharding).
+
+A partition is a subset of the messages of a topic.
+
+Partitions are distributed across servers in the cluster. These servers are called brokers.
+
+Scaling is achieved by increasing the number of partitions.
+
+Key Points
+
+Each partition works like a FIFO queue (First-In-First-Out).
+
+The offset represents the position of a message in a partition.
+
+A producer sends a message to one of the topic’s partitions:
+
+If the message has a key (e.g., user ID), all messages with the same key go to the same partition.
+
+If no key is provided, the message is sent randomly to one of the partitions.
+
+Consumer Group
+
+Supports both point-to-point and publish-subscribe models.
+
+A consumer group = a set of consumers working together to consume messages from topics.
+
+Consumer Behavior
+
+Each consumer group can subscribe to multiple topics.
+
+Each group maintains its own offsets (state of consumption).
+
+Example:
+
+Consumer Group 1 subscribes to Topic A.
+
+Consumer Group 2 subscribes to Topics A & B.
+
+Topic A’s messages are consumed by both groups (publish/subscribe).
+
+Problem
+
+Parallel reading improves throughput, but ordering is broken if multiple consumers read the same partition.
+
+Fix
+
+A partition is consumed by only one consumer within the same group.
+
+If consumers > partitions, some consumers remain idle.
+
+If all consumers are in the same group → behaves like point-to-point messaging.
+
+Partitions = smallest storage unit, so enough partitions should be allocated in advance.
+
+To handle more scale → just add more consumers.
+
+High-Level Architecture
+Clients
+
+Producer: pushes messages to topics.
+
+Consumer group: subscribes and consumes messages.
+
+Core Service and Storage
+
+Broker: holds multiple partitions (subset of topic data).
+
+Storage:
+
+Data storage → persists messages in partitions.
+
+State storage → stores consumer states (offsets).
+
+Metadata storage → stores topic configuration & properties.
+
+Coordination Service
+
+Service discovery → tracks which brokers are alive.
+
+Leader election → one broker becomes the active controller (manages partition assignment).
+
+Common tools: ZooKeeper or etcd.
+
+Step 3 - Design Deep Dive
+
+To achieve high throughput and meet high data retention needs, three design choices were made:
+
+On-disk data structure
+
+Takes advantage of sequential access speed of disks.
+
+Leverages OS disk caching.
+
+Message data structure
+
+Messages move from producer → queue → consumer without modification.
+
+Minimizes copying cost, which is expensive in high-volume systems.
+
+Favor batching
+
+Small I/O reduces throughput, so batching is enforced everywhere:
+
+Producers send batches.
+
+Queue persists messages in larger batches.
+
+Consumers fetch batches.
+
+Data Storage
+Traffic Pattern
+
+Write-heavy + read-heavy.
+
+No updates/deletes (except deleting old messages after retention period).
+
+Access is mostly sequential (append new, read sequentially).
+
+Option 1: Database
+
+Relational DB → each topic = table, messages = rows.
+
+NoSQL DB → each topic = collection, messages = documents.
+
+Problem: Databases aren’t optimized for both write-heavy and read-heavy at large scale.
+
+This becomes a bottleneck → not ideal.
+
+Option 2: Write-Ahead Log (WAL)
+
+WAL = append-only file (new entries always appended).
+
+Used in many systems (e.g., MySQL redo log, ZooKeeper WAL).
+
+Recommended for persisting messages:
+
+Pure sequential access → very fast on disk.
+
+Rotational disks are cheap and have large capacity.
+
+How it Works
+
+Messages are appended to the tail of the partition with increasing offset.
+
+Offset can be the line number in the log file.
+
+But files cannot grow infinitely → so divide into segments.
+
+Segment Behavior
+
+New messages always go to the active segment file.
+
+When active segment reaches max size → create a new active segment.
+
+Old segments become inactive (only serve reads).
+
+Very old segments can be deleted/truncated when retention/capacity is exceeded.
+
+Storage Structure
+
+Each partition has a folder → Partition-{partition_id}.
+
+Inside, multiple segment files are stored sequentially.
+
+
+
+
+A Note on Disk Performance
+
+To store large amounts of data, the design depends heavily on disk drives.
+
+Many believe rotational disks are slow, but this is only true for random access.
+
+For sequential access, especially with modern disks in a RAID configuration (striped together), performance can reach several hundred MB/sec in both read and write.
+
+This is more than sufficient for system needs, and disks are also cost-effective.
+
+Operating systems aggressively cache disk data in main memory, often using all available free memory.
+
+The Write-Ahead Log (WAL) benefits from this caching as well.
+
+Message Data Structure
+
+The message data structure is critical for high throughput, as it defines the contract between producers, the queue, and consumers.
+
+Performance is improved by avoiding unnecessary copying of messages.
+
+If parts of the system disagree on the structure, messages need to be mutated, which involves expensive copying and reduces performance.
+
+Schema of a Message
+
+
+| Field Name | Data Type |
+| ---------- | --------- |
+| key        | byte\[]   |
+| value      | byte\[]   |
+| topic      | string    |
+| partition  | integer   |
+| offset     | long      |
+| timestamp  | long      |
+| size       | integer   |
+| crc        | integer   |
+
+
+
+Message Key
+
+The key determines the partition of the message.
+
+If no key is defined → partition is chosen randomly.
+
+If a key is defined → partition = hash(key) % numPartitions.
+
+Producers may also define their own partition-mapping algorithm.
+
+⚠️ The key is not the same as the partition number.
+
+The key usually carries business-related information.
+
+Partition number is internal to the queue and should not be exposed to clients.
+
+With a proper algorithm, if partitions are added or removed, messages can still be evenly distributed.
+
+Message Value
+
+The value is the payload (content of the message).
+
+Can be plain text or a compressed binary block.
+
+Reminder
+
+Keys and values here are different from a key-value (KV) store:
+
+In KV stores, keys are unique and used to fetch values.
+
+In messages, keys may not be unique or even mandatory.
+
+Other Fields of a Message
+
+Topic → name of the topic the message belongs to.
+
+Partition → ID of the partition where the message is stored.
+
+Offset → unique position of the message within a partition.
+
+Timestamp → when the message was stored.
+
+Size → size of the message.
+
+CRC → ensures data integrity.
+
+Optional fields (e.g., tags) can be added for extra features like filtering.
+
+Batching
+
+Batching is used everywhere: in producers, consumers, and the queue itself.
+
+Why batching matters:
+
+Allows the OS to group messages in one network request, reducing network round trips.
+
+Brokers write to logs in large sequential chunks, which improves throughput and disk cache efficiency.
+
+Trade-off
+
+Throughput vs. Latency:
+
+Smaller batches → lower latency, but worse throughput.
+
+Larger batches → higher throughput, but more latency.
+
+If tuned for throughput, more partitions per topic may be needed to compensate for slower sequential writes.
+
+Producer Flow
+
+When a producer wants to send messages, the question is: which broker should it connect to?
+
+Option 1: Routing Layer
+
+Producer sends messages to the routing layer.
+
+Routing layer checks the replica distribution plan from metadata storage and caches it.
+
+Routes message to the leader replica of the partition.
+
+Followers pull from the leader. Once enough replicas have synced, leader commits and replies to the producer.
+
+Drawbacks:
+
+Extra network hop → more latency.
+
+Doesn’t consider batching efficiency.
+
+Option 2: Embedded Routing (Improved Design)
+
+Routing logic and buffering are moved into the producer client library.
+
+Benefits:
+
+Fewer network hops → lower latency.
+
+Producers can choose partitions directly.
+
+Buffering enables batching → higher throughput.
+
+Trade-off:
+
+Larger batch size → more throughput, higher latency.
+
+Smaller batch size → lower latency, but reduced throughput.
+
+Consumer Flow
+
+A consumer specifies an offset in a partition and receives events starting from that position.
+
+Example:
+
+Consumer 1 last consumed offset = 6 → it reads from offset 7 onward.
+
+Consumer 2 last consumed offset = 13 → it reads from offset 14 onward.
+
+Push vs Pull
+Push Model
+
+Pros:
+
+Very low latency (broker pushes immediately).
+
+Cons:
+
+Consumers may get overwhelmed if they are slower than producers.
+
+Difficult to manage consumers with different processing speeds.
+
+Pull Model
+
+Pros:
+
+Consumers control their own rate of consumption.
+
+Supports both real-time and batch processing.
+
+More suitable for batch mode since consumers can pull all available messages at once.
+
+Cons:
+
+If no new messages, consumers may waste resources by polling repeatedly.
+
+Solution: long polling → consumer waits for messages up to a timeout.
+
+👉 Most message queues adopt the pull model.
+
+Consumer Group Coordination
+
+When multiple consumers are part of a consumer group, partitions are shared among them.
+
+Example (Consumer A and B):
+
+Only Consumer A exists initially → it consumes all partitions.
+
+Consumer B joins → coordinator triggers a rebalance.
+
+Consumers rejoin → coordinator elects a leader.
+
+Leader creates a partition dispatch plan.
+
+Coordinator shares the plan with all consumers.
+
+Consumers begin consuming their newly assigned partitions.
+
+If a consumer leaves, the same process happens again (rebalance).
+
+
+
+
+Consumer Group Behavior
+Existing Consumer Leaves (Figure 4.19)
+
+Initial State
+
+Consumer A and Consumer B are in the same consumer group.
+
+Both send heartbeats to the coordinator, confirming they are alive.
+
+Consumer A Leaves
+
+Consumer A explicitly requests to leave the group (LeaveGroup request).
+
+The coordinator acknowledges A’s departure.
+
+Coordinator Detects Rebalance Need
+
+When Consumer B sends its next heartbeat, the coordinator replies:
+
+“Sorry B, group needs to rebalance. Please rejoin.”
+
+Rejoin Process
+
+Consumer B sends JoinGroup request.
+
+Coordinator accepts and informs B:
+
+“You are the leader now.”
+
+“Group members: B only.”
+
+Partition Assignment
+
+Coordinator sends SyncGroup message with partition assignment plan.
+
+Example: B is assigned partitions 1, 2, 3, 4.
+
+Existing Consumer Crashes (Figure 4.20)
+
+Initial State
+
+Consumer A and Consumer B are in the same group.
+
+Both send heartbeats to the coordinator.
+
+Consumer A Crashes
+
+Coordinator receives no heartbeat from A.
+
+After a timeout, coordinator marks A as dead.
+
+Coordinator Triggers Rebalance
+
+When Consumer B sends next heartbeat, coordinator responds:
+
+“Sorry B, group needs to rebalance. Please rejoin.”
+
+Rejoin Process
+
+Consumer B sends JoinGroup request.
+
+Coordinator accepts and informs B:
+
+“You are the leader now.”
+
+“Group members: B only.”
+
+Partition Assignment
+
+Coordinator sends SyncGroup message.
+
+Example: B is assigned partitions 1, 2, 3, 4.
+
+State Storage
+
+State storage is responsible for keeping consumer state information.
+
+What it Stores:
+
+Partition-to-consumer mapping.
+
+Last consumed offsets of consumer groups for each partition.
+
+Example (Figure 4.21):
+
+Consumer Group-1 last consumed offset = 6.
+
+Consumer Group-2 last consumed offset = 13.
+
+Meaning:
+
+Group-1 has consumed all messages up to offset 6.
+
+Group-2 has consumed all messages up to offset 13.
+
+If a Consumer Crashes:
+
+A new consumer resumes consumption from the last committed offset in state storage.
+
+Data Access Patterns:
+
+Frequent read/write operations, but low volume.
+
+Frequent updates, rare deletions.
+
+Random read/write access.
+
+High consistency required.
+
+Storage Solutions:
+
+Initially: ZooKeeper (KV store).
+
+Now: Kafka brokers store offsets directly.
+
+Metadata Storage
+
+What it Stores:
+
+Topic configuration & properties (partitions, retention period, replica distribution).
+
+Characteristics:
+
+Small data volume.
+
+Infrequent changes.
+
+Requires high consistency.
+
+Storage Solution: ZooKeeper is a good fit.
+
+ZooKeeper (Figure 4.22)
+
+ZooKeeper provides coordination and storage in distributed systems.
+
+Features:
+
+Hierarchical key-value store.
+
+Provides:
+
+Configuration service.
+
+Synchronization service.
+
+Naming registry.
+
+In Message Queue Design:
+
+Metadata & state storage are moved to ZooKeeper.
+
+Brokers only maintain message data storage.
+
+ZooKeeper manages leader election for brokers.
+
+Replication (Figure 4.23)
+
+Replication ensures data availability and durability.
+
+Why Needed:
+
+Hardware failures (disk damage, node crash) can cause data loss.
+
+Replication prevents data loss.
+
+Mechanism:
+
+Each partition has multiple replicas (e.g., 3).
+
+Replicas distributed across different brokers.
+
+One replica = leader, others = followers.
+
+Producers write only to leader.
+
+Followers pull data from leader.
+
+Once enough replicas have the message, leader acknowledges producer.
+
+Replica Distribution Plan:
+
+Example (from Figure 4.23):
+
+Topic-A Partition-1 → Leader: Broker-1, Followers: Broker-2, Broker-3.
+
+Topic-A Partition-2 → Leader: Broker-2, Followers: Broker-3, Broker-4.
+
+Topic-B Partition-1 → Leader: Broker-3, Followers: Broker-4, Broker-1.
+
+Who Decides Distribution Plan?
+
+One broker elected as cluster leader (via ZooKeeper).
+
+Leader generates plan → saves it in metadata storage.
+
+All brokers follow the plan.
+
+In-Sync Replicas (ISR) (Figure 4.24)
+
+Definition:
+
+ISR = set of replicas that are in-sync with the leader.
+
+Leader is always part of ISR.
+
+How “In-Sync” is Defined:
+
+Based on configuration (e.g., replica.lag.max.messages = 4).
+
+Replica can lag leader by at most 3 messages and still be in ISR.
+
+Example (Figure 4.24):
+
+Leader committed offset = 13.
+
+New messages written but not committed yet.
+
+Replica-2 & Replica-3 caught up → in ISR.
+
+Replica-4 lagging behind → not in ISR.
+
+Why ISR is Important:
+
+Trade-off: Performance vs Durability.
+
+If producer waits for all replicas → safest but slower.
+
+If producer waits for fewer replicas → faster but risk of data loss.
+
+Acknowledgment Settings:
+
+Producers can configure acknowledgment policy.
+
+Example: wait until k ISRs confirm message before sending ACK.
+
+
+
+
+
+
+
+ACK Settings in Kafka
+ACK = all
+
+Definition: The producer gets an acknowledgment (ACK) only when all in-sync replicas (ISRs) have received the message.
+
+Impact:
+
+Ensures strongest message durability (very safe).
+
+Increases latency because the producer must wait for the slowest ISR.
+
+Flow (from Figure 4.25):
+
+Producer sends a message to the leader.
+
+Followers (replicas) fetch the data from the leader.
+
+Once all ISRs are synced, the leader confirms.
+
+Producer receives ACK.
+
+ACK = 1
+
+Definition: The producer gets an acknowledgment once the leader has written the message to its log.
+
+Impact:
+
+Lower latency (faster than ACK=all).
+
+But if the leader crashes immediately after ACK but before syncing to followers, the message is lost.
+
+Use case: Systems where low latency is more important than absolute durability.
+
+Flow (from Figure 4.26):
+
+Producer sends a message.
+
+Leader writes it and immediately ACKs the producer.
+
+Followers fetch data later (not blocking ACK).
+
+ACK = 0
+
+Definition: The producer sends messages to the leader without waiting for any acknowledgment.
+
+Impact:
+
+Lowest latency (fastest).
+
+Very high risk of message loss since producer never retries or waits.
+
+Use case: Metrics collection, logging, or scenarios where occasional loss is acceptable.
+
+Flow (from Figure 4.27):
+
+Producer sends message.
+
+No ACK is sent back.
+
+Followers may or may not catch up later.
+
+Consumer Side
+
+Normally, consumers read from the leader replica.
+
+Why not from followers/ISRs?
+
+Design simplicity – only one main source of truth.
+
+Within a consumer group, only one consumer per partition, so connections are limited.
+
+The number of leader connections is manageable, unless the topic is super hot (extremely high traffic).
+
+Scaling solution for hot topics:
+
+Increase number of partitions.
+
+Add more consumers to spread the load.
+
+When reading from ISRs is useful:
+
+Cross–data center scenarios → consumer reads from the nearest ISR to reduce latency.
+
+ISR (In-Sync Replicas)
+
+Definition: Replicas that are fully caught up with the leader’s log.
+
+How ISR is determined:
+
+Leader tracks the lag of each replica.
+
+Replicas with acceptable lag remain in ISR.
+
+Lagging replicas are removed from ISR until they catch up again.
+
+Scalability
+
+We now consider scaling for producers, consumers, brokers, and partitions.
+
+Producer
+
+Very simple to scale.
+
+Just add or remove producer instances as needed (no coordination required).
+
+Consumer
+
+Consumer groups are independent from each other.
+
+Within a group:
+
+Kafka uses a rebalance mechanism to redistribute partitions if a consumer is added, removed, or crashes.
+
+This ensures both scalability and fault tolerance.
+
+Broker
+
+Before scaling brokers, we must understand failure recovery.
+
+Broker Failure Recovery (Figure 4.28)
+Example Setup:
+
+Broker-1: Leader of Topic-A Partition-1 (replicas also in Broker-2, Broker-3).
+
+Broker-2: Leader of Topic-A Partition-2 (replicas also in Broker-3, Broker-4).
+
+Broker-3: Leader of Topic-B Partition-1 (replicas also in Broker-4, Broker-1).
+
+Failure:
+
+Broker-3 crashes → all partitions stored there are lost.
+
+New Distribution Plan:
+
+Topic-A Partition-1: Leader Broker-1, replica Broker-2.
+
+Topic-A Partition-2: Leader Broker-2, replica Broker-4.
+
+Topic-B Partition-1: Leader Broker-4, replica Broker-1.
+
+✅ So, to summarize:
+
+ACK configurations let you choose between latency and durability.
+
+Consumers usually read from leaders, but ISR reads are possible for cross–data center optimization.
+
+ISR management ensures only up-to-date replicas are trusted.
+
+Scalability is achieved by easily adding/removing producers, consumers, or brokers.
+
+Broker recovery ensures the system survives crashes by reassigning replicas and leaders.
+
+
+
+
+
+Broker Failure and Replica Redistribution
+
+When Broker-3 goes down, the broker controller detects the failure and reassigns replicas of partitions to ensure fault tolerance:
+
+Partition-1 of Topic A → Replicas in Broker-1 (leader), Broker-2, and Broker-4 (new replica).
+
+Partition-2 of Topic A → Replicas in Broker-2 (leader), Broker-4, and Broker-1 (new replica).
+
+Partition-1 of Topic B → Replicas in Broker-4 (leader), Broker-1, and Broker-2 (new replica).
+
+➡️ The new replicas act as followers and synchronize with the leader before becoming fully active.
+
+Fault-Tolerance Considerations
+
+Minimum number of ISRs (In-Sync Replicas)
+
+Defines how many replicas must confirm a message before it is considered committed.
+
+Higher ISR count = safer, but with higher latency.
+
+Trade-off between performance and reliability.
+
+Replica placement on the same broker
+
+If all replicas of a partition are on the same broker → system cannot tolerate broker failure.
+
+This wastes resources.
+
+Rule: Never place replicas of the same partition on the same node.
+
+Crash of all replicas
+
+If all replicas crash → permanent data loss.
+
+Solution: distribute replicas across brokers, and ideally across data centers.
+
+But cross–data center replication introduces high latency and cost.
+
+A workaround is data mirroring, but that is out of scope.
+
+Broker Scalability
+
+The simplest solution to scaling brokers: redistribute replicas when brokers are added or removed.
+
+But a better solution exists:
+
+Allow temporary extra replicas beyond the configured replica count.
+
+Once the new broker catches up, remove redundant replicas.
+
+Example (Figure 4.29)
+
+Initial setup:
+
+3 brokers, 2 partitions, 3 replicas each.
+
+Add Broker-4:
+
+Broker controller moves Partition-2 replicas to Brokers (2, 3, 4).
+
+Broker-4 replica copies data from Broker-2 (leader).
+
+Temporarily, Partition-2 has more than 3 replicas.
+
+After catch-up:
+
+Remove redundant replica from Broker-1.
+
+➡️ This ensures no data loss during broker scaling.
+➡️ Same process works for broker removal.
+
+Partition Scalability
+Increasing Partitions (Figure 4.30)
+
+No data migration needed.
+
+Old messages remain in old partitions.
+
+New messages are distributed across all partitions (including new ones).
+
+Very simple and efficient.
+
+Decreasing Partitions (Figure 4.31)
+
+More complex process.
+
+The chosen partition (e.g., Partition-3) is decommissioned.
+
+Producers send data only to remaining partitions.
+
+Consumers may still consume from all partitions.
+
+Partition-3 data must remain until retention period expires.
+
+Cannot reclaim storage immediately.
+
+Only after retention period → truncate data → free space.
+
+➡️ Reducing partitions is not a quick way to reclaim disk space.
+
+Data Delivery Semantics
+At-most once (Figure 4.32)
+
+Message delivered at most once (may be lost, but not duplicated).
+
+How it works:
+
+Producer sends asynchronously (ACK=0) → no retries.
+
+Consumer commits offset before processing.
+
+If consumer crashes → message lost.
+
+Use case: Monitoring metrics (tolerant of small data loss).
+
+At-least once (Figure 4.33)
+
+Message delivered one or more times (no loss, but possible duplicates).
+
+How it works:
+
+Producer sends with ACK=1 or all → retries if failure.
+
+Consumer commits offset after processing.
+
+If crash occurs before commit → message re-consumed → duplicate.
+
+Use case: Most applications where deduplication is possible.
+
+Example: Messages with unique keys (database can reject duplicates).
+
+Exactly once (Figure 4.34)
+
+Message delivered once and only once.
+
+Hardest to implement → high system cost.
+
+Use case: Financial transactions, accounting, trading (where duplication is unacceptable).
+
+Advanced Features
+Message Filtering (Figure 4.35)
+
+Sometimes consumers only need subsets of messages.
+
+Options:
+
+Create separate topics → simple but wastes resources, tight coupling.
+
+Consumer filters after receiving → flexible but creates unnecessary traffic.
+
+Broker-side filtering (best):
+
+Filtering is based on metadata/tags (not payload).
+
+Efficient and secure.
+
+Supports multi-dimensional filtering using multiple tags.
+
+Delayed Messages & Scheduled Messages (Figure 4.36)
+
+Delayed messages: Delivered after a set time.
+
+Example: Payment check after 30 minutes.
+
+Stored in temporary broker storage until delivery time.
+
+Scheduled messages: Delivered at a specific scheduled time.
+
+Core components:
+
+Temporary storage (special topics).
+
+Timing function:
+
+Delay queues with predefined levels (e.g., RocketMQ supports 1s, 5s, 10s, 30s, 1m, etc.).
+
+Hierarchical time wheel for flexible scheduling.
+
+➡️ Both features extend broker functionality for time-sensitive workflows.
+
+
+
+
+Step 4 - Wrap Up
+
+In this chapter, the design of a distributed message queue with advanced features (commonly used in data streaming platforms) has been presented.
+If there is extra time at the end of the interview, here are some additional talking points:
+
+Protocol
+
+The protocol defines the rules, syntax, and APIs that describe how information is exchanged and data is transferred between different nodes in a distributed system.
+
+For a distributed message queue, the protocol should be able to:
+
+Cover all activities – This includes operations such as production (producers sending data), consumption (consumers reading data), and heartbeat (checking whether nodes are alive and healthy).
+
+Effectively transport data with large volumes – Since message queues often deal with high-throughput streaming data, the protocol must handle large-scale data transfer efficiently.
+
+Verify the integrity and correctness of the data – The protocol must ensure data is not corrupted, lost, or altered during transfer.
+
+Some widely used protocols:
+
+Advanced Message Queuing Protocol (AMQP) – A standardized protocol widely used in systems like RabbitMQ.
+
+Kafka protocol – Used by Apache Kafka to support high-throughput, fault-tolerant, distributed streaming.
+
+Retry Consumption
+
+Sometimes, messages cannot be consumed successfully on the first attempt (e.g., due to consumer errors, temporary failures, or resource issues).
+
+To handle this:
+
+The system must support retrying consumption instead of discarding messages.
+
+To avoid blocking new incoming messages, failed messages should not stay in the main queue indefinitely.
+
+Solution:
+
+Send failed messages to a dedicated retry topic.
+
+This retry topic can be consumed later, after a certain time period, when the system is ready to reprocess them.
+
+Historical Data Archive
+
+Distributed message queues usually implement log retention policies (time-based or capacity-based).
+
+Time-based retention: Messages older than a set duration are deleted.
+
+Capacity-based retention: Once storage reaches its limit, older messages are removed.
+
+Problem:
+
+If a consumer needs to replay historical messages that have already been truncated, the queue alone may not have the data anymore.
+
+Solution:
+
+Use external storage systems with large capacities, such as:
+
+HDFS (Hadoop Distributed File System)
+
+Object storage (e.g., Amazon S3, Google Cloud Storage, etc.)
+
+These systems allow long-term storage and replay of historical data when needed.
+
+Final Note
+
+Congratulations on reaching this point in designing and understanding a distributed message queue. 🎉
+It’s a challenging topic that involves concepts like protocols, retries, and historical archiving, all of which are critical for building robust, fault-tolerant, and scalable data streaming systems.
+
+👏 Give yourself a pat on the back. Good job!
+
+
+
+
