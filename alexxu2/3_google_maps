@@ -1,0 +1,996 @@
+3. Google Maps
+
+In this chapter, we focus on designing a simplified version of Google Maps. Before designing the system, it is important to understand what Google Maps is and what features it provides.
+
+Overview of Google Maps
+
+Launch and Development: Google started Project Google Maps in 2005 and developed it as a web mapping service.
+
+Services Provided: It offers:
+
+Satellite imagery
+
+Street maps
+
+Real-time traffic conditions
+
+Route planning
+
+Purpose: Google Maps helps users find directions and navigate to their destinations.
+
+Scale: As of March 2021:
+
+1 billion daily active users
+
+99% global coverage
+
+25 million daily updates of accurate, real-time location information
+
+Because of its enormous complexity, we need to define which features our simplified version will support.
+
+Step 1 - Understand the Problem and Establish Design Scope
+
+During a design interview, the discussion could look like this:
+
+Users: 1 billion daily active users
+
+Focus features:
+
+Location updates
+
+Navigation and ETA (Estimated Time of Arrival)
+
+Map rendering
+
+Road data: Assumed available from various sources, terabytes in size
+
+Traffic conditions: Must be considered for accurate ETA
+
+Travel modes: Support driving, walking, bus, etc.
+
+Multi-stop directions: Optional, not a focus
+
+Business places and photos: Not required for this design
+
+Main Devices: Mobile phones
+
+Key Features to Design:
+
+User location updates
+
+Navigation service including ETA
+
+Map rendering
+
+Non-functional Requirements and Constraints
+
+Accuracy: Directions must be correct.
+
+Smooth navigation: Map rendering should be smooth on the client side.
+
+Data and battery usage: Mobile clients should use minimal data and battery.
+
+Availability and scalability: System must support high availability and scalability.
+
+Map 101
+Positioning System
+
+The Earth is a sphere rotating on its axis.
+
+Poles: North Pole (top), South Pole (bottom)
+
+Latitude (Lat): Measures how far north or south a point is.
+
+Longitude (Long): Measures how far east or west a point is.
+
+Going from 3D to 2D
+
+Map Projection: Translating points from a 3D globe to a 2D plane.
+
+Distortion: Almost all projections distort geometry.
+
+Google Maps: Uses a modified Mercator projection, called Web Mercator.
+
+Geocoding
+
+Geocoding: Converting addresses into latitude/longitude coordinates.
+Example:
+"1600 Amphitheatre Parkway, Mountain View, CA" → (37.423021, -122.083739)
+
+Reverse Geocoding: Converting latitude/longitude coordinates to human-readable addresses.
+
+Interpolation Method: Uses GIS data to map streets to geographic coordinates.
+
+Geohashing
+
+Definition: Encoding a geographic area into a short string of letters/digits.
+
+Concept:
+
+Flatten the Earth into a surface.
+
+Recursively divide into grids (square/rectangular).
+
+Represent each grid using numbers between 0 and 3.
+
+Example:
+
+Initial surface: 20,000 km × 10,000 km
+
+First division → 4 grids of size 10,000 km × 5,000 km, labeled 00, 01, 10, 11
+
+Further subdivisions continue recursively until a desired grid size is reached.
+
+Use in Design: Map tiling for efficient loading and display.
+
+Map Rendering
+
+Concept: Map is divided into tiles, not rendered as one large image.
+
+Client behavior: Downloads only relevant tiles for the user’s location and stitches them like a mosaic.
+
+Zoom Levels:
+
+Different sets of tiles exist for different zoom levels.
+
+Client chooses appropriate tiles for the viewport to avoid downloading unnecessary high-resolution tiles.
+
+Example: Zoomed out to the world level → download 1 tile representing the whole world rather than hundreds of high-resolution tiles.
+
+This structured explanation keeps all points from your text and organizes them under proper headings for clarity.
+
+
+
+Road Data Processing for Navigation Algorithms
+
+Most navigation routing algorithms are based on Dijkstra's or A* pathfinding algorithms. The exact choice of algorithm is complex, so we won’t go into details here. What is important is:
+
+These algorithms operate on a graph data structure:
+
+Nodes = intersections
+
+Edges = roads connecting intersections
+
+Key point: The performance of these algorithms is very sensitive to the size of the graph. Representing the entire world as one graph would require too much memory and make algorithms inefficient.
+
+Breaking Graphs into Manageable Units
+
+To handle large road networks efficiently:
+
+We divide the world into small grids, similar to map tiling and geohashing.
+
+Each grid is converted into a small graph containing:
+
+Nodes: intersections inside the grid
+
+Edges: roads inside the grid
+
+These grids are called routing tiles.
+
+Routing tiles features:
+
+Each tile holds references to other tiles it connects to.
+
+Routing algorithms can stitch together a larger graph by connecting these tiles.
+
+Only a subset of tiles is loaded on-demand, which:
+
+Reduces memory usage
+
+Improves pathfinding performance
+
+Note: Routing tiles are like map tiles:
+
+Map tiles = PNG images
+
+Routing tiles = binary files containing road data
+
+Hierarchical Routing Tiles
+
+Efficient routing also depends on level of detail (LoD) in road data:
+
+Using highly detailed street-level tiles for cross-country routing would be slow and memory-heavy.
+
+Typically, there are three levels of routing tiles:
+
+
+
+| Level         | Tile Size | Roads Included                      |
+| ------------- | --------- | ----------------------------------- |
+| High Detail   | Small     | Local roads                         |
+| Medium Detail | Larger    | Arterial roads connecting districts |
+| Low Detail    | Largest   | Highways connecting cities/states   |
+
+
+
+Cross-level connections:
+
+Edges may connect nodes across different zoom levels.
+
+Example: A local street node can connect to a freeway node in a higher-level tile.
+
+Back-of-the-Envelope Estimation
+
+For mobile navigation, data usage and battery consumption are important. Let’s estimate storage and throughput.
+
+Conversions Reference
+
+1 foot = 0.3048 meters
+
+1 kilometer = 0.6214 miles
+
+1 km = 1,000 meters
+
+Storage Usage
+
+We need to store three types of data:
+
+Map of the world
+
+Metadata – negligible size, can skip in estimate
+
+Road info – TBs of external road data, transformed into routing tiles (also TBs)
+
+Map of the World
+
+Map tiling discussed in "Map 101"
+
+Highest zoom level (21) → 4.3 trillion tiles
+
+Each tile = 256×256 pixels PNG ≈ 100 KB
+
+Raw storage = 4.3 trillion × 100 KB ≈ 440 PB
+
+Adjustment for uninhabited areas:
+
+90% of world = oceans, deserts, mountains → highly compressible
+
+Reduce storage by 80–90% → estimated 50 PB
+
+Lower zoom levels:
+
+Each level halves tile count in both directions → 1/4 total tiles
+
+Storage reduces 4× per lower zoom level
+
+Series estimate: 50 + 12.5 + 3.125 + … ≈ 67 PB
+
+Rough estimate → ~100 PB total for all map tiles at all zoom levels
+
+Server Throughput
+
+Two main request types:
+
+Navigation requests – when clients start navigation
+
+Location updates – GPS updates sent as user moves
+
+Example calculation:
+
+1 billion daily active users (DAU)
+
+Each user navigates 35 min/week → 5 billion minutes/day
+
+Sending GPS updates every second:
+
+5 billion minutes × 60 seconds = 300 billion requests/day
+
+QPS = 3 million
+
+Batching GPS updates:
+
+Updates sent every 15 seconds instead of 1 second
+
+Reduces QPS to ~200,000
+
+Peak QPS (5× average) = 1 million
+
+✅ Summary of Key Points
+
+Navigation algorithms operate on a graph of intersections (nodes) and roads (edges).
+
+The world graph is too large → split into routing tiles (small graphs).
+
+Tiles are hierarchical → different levels of detail for local roads, arterials, and highways.
+
+Storage: map tiles ≈ 100 PB, road data ≈ TBs.
+
+Server throughput: location updates can be batched to reduce QPS from millions to manageable levels.
+
+
+
+
+
+
+Step 2 – Propose High-level Design and Get Buy-in
+
+After gathering information about Google Maps, we are ready to propose a high-level design. This design outlines the main components and how they interact to support Google Maps’ core functionalities.
+
+High-level Design
+
+The high-level design supports three main features:
+
+Location service
+
+Navigation service
+
+Map rendering
+
+Let’s go through each feature in detail.
+
+1. Location Service
+
+The location service is responsible for recording a user’s location updates.
+
+How it works
+
+Clients (e.g., mobile devices) send location updates at regular intervals 
+𝑡
+t seconds.
+
+These periodic updates provide several benefits:
+
+Improve the system over time by analyzing user data (e.g., traffic monitoring, detecting new or closed roads, and personalizing features).
+
+Provide near real-time information to improve ETA estimates and rerouting around traffic.
+
+Optimization with batching
+
+Sending every update immediately is not necessary.
+
+Buffered updates: Location history can be recorded every second but sent in batches (e.g., every 15 seconds).
+
+This reduces total traffic sent by clients without losing important data.
+
+Database and processing requirements
+
+Even with batching, write volume is very high.
+
+High-write databases like Cassandra are recommended for storing location data.
+
+Stream processing engines like Kafka can log location updates for further analysis.
+
+Communication protocol
+
+HTTP with keep-alive is efficient for sending location updates.
+
+Example API request:
+
+POST /v1/locations
+Parameters:
+locs: JSON encoded array of (latitude, longitude, timestamp) tuples
+
+2. Navigation Service
+
+The navigation service is responsible for finding a route from point A to point B.
+
+Key points
+
+Accuracy is more important than speed; a slightly slower route is acceptable.
+
+User requests are sent via HTTP through a load balancer.
+
+Example API request:
+
+GET /v1/nav?origin=1355+market+street,SF&destination=Disneyland
+
+Example response
+
+The navigation result may include:
+
+Distance: text and numeric value
+
+Duration: text and numeric value
+
+Start and end locations (latitude/longitude)
+
+Route instructions in HTML format
+
+Encoded polyline for drawing routes on the map
+
+Geocoded waypoints with status and place IDs
+
+Travel mode (e.g., DRIVING)
+
+Notes
+
+So far, rerouting and traffic updates are not considered here.
+
+These are handled by an Adaptive ETA service in a more detailed design.
+
+3. Map Rendering
+
+The map rendering service provides the visual maps users see.
+
+Challenges
+
+The full set of map tiles is extremely large (~hundreds of petabytes).
+
+It is impractical to store all tiles on the client, so tiles must be fetched from the server on demand.
+
+When to fetch tiles
+
+When the user zooms or pans the map.
+
+During navigation, when the user moves into a new map tile.
+
+How to serve map tiles efficiently
+Option 1: Dynamic tile generation
+
+Map tiles are generated on the fly based on the client’s location and zoom level.
+
+Disadvantages:
+
+High load on the server cluster.
+
+Hard to leverage caching because tiles are dynamically generated.
+
+Option 2: Pre-generated static tiles
+
+Map tiles are pre-generated at different zoom levels.
+
+Each tile covers a fixed grid using a scheme like geohashing.
+
+Each tile has a unique geohash identifier.
+
+Client determines which tile to fetch based on zoom level and location.
+
+Tiles are served through a CDN for fast delivery.
+
+This design ensures:
+
+Efficient handling of location updates
+
+Accurate route calculation
+
+Fast and scalable map rendering
+
+
+
+
+CDN for Map Tiles
+
+When a mobile user requests a map tile:
+
+First request:
+
+The mobile client makes an HTTP request to the CDN.
+
+If the CDN hasn’t served this tile before, it fetches it from the origin server.
+
+The CDN caches the tile locally and returns it to the user.
+
+Subsequent requests:
+
+Even if another user requests the same tile, the CDN serves it from its cache.
+
+This avoids repeated requests to the origin server.
+
+Benefits:
+
+Improved scalability and performance.
+
+Tiles are served from the nearest Point of Presence (POP).
+
+Map tiles are static, so caching is very effective.
+
+Data Usage
+
+We want to keep mobile data usage low. Here’s a calculation:
+
+Assumptions:
+
+User speed: 30 km/h
+
+Tile size: 256x256 pixels, covering 200m x 200m
+
+Average image size: 100 KB
+
+Calculations:
+
+For 1 km²: 
+1000
+𝑚
+200
+𝑚
+×
+1000
+𝑚
+200
+𝑚
+=
+25
+200m
+1000m
+	​
+
+×
+200m
+1000m
+	​
+
+=25 tiles
+
+Data per km²: 
+25
+×
+100
+KB
+=
+2.5
+MB
+25×100KB=2.5MB
+
+At 30 km/h: 
+30
+×
+2.5
+MB
+=
+75
+MB/hour
+30×2.5MB=75MB/hour
+
+Per minute: 
+75
+60
+≈
+1.25
+MB/min
+60
+75
+	​
+
+≈1.25MB/min
+
+Note: This ignores client-side caching, so actual data usage is likely lower.
+
+Traffic Through CDN
+
+Daily navigation: 5 billion minutes
+
+Daily data usage: 
+5
+ billion
+×
+1.25
+MB
+=
+6.25
+ billion MB/day
+5 billion×1.25MB=6.25 billion MB/day
+
+CDN distribution:
+
+Assuming 200 POPs, each POP only needs to serve a few hundred MB per second.
+
+Summary: The CDN efficiently distributes traffic globally.
+
+Map Tile URL Generation
+
+There are two main approaches for a client to fetch tiles:
+
+Option 1: Client computes URL (geohash)
+
+Tiles are pre-generated based on grids for each zoom level.
+
+Each grid has a unique geohash.
+
+The client computes the geohash from latitude, longitude, and zoom level.
+
+Example URL:
+
+https://cdn.map-provider.com/tiles/9q9hvu.png
+
+
+Pros: Efficient, no extra service needed.
+Cons: Hardcoded algorithm in all clients; changing it later is risky and slow.
+
+Option 2: Map tile service generates URLs
+
+Introduce a map tile service as an intermediary.
+
+Flow:
+
+Client sends location and zoom level to service via a load balancer.
+
+Service calculates which tiles are needed.
+
+Returns 9 tile URLs (current + surrounding tiles).
+
+Client downloads tiles from the CDN.
+
+Pros: Operational flexibility, easier to update URLs or encoding methods.
+
+Step 3 – Design Deep Dive
+
+We now look at the backend data and services in detail.
+
+Data Model
+
+We have four main types of data:
+
+Routing tiles
+
+User location data
+
+Geocoding data
+
+Precomputed map tiles
+
+Routing Tiles
+
+Source: Large road datasets from multiple sources.
+
+Processing:
+
+Original data is not in graph form, so it’s transformed into routing tiles by the routing tile processing service.
+
+Tiles contain:
+
+Graph nodes (intersections)
+
+Graph edges (roads)
+
+References to connected tiles
+
+Storage:
+
+Too large for memory.
+
+Object storage (e.g., S3) is efficient.
+
+Tiles can be cached on routing services.
+
+Organize tiles by geohash for fast lookup.
+
+User Location Data
+
+Purpose:
+
+Update road and routing tiles
+
+Build live and historical traffic data
+
+Feed stream processing services
+
+Requirements:
+
+Write-heavy workload
+
+Horizontal scaling
+
+Database: Cassandra (suitable for write-heavy workloads)
+
+Example row:
+
+
+| user\_id | timestamp  | user\_mode | location     |
+| -------- | ---------- | ---------- | ------------ |
+| 101      | 1635740977 | driving    | (20.0, 30.5) |
+
+
+
+Geocoding Database
+
+Purpose: Convert place names to latitude/longitude.
+
+Database type: Key-value store like Redis
+
+Usage: Frequent reads, infrequent writes
+
+Precomputed Map Tiles
+
+Purpose: Avoid recomputing map images each time.
+
+Process:
+
+Compute images of the map with roads and details for different zoom levels.
+
+Store on CDN backed by cloud storage (e.g., S3).
+
+Benefit: Fast retrieval for clients.
+
+This is the complete breakdown and explanation of the text you provided.
+
+If you want, I can also draw a simple diagram showing the full flow from user → map tile service → CDN → client to make it visually clear.
+
+
+
+
+
+Services
+
+In this section, we examine three key services: location service, map rendering service, and navigation service. These services work together to support functionalities such as real-time location tracking, route planning, traffic prediction, and map updates.
+
+Location Service
+
+The location service tracks user positions in real-time. Let’s dive into its database design and how user location is used.
+
+Database Design
+
+Given 1 million location updates per second, the database must support fast writes.
+
+Database choice:
+
+NoSQL key-value store or column-oriented database (e.g., Cassandra)
+
+Reasoning:
+
+User location data changes frequently.
+
+Data becomes stale quickly.
+
+Prioritize availability over consistency (CAP theorem: choose availability + partition tolerance).
+
+Table schema:
+
+Key: (user_id, timestamp)
+
+user_id → partition key → fast retrieval of a user's latest location
+
+timestamp → clustering key → keeps records sorted by time
+
+Value: latitude & longitude pair
+
+Efficiency: Retrieval of a user’s location in a time range is fast.
+
+Example Table:
+
+
+| key (user\_id) | timestamp | lat | long | user mode | navigation mode |
+| -------------- | --------- | --- | ---- | --------- | --------------- |
+| 51             | 132053000 | 21  | 89.8 | active    | driving         |
+
+
+
+
+Usage of User Location Data
+
+User location data enables multiple applications:
+
+Detect new or closed roads.
+
+Improve map accuracy over time.
+
+Support live traffic data.
+
+Data flow:
+
+Current locations are written to the database.
+
+Data is also sent to a message queue (e.g., Kafka) for real-time streaming.
+
+Kafka usage:
+
+High-throughput, low-latency platform.
+
+Other services consume the stream:
+
+Live traffic service: updates traffic database
+
+Routing tile processing service: detects road changes and updates routing tiles
+
+Other services can use the stream for different purposes.
+
+Rendering Map
+
+Map rendering involves preparing map tiles for different zoom levels and optimizing map delivery.
+
+Precomputed Tiles
+
+Multiple zoom levels (0–20, as in Google Maps)
+
+Tile size: 256 × 256 pixels
+
+Zoom logic:
+
+Level 0 → single tile
+
+Level 1 → 2 × 2 tiles (512 × 512 resolution)
+
+Level 2 → 4 × 4 tiles (1024 × 1024 resolution)
+
+Each zoom level increases detail and pixel count 4×
+
+Benefit: Client downloads only necessary detail → bandwidth efficient
+
+Optimization: Use Vectors
+
+Vector tiles contain paths and polygons instead of images.
+
+Advantages:
+
+Better compression → saves bandwidth
+
+Improved zooming experience → smooth transitions between zoom levels
+
+Shortest-path Service
+
+This service computes the top-k shortest paths without considering traffic or conditions.
+
+Algorithm: Variation of A*
+
+Steps:
+
+Convert origin & destination lat/long → geohashes → load relevant routing tiles
+
+Traverse the graph in routing tiles
+
+Hydrate neighboring tiles (or use local cache)
+
+Connect different resolution tiles (e.g., highways in bigger tiles)
+
+Expand until the best paths are found
+
+Caching routes is beneficial since the road graph rarely changes.
+
+ETA Service
+
+Computes Estimated Time of Arrival (ETA) for each route.
+
+Input: top-k routes from the shortest-path service.
+
+Method:
+
+Machine learning predicts ETA based on historical and real-time traffic data.
+
+Challenge: predict future traffic conditions (e.g., 10–20 minutes ahead).
+
+Ranker Service
+
+Receives ETA predictions from the route planner.
+
+Function: apply user-defined filters (e.g., avoid toll roads or freeways).
+
+Output: ranks routes from fastest to slowest → sends top-k routes to navigation service.
+
+Updater Services
+
+Updater services keep databases current by consuming Kafka location streams.
+
+Routing tile processing service:
+
+Updates tiles with new/closed roads → improves shortest-path accuracy.
+
+Traffic update service:
+
+Extracts live traffic from user location updates → updates traffic database → improves ETA predictions.
+
+Improvement: Adaptive ETA and Rerouting
+
+To provide real-time ETA updates and rerouting, the system must track active navigation users efficiently.
+
+Naive Approach
+
+Store each user’s route as a list of routing tiles:
+
+| User    | Tiles               |
+| ------- | ------------------- |
+| user\_1 | r1, r2, r3, ..., rk |
+| user\_2 | r4, r6, r9, ..., rn |
+| user\_3 | r2, r8, r9, ..., rm |Problem: If traffic occurs in a tile (e.g., r2), check every user’s route.
+
+Time complexity: O(n × m) → very slow for millions of users.
+
+Optimized Approach
+
+For each user, store:
+
+Current tile
+
+Tile at next resolution level
+
+Recursively up to destination
+
+Example:
+
+user_1 → r1, super(r1), super(super(r1)), …
+
+Benefit: Efficiently identify users affected by traffic changes without scanning all rows.
+
+This is a complete, structured explanation of your text with proper headings and all points included.
+
+
+
+
+
+Traffic Change Impact on Users
+Checking User Impact
+
+To determine if a user is affected by traffic changes, we only need to check if their routing tile is inside the last routing tile of a row in the database.
+
+If the user's routing tile is not inside, they are not impacted.
+
+If it is inside, the user is affected.
+
+Purpose: This method allows for quick filtering of users who may or may not be impacted by traffic changes.
+
+Handling Traffic Clearance
+
+The previous approach doesn’t explain what happens when traffic clears.
+
+Example: If routing tile 2 clears and the user can go back to the old route, the system needs a way to inform them.
+
+Proposed Solution:
+
+Keep track of all possible routes for a user.
+
+Recalculate ETAs regularly.
+
+Notify the user if a new route with a shorter ETA becomes available.
+
+Delivery Protocols
+Context
+
+Navigation is dynamic; route conditions can change.
+
+The server must reliably push updates to mobile clients.
+
+Options for Server-to-Client Communication
+
+Mobile Push Notification
+
+Not ideal because:
+
+Payload size is very limited (e.g., 4,096 bytes on iOS).
+
+Does not support web applications.
+
+Long Polling
+
+Ruling out, probably due to higher server load and inefficiency.
+
+WebSocket
+
+Preferred option:
+
+Has a light footprint on servers.
+
+Supports bi-directional communication.
+
+Useful for features like last-mile delivery, where real-time two-way communication is needed.
+
+Server-Sent Events (SSE)
+
+Can also work but lacks bi-directional communication features compared to WebSocket.
+
+Conclusion:
+
+WebSocket is the chosen delivery protocol because it supports real-time, bi-directional communication, which is important for rerouting and ETA updates.
+
+System Design Summary
+
+At this point, the system design includes:
+
+Location updates
+
+ETA calculation
+
+Route planning
+
+Map rendering
+
+Potential Improvement
+
+Multi-stop navigation for enterprise customers:
+
+Given multiple destinations, the system should find the optimal order to visit them.
+
+Provide proper navigation based on live traffic conditions.
+
+Useful for delivery services like DoorDash, Uber, Lyft, etc.
+
+Step 4 – Wrap Up
+
+Designed a simplified Google Maps application with key features.
+
+Highlighted areas for future improvement, like multi-stop navigation.
+
+Encouragement: “Congratulations! Give yourself a pat on the back.”
+
+✅ Summary:
+The text explains how to detect traffic impact, manage rerouting notifications, choose a server-to-client communication protocol, and suggests future improvements for a navigation system. WebSocket is preferred for real-time bi-directional communication, and multi-stop routing could enhance enterprise delivery use cases.
+
+
+
