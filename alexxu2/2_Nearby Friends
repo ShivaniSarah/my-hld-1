@@ -1,0 +1,1077 @@
+
+Nearby Friends Feature Overview
+
+The "Nearby Friends" feature is a mobile app functionality that shows users a list of friends who are geographically close to them. Users must opt-in and grant permission for their location to be accessed.
+
+Example: Facebook’s Nearby Friends feature shows friends’ names, distances, and last updated times.
+
+Key Difference from Proximity Services:
+
+Proximity services deal with static locations (e.g., businesses).
+
+Nearby Friends deals with dynamic locations as users constantly move.
+
+Step 1 - Understand the Problem and Establish Design Scope
+
+Before designing, we need to clarify scope and assumptions:
+
+Clarification Questions
+
+Distance threshold: How close is “nearby”?
+→ 5 miles, configurable.
+
+Distance calculation: Can we assume straight-line distance?
+→ Yes. Real-life obstacles ignored.
+
+Number of users: Assume 1 billion users; 10% use Nearby Friends.
+
+Location history: Should be stored for purposes like machine learning.
+
+Inactive friends: If offline > 10 mins, they disappear from the nearby list.
+
+Privacy laws: Ignore GDPR, CCPA for simplicity.
+
+Functional Requirements
+
+Users can see nearby friends with distance and timestamp.
+
+The list updates every few seconds.
+
+Non-functional Requirements
+
+Low latency: Updates must be near real-time.
+
+Reliability: System must be mostly reliable; minor data loss is okay.
+
+Eventual consistency: Data can propagate with a small delay.
+
+Back-of-the-Envelope Estimation
+
+Assumptions:
+
+Nearby = 5-mile radius.
+
+Location refresh interval = 30 seconds (walking speed ~3–4 mph).
+
+100 million DAU (Daily Active Users).
+
+Concurrent users = 10% of DAU = 10 million.
+
+Average user friends = 400.
+
+App displays 20 friends per page.
+
+Calculate QPS (Queries per Second):
+
+Users report location every 30 seconds.
+
+Location updates per second:
+
+10
+,
+000
+,
+000
+30
+≈
+334
+,
+000
+ updates/sec
+30
+10,000,000
+	​
+
+≈334,000 updates/sec
+Step 2 - Propose High-Level Design and Get Buy-In
+Why High-Level First?
+
+The client-server communication is not simple HTTP requests; we need push updates via WebSockets. Without the high-level design, API and data model choices are unclear.
+
+High-Level Design
+
+Goal: Efficient message passing. Users receive real-time location updates from active nearby friends.
+
+Option 1: Pure Peer-to-Peer
+
+Each user connects to all nearby friends directly.
+
+Problem: Impractical for mobile devices due to flaky connections and battery limitations.
+
+Option 2: Shared Backend
+
+Backend receives updates from all users.
+
+Forwards each update to friends within a distance threshold.
+
+Only active, nearby friends receive updates.
+
+Challenge at Scale:
+
+10 million active users, 334K updates/sec.
+
+Each user has 400 friends; 10% online and nearby.
+
+Updates per second to forward:
+
+334
+,
+000
+×
+400
+×
+0.1
+≈
+14
+,
+000
+,
+000
+ updates/sec
+334,000×400×0.1≈14,000,000 updates/sec
+
+This is very high and requires careful design to handle.
+
+Proposed Backend Components
+1. Load Balancer
+
+Distributes traffic to RESTful API servers and WebSocket servers evenly.
+
+2. RESTful API Servers
+
+Stateless HTTP servers.
+
+Handle auxiliary tasks:
+
+Add/remove friends
+
+Update profiles
+
+Not responsible for real-time location updates.
+
+3. WebSocket Servers
+
+Stateful servers handling near-real-time location updates.
+
+Each client maintains one persistent WebSocket connection.
+
+Responsibilities:
+
+Forward updates from active nearby friends.
+
+Initialize client with locations of nearby friends when connecting.
+
+4. Redis Location Cache
+
+Stores most recent location of active users.
+
+TTL (Time-To-Live) for automatic expiry after inactivity.
+
+Every update refreshes TTL.
+
+5. User Database
+
+Stores user profiles and friendships.
+
+Can be relational or NoSQL.
+
+6. Location History Database
+
+Stores historical location data.
+
+Not directly needed for Nearby Friends.
+
+7. Redis Pub/Sub Server
+
+Lightweight message bus.
+
+Each user or friend group can have a channel/topic.
+
+Scales to millions of channels efficiently.
+
+Summary
+
+Nearby Friends requires a scalable, near-real-time backend.
+
+Use WebSockets + Redis caching + Pub/Sub for low-latency updates.
+
+The main challenge is the sheer volume of updates: millions per second.
+
+The design separates static requests (REST) and dynamic updates (WebSockets) for efficiency.
+
+
+
+Proposed Design
+
+We will first discuss a high-level backend design for a lower scale system. Later, we can optimize it for larger scale scenarios. The design is shown in Figure 2.4 (not included here) and satisfies the functional requirements. Let’s go through each component.
+
+Load Balancer
+
+Sits in front of RESTful API servers and WebSocket servers.
+
+Distributes incoming traffic evenly across servers.
+
+Ensures that no single server is overloaded.
+
+RESTful API Servers
+
+A cluster of stateless HTTP servers.
+
+Handles request/response traffic, such as:
+
+Adding or removing friends
+
+Updating user profiles
+
+Handles auxiliary tasks; not involved in real-time location updates.
+
+The request flow is shown in Figure 2.5.
+
+WebSocket Servers
+
+A cluster of stateful servers handling near real-time updates.
+
+Each client maintains one persistent WebSocket connection to a server.
+
+Responsibilities:
+
+Sends location updates for friends within a search radius to the client.
+
+Handles client initialization for the "nearby friends" feature:
+
+Seeds the client with locations of all nearby online friends.
+
+Note: "WebSocket connection" and "WebSocket connection handler" are interchangeable.
+
+Redis Location Cache
+
+Stores most recent location data of active users.
+
+Each entry has a TTL (Time to Live):
+
+When TTL expires → user is inactive → location data is removed.
+
+Every update refreshes the TTL.
+
+Other KV stores that support TTL could also be used.
+
+User Database
+
+Stores user data and friendship data.
+
+Can be a relational or NoSQL database.
+
+Location History Database
+
+Stores historical location data of users.
+
+Not directly related to the "nearby friends" feature.
+
+Redis Pub/Sub Server
+
+Lightweight message bus for broadcasting messages.
+
+Channels (topics) are cheap to create; millions of channels can exist in memory.
+
+Flow for location updates:
+
+Location updates from WebSocket server are published to the user's channel.
+
+Each active friend subscribes to the user’s channel.
+
+When an update is received:
+
+The WebSocket handler recomputes distance to each friend.
+
+If within search radius → update is sent via WebSocket.
+
+Otherwise → update is dropped.
+
+Other lightweight message buses could replace Redis Pub/Sub.
+
+Periodic Location Update
+
+Mobile clients send periodic location updates via WebSocket.
+
+Flow (Figure 2.7):
+
+Client sends location update to load balancer.
+
+Load balancer forwards update to WebSocket server holding the connection.
+
+WebSocket server saves location in location history database.
+
+WebSocket server updates location cache:
+
+Refreshes TTL
+
+Stores location in WebSocket handler for distance calculations.
+
+WebSocket server publishes update to Redis Pub/Sub server.
+
+Steps 3-5 can be done in parallel.
+
+Redis Pub/Sub broadcasts update to all subscribers (online friends).
+
+Each WebSocket handler computes distance to user sending the update.
+
+If within search radius, the update is sent to the client; otherwise, it is dropped.
+
+Concrete Example (Figure 2.8)
+
+Assumptions:
+
+User 1’s friends: User 2, 3, 4
+
+User 5’s friends: User 4, 6
+
+Flow:
+
+User 1 changes location → update sent to WebSocket server.
+
+Location published to User 1's channel in Redis Pub/Sub.
+
+Redis broadcasts update to all subscribers → WebSocket handlers of User 1’s friends.
+
+Each friend checks distance:
+
+Within search radius → new location sent to client.
+
+Otherwise → update dropped.
+
+On average:
+
+400 friends per user
+
+10% online and nearby → ~40 updates forwarded per location change.
+
+API Design
+WebSocket APIs
+
+Periodic Location Update
+
+Request: Latitude, longitude, timestamp
+
+Response: None
+
+Client Receives Location Updates
+
+Data sent: Friend location + timestamp
+
+WebSocket Initialization
+
+Request: Latitude, longitude, timestamp
+
+Response: Friends' location data
+
+Subscribe to New Friend
+
+Request: Friend ID
+
+Response: Friend's latest latitude, longitude, timestamp
+
+Unsubscribe a Friend
+
+Request: Friend ID
+
+Response: None
+
+HTTP APIs
+
+Handled by API servers: Adding/removing friends, updating profiles, etc.
+
+Standard tasks, not detailed here.
+
+Data Model
+Location Cache
+
+Stores latest locations of active users with "nearby friends" feature on.
+
+Uses Redis.
+
+Key/value structure not detailed here (Table 2.1 in the original text)
+
+
+
+Why don't we use a database to store location data?
+
+The “nearby friends” feature only cares about the current location of a user, so:
+
+Only one location per user is needed.
+
+Redis is chosen because:
+
+It provides super-fast read and write operations.
+
+It supports TTL (Time-To-Live), which automatically removes inactive users from the cache.
+
+Durability is not required:
+
+If the Redis instance goes down, we can start a new empty instance.
+
+The cache will refill as users send new location updates.
+
+Users might miss updates for a cycle or two, which is an acceptable tradeoff.
+
+In the deep dive, ways to lessen the impact of cache replacement are discussed.
+
+Location history database
+
+This database stores historical location data with the following schema:
+
+| user_id | latitude | longitude | timestamp |
+
+Requirements:
+
+Handle heavy-write workloads.
+
+Be horizontally scalable.
+
+Cassandra is a good choice.
+
+A relational database could work but would require sharding by user ID because:
+
+Data cannot fit in a single instance.
+
+Sharding ensures even load distribution and is operationally easy to maintain.
+
+Step 3 – Design Deep Dive
+How well does each component scale?
+API servers
+
+RESTful API servers are stateless, so scaling is straightforward.
+
+Auto-scaling can be based on CPU, load, or I/O.
+
+WebSocket servers
+
+WebSocket servers are stateful, so scaling requires care.
+
+Removing nodes:
+
+Mark node as draining so no new connections go there.
+
+Wait until existing connections close, then remove the server.
+
+Deploying new versions requires the same care.
+
+Load balancer handles auto-scaling effectively.
+
+Client initialization
+
+When a mobile client starts:
+
+Opens a persistent WebSocket connection.
+
+Sends the initial location.
+
+The server then:
+
+Updates the location cache (Redis).
+
+Stores the location in the connection handler variable.
+
+Loads user’s friends from the database.
+
+Fetches friends’ locations from the cache in batches.
+
+Inactive friends won’t appear because of TTL.
+
+Calculates distance between the user and friends.
+
+If within radius, returns friend’s profile, location, and timestamp.
+
+Subscribes to each friend’s Redis Pub/Sub channel.
+
+Channels are cheap to create.
+
+Inactive friends consume memory but no CPU or I/O until active.
+
+Publishes user’s location to their own Redis channel.
+
+User database
+
+Stores:
+
+User profiles: user ID, username, profile URL, etc.
+
+Friendships.
+
+Challenges:
+
+Datasets are large, won’t fit in a single relational database.
+
+Solution: shard by user ID.
+
+At scale, the database may be managed by a dedicated team and accessed via an internal API.
+
+Functionality and performance are similar whether querying directly or via API.
+
+Location cache
+
+Redis is used to cache most recent locations.
+
+TTL is set and renewed on every update, limiting memory usage.
+
+Example:
+
+10 million active users
+
+Each location = 100 bytes → fits on a single modern Redis server.
+
+Scaling:
+
+10 million users updating every 30 seconds → 334K updates/sec.
+
+Too high for a single server.
+
+Solution: shard by user ID across multiple Redis servers.
+
+Availability:
+
+Replicate each shard to a standby node.
+
+If primary fails, standby is promoted quickly.
+
+Redis Pub/Sub server
+
+Used to route messages (location updates) from users to online friends:
+
+Why Redis Pub/Sub:
+
+Lightweight channel creation.
+
+If no subscribers, messages are dropped → low load.
+
+Channels use small memory → no CPU or I/O when friends are offline.
+
+Design choices:
+
+Assign a unique channel per user.
+
+Users subscribe to all friends, online or offline.
+
+Simplifies backend design (no need to handle dynamic subscriptions).
+
+Memory tradeoff: higher memory usage is acceptable for simpler architecture.
+
+✅ Summary:
+
+Redis cache for current locations → fast, ephemeral.
+
+Database (Cassandra) for historical locations → scalable, durable.
+
+WebSocket servers handle real-time updates → careful scaling needed.
+
+Pub/Sub routes updates efficiently → lightweight, low CPU when inactive.
+
+
+
+How Many Redis Pub/Sub Servers Do We Need?
+
+To estimate the number of Redis Pub/Sub servers, we consider memory usage and CPU usage separately.
+
+Memory Usage
+
+Assumptions:
+
+Each user has a dedicated channel for the nearby friends feature.
+
+10% of 1 billion users use this feature → 100 million channels.
+
+On average, each user has 10 active friends for this feature.
+
+Each subscriber pointer in Redis takes ~20 bytes.
+
+Calculation:
+
+Memory per channel
+=
+10
+ friends
+×
+20
+ bytes
+=
+200
+ bytes per channel
+Memory per channel=10 friends×20 bytes=200 bytes per channel
+Total memory
+=
+100
+,
+000
+,
+000
+ channels
+×
+200
+ bytes
+=
+20
+,
+000
+,
+000
+,
+000
+ bytes
+≈
+200
+ GB
+Total memory=100,000,000 channels×200 bytes=20,000,000,000 bytes≈200 GB
+
+Server Requirement:
+
+A modern server has ~100GB of memory.
+
+Therefore, 2 Redis Pub/Sub servers are enough to hold all channels in memory.
+
+CPU Usage
+
+Assumptions:
+
+Pub/Sub server needs to push ~14 million updates per second.
+
+Conservative estimate: a single Redis server can push 100,000 messages/sec (small location updates, 1Gb network).
+
+Calculation:
+
+Number of servers
+=
+14
+,
+000
+,
+000
+100
+,
+000
+=
+140
+ servers
+Number of servers=
+100,000
+14,000,000
+	​
+
+=140 servers
+
+Observation:
+
+CPU, not memory, is the bottleneck.
+
+We need a distributed Redis Pub/Sub cluster to handle the traffic.
+
+Distributed Redis Pub/Sub Server Cluster
+How to Distribute Channels?
+
+Channels are independent → easy to shard by publisher’s user ID.
+
+Operational considerations are important because servers can fail.
+
+Service Discovery Component
+
+Purpose:
+
+Keep a list of active Redis Pub/Sub servers.
+
+Allow WebSocket servers to subscribe to updates in server list.
+
+Key Features:
+
+Maintain configuration data (simple key-value store).
+
+Example of storing hash ring in service discovery:
+
+Key: /config/pub_sub_ring
+Value: ["p_1", "p_2", "p_3", "p_4"]
+
+
+Clients (WebSocket servers) subscribe to changes.
+
+Hash Ring Usage:
+
+Hash ring maps channels to Redis servers.
+
+Publishers and subscribers use it to locate the correct server.
+
+Publishing and Subscribing Example
+
+WebSocket server checks the hash ring to find the correct Redis server.
+
+It publishes the location update to the user's channel on that server.
+
+Subscribing uses the same mechanism.
+
+Scaling Considerations for Redis Pub/Sub Servers
+Scaling Up or Down
+
+Messages in Pub/Sub are stateless (not persisted; dropped if no subscribers).
+
+State is maintained in subscriber lists.
+
+Implications:
+
+Channels may need to move when servers are added or removed.
+
+Subscribers must resubscribe to the new server.
+
+The cluster is stateful operationally → careful planning is needed.
+
+Operational Issues During Scaling
+
+Resizing the cluster:
+
+Channels move to different servers.
+
+WebSocket servers need to resubscribe.
+
+Some updates might be missed temporarily.
+
+Timing:
+
+Resize during low-usage periods.
+
+Steps to Resize
+
+Determine the new ring size.
+
+Provision new servers if scaling up.
+
+Update hash ring keys.
+
+Monitor CPU usage spikes in WebSocket servers.
+
+Example:
+
+Old hash ring: ["p_1", "p_2", "p_3", "p_4"]
+
+Adding 2 nodes → New ring: ["p_1", "p_2", "p_3", "p_4", "p_5", "p_6"]
+
+Conclusion
+
+Memory is not the bottleneck (2 servers enough for 200GB).
+
+CPU is the bottleneck → need ~140 servers for 14M updates/sec.
+
+Channels can be sharded by user ID.
+
+A service discovery + hash ring mechanism is required for distribution and operational resilience.
+
+Scaling must be done carefully due to subscriber state management.
+
+
+
+
+
+Operational Considerations for Redis Pub/Sub Servers
+Low Risk of Replacing a Redis Pub/Sub Server
+
+Replacing an existing Redis Pub/Sub server is relatively low-risk because:
+
+Only the channels on the server being replaced need to be handled.
+
+Servers occasionally fail or require replacement, so minimizing the operational impact is important.
+
+This ensures that the failure or replacement of a single server doesn’t disrupt the entire system.
+
+Monitoring and Handling Server Failures
+
+When a Pub/Sub server goes down:
+
+Monitoring
+
+Monitoring software detects server failures and alerts the on-call operator.
+
+The exact method of monitoring is not covered in this chapter.
+
+Updating the Hash Ring
+
+The on-call operator updates the hash ring key in service discovery to replace the failed node with a fresh standby node.
+
+Notifying WebSocket Servers
+
+WebSocket servers are informed about the hash ring update.
+
+Each connection handler is then notified to re-subscribe to the channels on the new Pub/Sub server.
+
+Resubscribing to Channels
+
+Each WebSocket handler maintains a list of all subscribed channels.
+
+Upon receiving the server update notification, the handler checks each channel against the hash ring to determine whether it needs to subscribe to a new server.
+
+Example: Replacing a Pub/Sub Server
+
+Using a hash ring (as in Figure 2.9):
+
+Old Hash Ring: ["p_1", "p_2", "p_3", "p_4"]
+
+New Hash Ring after replacing p_1: ["p_1_new", "p_2", "p_3", "p_4"]
+
+The channels previously handled by p_1 are now reassigned to p_1_new. This ensures minimal disruption to the system.
+
+Adding/Removing Friends
+Adding a Friend
+
+When a user adds a new friend:
+
+The mobile client triggers a callback whenever a new friend is added.
+
+The callback sends a message to the WebSocket server to subscribe to the new friend's Pub/Sub channel.
+
+The WebSocket server also returns the new friend’s latest location and timestamp, if the friend is active.
+
+Removing a Friend
+
+When a user removes a friend:
+
+The mobile client triggers a callback for friend removal.
+
+The callback sends a message to the WebSocket server to unsubscribe from the friend’s Pub/Sub channel.
+
+This approach can also handle friends opting in or out of location sharing.
+
+Users with Many Friends
+Performance Considerations
+
+Assume there is a hard cap on the number of friends (e.g., Facebook allows up to 5,000 friends).
+
+Friendships are bi-directional, unlike a follower model where a celebrity may have millions of followers.
+
+Load Distribution
+
+Users with many friends will have their subscriptions spread across multiple WebSocket servers, reducing the chance of hotspots.
+
+Each user increases the load only on the Pub/Sub server that hosts their channel.
+
+With 100+ Pub/Sub servers, even users with many friends (“whales”) are distributed, preventing overload on a single server.
+
+Nearby Random Person Feature (Optional/Extra Credit)
+Objective
+
+Enable users to see random people who have opted into location sharing.
+
+Implementation Using Geohash
+
+Divide the area into geohash grids.
+
+Create a Pub/Sub channel for each grid.
+
+Users in the same grid subscribe to the same channel.
+
+Example (User 2 updates location):
+
+WebSocket handler computes the user’s geohash ID.
+
+Location is published to the Pub/Sub channel for that geohash.
+
+Other users subscribed to that channel (excluding the sender) receive the location update.
+
+Handling Border Cases
+
+Users near the edge of a geohash grid might belong to multiple grids.
+
+Each client subscribes to the user’s grid and the 8 surrounding grids.
+
+This ensures location updates are received even if users are on grid boundaries.
+
+
+
+
+Alternative to Redis Pub/Sub
+
+The text discusses alternatives to using Redis Pub/Sub as a routing layer in a system that handles real-time updates, like a "nearby friends" feature in an app.
+
+Erlang as an Alternative
+
+Yes, there is a good alternative to Redis Pub/Sub.
+
+Erlang is presented as a strong solution for this problem.
+
+Comparison with Redis Pub/Sub:
+
+While Redis Pub/Sub is widely used, Erlang can be better for large-scale distributed systems.
+
+Caveat: Erlang is a niche language, so hiring experienced developers can be challenging.
+
+If your team has Erlang expertise, it becomes a very effective option.
+
+Why Erlang?
+
+Erlang is both a programming language and a runtime environment designed for highly distributed and concurrent applications.
+
+Key components of Erlang ecosystem:
+
+Language: Erlang or Elixir
+
+Runtime environment: BEAM (Erlang virtual machine)
+
+Libraries: OTP (Open Telecom Platform) for robust applications
+
+Advantages of Erlang
+
+Lightweight Processes
+
+Erlang processes are extremely cheap compared to Linux processes.
+
+A minimal process consumes around 300 bytes.
+
+Millions of processes can run on a single server.
+
+If a process has no work, it doesn’t consume CPU—perfect for modeling each user as a process.
+
+Easy Distribution
+
+Erlang can distribute processes across multiple servers with low operational overhead.
+
+Tools exist for debugging live production issues safely.
+
+Strong deployment tools simplify scaling.
+
+Using Erlang in the Design
+
+Instead of Redis Pub/Sub, implement the WebSocket service in Erlang.
+
+Replace the Redis Pub/Sub cluster with a distributed Erlang application.
+
+How users are modeled:
+
+Each user is represented as an Erlang process.
+
+This user process:
+
+Receives updates from the WebSocket server when a user moves.
+
+Subscribes to updates from friends' user processes.
+
+Subscription in Erlang is native and straightforward.
+
+This creates a mesh network of connections that efficiently routes location updates from one user to multiple friends.
+
+Step 4 - Wrap Up
+
+The chapter presents a design for a nearby friends feature, focusing on efficient updates from one user to their friends.
+
+Core Components
+
+WebSocket: For real-time client-server communication.
+
+Redis: Fast read/write for location data.
+
+Redis Pub/Sub: Routing layer for location updates (can be replaced by Erlang).
+
+Design Approach
+
+Start with a high-level design for small scale.
+
+Discuss challenges at larger scale.
+
+Explore scalability for:
+
+RESTful API servers
+
+WebSocket servers
+
+Data layer
+
+Redis Pub/Sub servers
+
+Alternatives to Redis Pub/Sub (like Erlang)
+
+Handling Bottlenecks
+
+When a user has many friends, routing updates efficiently becomes challenging.
+
+Erlang helps manage this efficiently using its lightweight processes and native subscription model.
+
+Key Takeaways
+
+Redis Pub/Sub is not the only option; Erlang offers a robust alternative.
+
+Erlang is ideal for highly concurrent, distributed systems.
+
+Modeling users as processes allows millions of real-time updates with minimal CPU overhead.
+
+Replacing Redis Pub/Sub with Erlang can simplify scaling and routing logic.
+
+
+
+
+
+-------
+
+
+
+
+Diagram: Redis Pub/Sub vs Erlang-Based Routing
+1. Redis Pub/Sub Approach
+           +----------------+
+           | WebSocket      |
+           | Server         |
+           +----------------+
+                    |
+            Sends updates
+                    v
+           +----------------+
+           | Redis Pub/Sub  |
+           | (Routing Layer)|
+           +----------------+
+          /       |       \
+      Friend1   Friend2   Friend3
+       Process  Process   Process
+
+
+WebSocket server receives location updates from users.
+
+Redis Pub/Sub acts as the routing layer:
+
+Publishes updates to channels.
+
+Subscribers (friends) get updates via Redis.
+
+Bottleneck: When a user has thousands of friends, Redis channels can become a heavy load.
+
+2. Erlang-Based Routing Approach
+           +----------------+
+           | WebSocket      |
+           | Server         |
+           +----------------+
+                    |
+            Sends updates
+                    v
+       +-------------------------+
+       | Erlang Runtime (BEAM)   |
+       | Distributed User Processes|
+       +-------------------------+
+        /        |       \      \
+   UserProc1  UserProc2  UserProc3  ...
+
+
+Each user is an Erlang process:
+
+Receives updates from WebSocket server.
+
+Subscribes directly to friends’ processes.
+
+Mesh network forms automatically:
+
+Updates are sent directly from one process to others.
+
+Lightweight processes allow millions of users on a single server.
+
+No central routing bottleneck like Redis Pub/Sub.
+
+Key Differences
+
+| Feature              | Redis Pub/Sub               | Erlang-Based Routing                |
+| -------------------- | --------------------------- | ----------------------------------- |
+| Routing              | Centralized                 | Distributed (per-user processes)    |
+| Scalability          | Limited by Redis channels   | Millions of lightweight processes   |
+| CPU Usage            | Consumes CPU even when idle | Idle processes use virtually no CPU |
+| Ease of Subscription | Manual implementation       | Native in Erlang/OTP                |
+| Distribution         | Needs Redis cluster         | Built-in in Erlang runtime          |
+
+
+
