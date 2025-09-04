@@ -2,15 +2,21 @@ Serverless architecture allows developers to build and run applications without 
  
 What is Serverless Architecture?
 In a serverless model, the cloud provider manages the server infrastructure, automatic scaling, and maintenance, allowing developers to focus on writing business logic as discrete functions. These functions are triggered by events, such as an API request, a file upload, or a scheduled event. 
+
+
 How it Works
 1. Event Trigger:
 An event occurs, like a user uploading an image to a storage bucket. 
+
 2. Function Invocation:
-The event triggers a pre-defined serverless function (e.g., AWS Lambda, Google Cloud Functions), which runs on demand. 
+The event triggers a pre-defined serverless function (e.g., AWS Lambda, Google Cloud Functions), which runs on demand.
+
 3. Code Execution:
-The function executes the necessary code to process the event, such as generating a thumbnail. 
+The function executes the necessary code to process the event, such as generating a thumbnail.
+
 4. Scaling & Pay-per-use:
 The infrastructure scales automatically based on demand, and you only pay for the compute time the function uses. 
+
 Examples of Serverless Architecture
 Image Processing: When a user uploads an image, a serverless function can automatically create a thumbnail or other resized versions and store them, triggering further functions for metadata extraction. 
 Building APIs: Creating RESTful APIs to handle requests from web or mobile applications. 
