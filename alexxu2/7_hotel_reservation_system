@@ -1,1 +1,1238 @@
-..
+7 Hotel Reservation System
+
+In this chapter, we design a hotel reservation system for a hotel chain (like Marriott International).
+The design approach here can also apply to other booking-related interview topics such as:
+
+Design Airbnb
+
+Design a flight reservation system
+
+Design a movie ticket booking system
+
+Step 1 - Understand the Problem and Establish Design Scope
+
+The hotel reservation system is complex, and its components depend on the business use cases.
+Before diving into design, we need to ask clarification questions to define the scope.
+
+Clarification Questions (Candidate vs. Interviewer)
+
+Scale of the system
+
+Interviewer: Website for a hotel chain with 5,000 hotels and 1 million rooms.
+
+Payment model
+
+Interviewer: Customers pay in full when they make reservations (not at arrival).
+
+Reservation channels
+
+Interviewer: Customers can book via website or app only (phone calls not in scope).
+
+Cancellations
+
+Interviewer: Yes, customers can cancel reservations.
+
+Overbooking
+
+Interviewer: Yes, system must support 10% overbooking.
+
+Overbooking = selling more rooms than available, anticipating cancellations.
+
+Scope focus (agreed features)
+Candidate limits scope to:
+
+Show hotel-related page
+
+Show hotel room detail page
+
+Reserve a room
+
+Admin panel (add/remove/update hotel/room info)
+
+Support overbooking
+
+Dynamic pricing
+
+Interviewer: Room prices change daily, based on demand (hotel occupancy expectations).
+
+Non-functional Requirements
+
+The interviewer highlights key non-functional requirements:
+
+High concurrency
+
+Peak season events → many users booking the same room simultaneously.
+
+Moderate latency
+
+Ideally fast, but system can take a few seconds to process reservations.
+
+Back-of-the-envelope Estimation
+
+Hotels and rooms:
+
+5,000 hotels
+
+1 million rooms
+
+Occupancy and stay duration:
+
+Assume 70% of rooms are occupied.
+
+Average stay duration = 3 days.
+
+Daily reservations:
+
+1
+,
+000
+,
+000
+×
+0.7
+3
+≈
+233
+,
+333
+(round up to 240,000)
+3
+1,000,000×0.7
+	​
+
+≈233,333(round up to 240,000)
+
+Reservations per second (TPS):
+
+240
+,
+000
+86
+,
+400
+ seconds
+≈
+3
+ 
+𝑇
+𝑃
+𝑆
+86,400 seconds
+240,000
+	​
+
+≈3TPS
+
+Average reservation transactions per second is low (3 TPS).
+
+QPS Estimation for Customer Flow
+
+A typical customer flow has 3 steps:
+
+View hotel/room detail page → query
+
+View booking page (confirm details, payment info) → query
+
+Reserve room → transaction
+
+Funnel assumption
+
+10% of users proceed to the next step.
+
+90% drop off before final booking.
+
+No prefetching.
+
+QPS Calculation (based on 3 TPS final booking)
+
+Step 1: View detail page → 300 QPS
+
+Step 2: Booking page → 30 QPS
+
+Step 3: Reserve rooms → 3 TPS
+
+Step 2 - Propose High-level Design and Get Buy-in
+
+In this step, we discuss:
+
+API design
+
+Data models
+
+High-level design
+
+API Design
+
+We design APIs using RESTful conventions.
+Focus is on reservation system, not search features (search APIs are out of scope).
+
+Hotel-related APIs (Table 7.1)
+
+
+
+| API                      | Detail                                 |
+| ------------------------ | -------------------------------------- |
+| **GET /v1/hotels/ID**    | Get detailed information about a hotel |
+| **POST /v1/hotels**      | Add a new hotel (staff only)           |
+| **PUT /v1/hotels/ID**    | Update hotel info (staff only)         |
+| **DELETE /v1/hotels/ID** | Delete a hotel (staff only)            |
+
+
+
+Room-related APIs (Table 7.2)
+
+| API                               | Detail                                |
+| --------------------------------- | ------------------------------------- |
+| **GET /v1/hotels/ID/rooms/ID**    | Get detailed information about a room |
+| **POST /v1/hotels/ID/rooms**      | Add a room (staff only)               |
+| **PUT /v1/hotels/ID/rooms/ID**    | Update room info (staff only)         |
+| **DELETE /v1/hotels/ID/rooms/ID** | Delete a room (staff only)            |
+
+
+
+Reservation-related APIs (Table 7.3)
+
+| API                            | Detail                                    |
+| ------------------------------ | ----------------------------------------- |
+| **GET /v1/reservations**       | Get reservation history of logged-in user |
+| **GET /v1/reservations/ID**    | Get details of a specific reservation     |
+| **POST /v1/reservations**      | Make a new reservation                    |
+| **DELETE /v1/reservations/ID** | Cancel a reservation                      |
+
+
+
+Making a New Reservation (POST /v1/reservations)
+
+Example request parameters:
+
+
+{
+  "startDate": "2021-04-28",
+  "endDate": "2021-04-30",
+  "hotelID": "245",
+  "roomID": "U12354673389",
+  "reservationID": "13422445"
+}
+
+
+
+reservationID acts as the idempotency key.
+
+Prevents double booking (same room reserved multiple times for same date).
+
+Concurrency handling explained later in “Concurrency issue” section.
+
+
+Data Model
+
+Before choosing the database, we must examine the data access patterns that the hotel reservation system must support. The required queries are:
+
+Query 1: View detailed information about a hotel.
+
+Query 2: Find available types of rooms given a date range.
+
+Query 3: Record a reservation.
+
+Query 4: Look up a reservation or past history of reservations.
+
+From rough estimations, the system is not very large, but we must prepare for traffic spikes during big events (like festivals, sports games, etc.).
+
+Why We Choose a Relational Database
+
+We decide on a relational database because of the following reasons:
+
+Read-heavy vs. Write frequency
+
+Most hotel systems have many users browsing hotel listings but far fewer users actually making reservations.
+
+This means the workload is read-heavy and write-light.
+
+Relational databases perform well in such scenarios.
+
+By contrast, many NoSQL databases are optimized for heavy write loads, so they’re not the best fit here.
+
+ACID Properties (Atomicity, Consistency, Isolation, Durability)
+
+Hotel reservation systems need strong correctness guarantees.
+
+Without ACID, issues like double bookings, double charges, or negative balances can occur.
+
+Relational databases naturally provide ACID, simplifying application logic and ensuring reliability.
+
+Data Modeling
+
+The structure of hotel-related data is clear and stable (hotels, rooms, room types, reservations, etc.).
+
+Relationships among these entities are well-defined.
+
+Relational databases are the most natural fit for this structured data.
+
+Schema Design
+
+The schema (Figure 7.2) contains the following tables:
+
+Hotel Service
+
+hotel
+
+hotel_id (PK)
+
+name
+
+address
+
+location
+
+Rate Service
+
+room_type_rate
+
+hotel_id (PK)
+
+date (PK)
+
+rate
+
+Guest Service
+
+guest
+
+guest_id (PK)
+
+first_name
+
+last_name
+
+email
+
+room
+
+room_id (PK)
+
+room_type_id
+
+floor
+
+number
+
+hotel_id
+
+name
+
+is_available
+
+Reservation Service
+
+reservation
+
+reservation_id (PK)
+
+hotel_id
+
+room_id
+
+start_date
+
+end_date
+
+status
+
+guest_id
+
+Reservation Status
+
+The status field in the reservation table can be one of:
+
+pending
+
+paid
+
+refunded
+
+canceled
+
+rejected
+
+The state machine (Figure 7.3) shows the transitions:
+
+A reservation starts as Pending.
+
+It can move to Paid, Canceled, or Rejected.
+
+From Paid, it may later become Refunded.
+
+Schema Issue
+
+The schema works well for systems like Airbnb where a room_id (or listing_id) is directly reserved.
+
+❌ Problem for hotels:
+
+Guests don’t usually book a specific room number ahead of time.
+
+Instead, they book a room type (e.g., standard, king-size, queen with two beds).
+
+The exact room number is assigned only during check-in.
+
+✅ Therefore, the schema must be updated to reflect room type reservations instead of specific room assignments. (Improved data model details are mentioned later in the “deep dive” section.)
+
+High-level Design
+
+We use a microservice architecture for the hotel reservation system.
+
+This architecture has become popular with companies like Amazon, Netflix, Uber, Airbnb, Twitter, etc.
+
+High-level Design Diagram (Figure 7.4)
+Public vs. Private Layers
+
+User (Public): Customers booking via mobile/web apps.
+
+Admin (Hotel Staff, Private): Staff performing operations like refunds, cancellations, or updating rooms.
+
+Components
+
+CDN (Content Delivery Network)
+
+Stores static assets (JS, images, videos, HTML).
+
+Improves load times and reduces server load.
+
+Public API Gateway
+
+Entry point for all external requests.
+
+Supports rate limiting, authentication, routing.
+
+Routes requests:
+
+Hotel homepage → Hotel Service
+
+Booking request → Reservation Service
+
+Internal APIs
+
+Used only by hotel staff (admins).
+
+Accessible via internal tools, protected by VPN.
+
+Hotel Service
+
+Provides hotel and room information.
+
+Data is mostly static and can be cached.
+
+Rate Service
+
+Provides room rates by date.
+
+Hotel room prices vary depending on demand and expected occupancy.
+
+Reservation Service
+
+Handles reservation requests.
+
+Manages room inventory as bookings are made or canceled.
+
+Payment Service
+
+Processes customer payments.
+
+Updates reservation status to Paid (if success) or Rejected (if failed).
+
+Hotel Management Service
+
+Used by admins only.
+
+Features include:
+
+Viewing upcoming reservations
+
+Reserving rooms for customers
+
+Canceling reservations
+
+Processing refunds
+
+Service Interactions
+
+Although Figure 7.4 shows a simplified view, real systems require many inter-service connections (shown in Figure 7.5):
+
+Reservation Service ↔ Rate Service
+
+Reservation service queries rate service to calculate total cost of a reservation.
+
+Hotel Management Service ↔ All Others
+
+When admins update records, requests are forwarded to the service owning the data (e.g., cancel reservation → Reservation Service).
+
+Inter-service Communication
+
+In production, services typically communicate via modern RPC frameworks such as gRPC.
+
+Benefits of gRPC:
+
+High performance
+
+Strong typing
+
+Efficient serialization (Protocol Buffers)
+
+Language and platform independence
+
+
+Step 3 - Design Deep Dive
+
+In this step, we take the high-level design and go deeper into the technical aspects of the system. The key areas are:
+
+Improved data model
+
+Concurrency issues
+
+Scaling the system
+
+Resolving data inconsistency in the microservice architecture
+
+Improved Data Model
+Change from Room-Level to Room-Type Reservations
+
+In the high-level design, instead of reserving a specific room (roomID), users reserve a room type (roomTypeID).
+This requires changes to both the API and the database schema.
+
+Reservation API Update
+
+The roomID field is replaced by roomTypeID.
+Example request:
+
+POST /v1/reservations
+
+
+Request Parameters:
+
+{
+  "startDate": "2021-04-28",
+  "endDate": "2021-04-30",
+  "hotelID": "245",
+  "roomTypeID": "12354673389",
+  "reservationID": "13422445"
+}
+
+Updated Schema (Figure 7.6)
+
+The schema includes several services and their key tables:
+
+Hotel Service
+
+hotel(hotel_id, name, address, location)
+
+Primary Key: hotel_id
+
+Rate Service
+
+room_type_rate(hotel_id, date, rate)
+
+Primary Key: (hotel_id, date)
+
+Guest Service
+
+guest(guest_id, first_name, last_name, email)
+
+Primary Key: guest_id
+
+Reservation Service
+
+room(room_id, room_type_id, floor, number, hotel_id, name, is_available)
+
+room_type_inventory(hotel_id, room_type_id, date, total_inventory, total_reserved)
+
+reservation(reservation_id, hotel_id, room_type_id, start_date, end_date, status, guest_id)
+
+Key Tables
+room
+
+Stores details about each physical room (room_id, floor, number, etc.).
+
+room_type_rate
+
+Stores pricing data for a room type by date.
+
+reservation
+
+Stores guest booking data.
+
+room_type_inventory (Most Important Table)
+
+Tracks room type availability per hotel, per day.
+
+Columns:
+
+hotel_id: Hotel identifier
+
+room_type_id: Room type identifier
+
+date: Specific date
+
+total_inventory: Total rooms available (excluding maintenance/unavailable rooms)
+
+total_reserved: Number of reserved rooms for that hotel, type, and date
+
+Primary Key: (hotel_id, room_type_id, date)
+
+Pre-population Strategy:
+
+Rows are pre-generated for all dates up to 2 years in advance.
+
+A daily scheduled job extends the data as dates advance.
+
+Storage Estimation
+
+Number of hotels: 5,000
+
+Room types per hotel: 20
+
+Future dates covered: 2 years × 365 days
+
+5
+,
+000
+×
+20
+×
+2
+×
+365
+=
+73
+,
+000
+,
+000
+  
+rows
+5,000×20×2×365=73,000,000rows
+
+73M rows is manageable by a single database.
+
+But for high availability, we need replication across multiple regions or availability zones.
+
+Example Data (Table 7.4)
+
+
+| hotel\_id | room\_type\_id | date       | total\_inventory | total\_reserved |
+| --------- | -------------- | ---------- | ---------------- | --------------- |
+| 211       | 1001           | 2021-06-01 | 100              | 80              |
+| 211       | 1001           | 2021-06-02 | 100              | 82              |
+| 211       | 1001           | 2021-06-03 | 100              | 86              |
+| 211       | 1002           | 2021-06-01 | 200              | 164             |
+| 2210      | 101            | 2021-06-01 | 30               | 23              |
+| 2210      | 101            | 2021-06-02 | 30               | 25              |
+
+
+Reservation Flow Using room_type_inventory
+
+Input:
+
+startDate = 2021-07-01
+
+endDate = 2021-07-03
+
+roomTypeId, hotelId, numberOfRoomsToReserve
+
+Step 1 - Query Inventory:
+
+SELECT date, total_inventory, total_reserved
+FROM room_type_inventory
+WHERE room_type_id = ${roomTypeId}
+  AND hotel_id = ${hotelId}
+  AND date BETWEEN ${startDate} AND ${endDate};
+
+
+Step 2 - Check Availability:
+For each returned row:
+
+if (total_reserved + numberOfRoomsToReserve) <= total_inventory
+
+
+If true for all dates, reservation is possible. Otherwise, reject.
+
+Overbooking (10% Allowed)
+
+Hotels often allow slight overbooking.
+This is supported by updating the condition:
+
+if (total_reserved + numberOfRoomsToReserve) <= (total_inventory * 1.1)
+
+
+Example:
+
+
+| date       | total\_inventory | total\_reserved |
+| ---------- | ---------------- | --------------- |
+| 2021-07-01 | 100              | 97              |
+| 2021-07-02 | 100              | 96              |
+| 2021-07-03 | 100              | 95              |
+
+
+
+Here, with 10% overbooking (110 rooms max), bookings are still possible.
+
+Handling Large Reservation Data
+
+If reservation data outgrows a single database, strategies include:
+
+Archive Old Data
+
+Keep only current + future reservations in the main DB.
+
+Move historical data to archival or cold storage.
+
+Database Sharding
+
+Common queries require filtering by hotel_id.
+
+Use hotel_id as a sharding key:
+
+𝑠ℎ𝑎𝑟𝑑=ℎ𝑎𝑠ℎ(ℎ𝑜𝑡𝑒𝑙𝑖𝑑)%𝑛𝑢𝑚𝑏𝑒𝑟_𝑜𝑓_𝑠𝑒𝑟𝑣𝑒𝑟𝑠
+shard=hash(hotelid)%number_of_servers
+
+
+
+Race Condition in Hotel Room Reservation
+
+When two or more users try to reserve the last available room simultaneously, a race condition can occur. This happens because both transactions check the availability before either commits their reservation, leading to inconsistent updates.
+
+Scenario (Figure 7.11)
+
+Initial state:
+
+total_inventory = 100
+
+total_reserved = 99
+
+Transaction 2 (User 2):
+
+Checks availability: (99 + 1) ≤ 100 → TRUE → sees 1 room left.
+
+Transaction 1 (User 1):
+
+Checks availability: (99 + 1) ≤ 100 → TRUE → also sees 1 room left.
+
+Transaction 1 reserves the room:
+
+Updates: total_reserved = 100.
+
+Transaction 2 reserves the room:
+
+Because isolation prevents it from seeing User 1’s uncommitted changes, it still thinks total_reserved = 99.
+
+Updates: total_reserved = 100.
+
+Commit:
+
+Transaction 1 commits.
+
+Transaction 2 commits.
+
+Result: Both users are allowed to reserve the last room → overbooking occurs.
+
+SQL Pseudo-code for Reservation
+Step 1: Check room inventory
+SELECT date, total_inventory, total_reserved
+FROM room_type_inventory
+WHERE room_type_id = ${roomTypeId} AND hotel_id = ${hotelId}
+AND date BETWEEN ${startDate} AND ${endDate}
+
+
+Logic check in application:
+
+if (total_reserved + numberOfRoomsToReserve) > (110% * total_inventory) {
+    Rollback
+}
+
+Step 2: Reserve rooms
+UPDATE room_type_inventory
+SET total_reserved = total_reserved + ${numberOfRoomsToReserve}
+WHERE room_type_id = ${roomTypeId}
+AND date BETWEEN ${startDate} AND ${endDate};
+Commit;
+
+Option 1: Pessimistic Locking
+
+Definition:
+Pessimistic concurrency control prevents simultaneous updates by placing a lock on a record as soon as one transaction starts to update it.
+
+In MySQL: Use SELECT … FOR UPDATE.
+
+Effect: Other transactions must wait until the first one commits or rolls back.
+
+Example (Figure 7.12)
+
+Transaction 1:
+
+BEGIN TRANSACTION
+
+SELECT ... FOR UPDATE → locks the rows.
+
+Updates total_reserved = 100.
+
+COMMIT.
+
+Transaction 2:
+
+Starts, but its SELECT … FOR UPDATE must wait.
+
+After Transaction 1 commits, it sees total_reserved = 100.
+
+No room left → ROLLBACK.
+
+Pros
+
+Prevents updates on data that’s being changed.
+
+Simple to implement.
+
+Works well when data contention is heavy.
+
+Cons
+
+Deadlocks may occur if multiple resources are locked.
+
+Not scalable – long locks block others.
+
+Performance issues if transactions are long-lived.
+
+Conclusion: Not recommended for a hotel reservation system.
+
+Option 2: Optimistic Locking
+
+Definition:
+Optimistic concurrency control allows multiple concurrent updates but validates conflicts at commit time.
+
+Implementation (using version number)
+
+Add a version column in the table.
+
+Application reads the version number before modifying.
+
+When updating, application increments version by 1.
+
+Database validates:
+
+If new_version = old_version + 1 → success.
+
+Otherwise → conflict, transaction aborts, user retries.
+
+Example (Figure 7.13)
+
+User 1: Reads v1 → Updates → Writes v2 (success).
+
+User 2: Reads v1 → Tries to update → Fails (conflict, since v2 already written).
+
+Pros
+
+No locking → faster in low to moderate concurrency.
+
+Avoids deadlocks.
+
+Cons
+
+High concurrency → frequent conflicts → many retries → performance drops.
+
+Not efficient when many clients try booking simultaneously.
+
+
+Optimistic Locking
+How It Works
+
+Each record has a version number.
+
+When a client reads room inventory, it also reads the version number.
+
+On update (reservation), the client checks if the version number is unchanged.
+
+If unchanged → update succeeds.
+
+If changed → update fails (another client already updated it). The failed client must retry.
+
+Example
+
+Multiple clients see the same available room count and version number.
+
+They all try to reserve a room.
+
+Only one client’s update succeeds; the rest fail due to version mismatch and must retry.
+
+Correctness is ensured, but repeated retries make the user experience poor.
+
+Pros
+
+Prevents applications from editing stale data.
+
+No locking at the database level (handled by the application).
+
+Works well when data contention is low → minimal conflicts, fewer retries.
+
+Cons
+
+Poor performance when data contention is high → many retries.
+
+Suitability
+
+For a hotel reservation system, QPS (queries per second) is usually low.
+
+Optimistic locking is a good option here.
+
+Option 3: Database Constraints
+How It Works
+
+Add a constraint in room_type_inventory table:
+
+CONSTRAINT check_room_count CHECK((total_inventory - total_reserved) >= 0)
+
+
+Ensures reserved rooms never exceed total inventory.
+
+Example
+
+total_inventory = 100, total_reserved = 99.
+
+Two users see 1 room left.
+
+User 1 reserves successfully (total_reserved = 100).
+
+User 2’s transaction fails because constraint (100 - 101 >= 0) is violated → rollback.
+
+Pros
+
+Easy to implement.
+
+Works well when data contention is minimal.
+
+Cons
+
+Similar to optimistic locking → heavy contention = high failure rate.
+
+Users might see "room available" but get "no rooms available" error when booking.
+
+Constraints cannot be version-controlled like application code.
+
+Not all databases support constraints → migration issues possible.
+
+Suitability
+
+Hotel reservations usually have low QPS → this is also a good option.
+
+Scalability
+Scenario
+
+For normal hotels → load is low.
+
+But if the system is used by popular travel sites (e.g., Booking.com, Expedia) → QPS can be 10x higher.
+
+Bottleneck
+
+Services are stateless → easy to scale horizontally.
+
+Database is the bottleneck because it holds state and can’t just be cloned.
+
+Database Sharding
+How It Works
+
+Split database into multiple shards.
+
+Each shard contains a portion of data.
+
+Shard data by hotel_id since most queries filter by it.
+
+Example
+
+16 shards.
+
+If total QPS = 30,000 → each shard handles 1,875 QPS, within MySQL’s capacity.
+
+Caching
+Inventory Characteristics
+
+Only current & future inventory is relevant (customers book future rooms).
+
+Old data can expire automatically with TTL.
+
+Choice
+
+Redis is suitable → supports TTL & LRU eviction for memory optimization.
+
+Design (Figure 7.16)
+
+Add a cache layer on top of DB.
+
+Move check inventory & reserve room logic to cache.
+
+DB remains source of truth (final check).
+
+Reservation Service
+
+Provides APIs for:
+
+Query available rooms (hotel, room type, date).
+
+Reserve a room (total_reserved + 1).
+
+Update inventory on cancellations.
+
+Inventory Cache
+
+Pre-populated Redis cache.
+
+Key format: hotelID_roomTypeID_date.
+
+Value: number of available rooms.
+
+Most reads (check inventory) are served from cache.
+
+Database only stores source of truth inventory data.
+
+New Challenges with Cache
+Cache Inconsistency
+
+DB updated first, then cache updated asynchronously (via application logic or CDC like Debezium).
+
+Cache may temporarily show stale data.
+
+Example
+
+Cache says: 1 room left.
+
+DB says: no rooms left.
+
+User tries to reserve → DB rejects (validation check fails).
+
+After sync, cache updates and user sees "no room left".
+
+Key Point
+
+Inconsistency is acceptable as long as DB does the final validation.
+
+Pros of Caching
+
+Reduced database load → most reads handled by cache.
+
+High performance → cache responses are very fast.
+
+
+
+Cons
+
+Maintaining data consistency between the database and cache is hard.
+
+When we use a cache (e.g., Redis) along with a database, data can get out of sync.
+
+This inconsistency needs to be carefully analyzed to understand how it will impact user experience.
+
+Data consistency among services
+Monolithic architecture
+
+In a traditional monolithic architecture, a shared relational database is used.
+
+This ensures data consistency because everything happens inside the same database.
+
+Example: In a hotel reservation monolithic system, both reservation and inventory operations can be wrapped in one database transaction.
+
+Benefit: We can use ACID properties (Atomicity, Consistency, Isolation, Durability) to handle concurrency issues elegantly.
+
+Hybrid approach in our design
+
+In our microservice design, we used a hybrid approach:
+
+Reservation Service handles both reservation APIs and inventory APIs.
+
+Both reservation and inventory tables are stored in the same relational database.
+
+Benefit: By storing them together, we can use the relational database’s ACID transactions to avoid common concurrency problems (like double booking).
+
+Pure microservice design
+
+A microservice purist would challenge this hybrid model.
+
+In pure microservice architecture:
+
+Each microservice has its own database.
+
+Example:
+
+Reservation Service → Reservation DB
+
+Inventory Service → Inventory DB
+
+Payment Service → Payment DB
+
+Why this causes issues
+
+In a monolithic system:
+
+Operations (like “reserve room” + “update inventory”) can be grouped into one transaction (Figure 7.18).
+
+If one step fails, the transaction rolls back automatically.
+
+In a microservice system:
+
+Each service has its own database.
+
+A single logical operation (like booking a room) may involve multiple services and databases.
+
+You cannot wrap everything in one ACID transaction.
+
+Example:
+
+Reservation DB update succeeds
+
+Inventory DB update fails
+
+Now the two databases are inconsistent.
+
+Key insight: There’s usually only one happy path (everything works), but many possible failure cases (leading to inconsistency).
+
+Industry-proven techniques to handle data inconsistency
+
+Two-phase commit (2PC)
+
+A database protocol that ensures atomic commits across multiple databases.
+
+Either all nodes succeed or all fail.
+
+Drawback:
+
+Blocking protocol → if one node fails, the whole system is blocked until recovery.
+
+Not performant for large-scale systems.
+
+Saga pattern
+
+A sequence of local transactions.
+
+Each transaction updates data and publishes an event/message to trigger the next step.
+
+If a step fails:
+
+A compensating transaction is executed to undo the previous step(s).
+
+Key difference:
+
+2PC = single atomic commit (ACID style).
+
+Saga = multiple steps, relies on eventual consistency.
+
+Trade-off
+
+Handling data inconsistency in microservices requires complex mechanisms (2PC, Saga, etc.).
+
+This increases overall design complexity significantly.
+
+As an architect, you must decide if this extra complexity is worth it.
+
+For this hotel reservation system:
+
+We chose a pragmatic approach → put reservation and inventory data in the same relational DB.
+
+Reason: Consistency matters more than strict microservice purity.
+
+Step 4 – Wrap Up
+
+In this chapter, the hotel reservation system design process was summarized:
+
+Gathering requirements
+
+Both functional and non-functional.
+
+Did back-of-the-envelope estimation to understand scale.
+
+High-level design
+
+Designed APIs.
+
+Drafted data models.
+
+Created system architecture diagram.
+
+Deep dive
+
+Improved the data model (reservations should be at room type level, not specific rooms).
+
+Discussed concurrency issues in detail:
+
+Pessimistic locking
+
+Optimistic locking
+
+Database constraints
+
+Explored scaling approaches:
+
+Database sharding
+
+Caching with Redis
+
+Covered data consistency issues in microservices, and solutions like 2PC and Saga.
+
+Conclusion
+
+We decided on a pragmatic hybrid design (reservation + inventory in the same DB).
+
+Complexity of strict microservices wasn’t worth it here.
+
+Chapter Summary
+Functional requirements
+
+Reserve a room
+
+Admin panel
+
+Support overbooking
+
+Support high concurrency
+
+Moderate latency
+
+Hotel-related requirements
+
+API design
+
+Room-related APIs
+
+Reservation-related APIs
+
+View hotel details
+
+Find available rooms
+
+Make a reservation
+
+Look up a reservation
+
+Data model
+
+Initial design → later improved to room type level booking
+
+Concurrency issues
+
+Pessimistic locking
+
+Optimistic locking
+
+Database constraints
+
+Scaling
+
+Database sharding
+
+Redis caching
+
+Data consistency
+
+Monolithic = ACID transactions (easy)
+
+Microservices = harder, needs 2PC or Saga
+
+Trade-off → we used a hybrid approach
+
+
+
+
+
