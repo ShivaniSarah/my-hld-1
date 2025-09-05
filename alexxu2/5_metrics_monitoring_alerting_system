@@ -922,3 +922,121 @@ Displays metrics dashboards and alerts dashboards.
 
 
 
+Chapter Summary
+Step 1
+
+Introduction to the overall process of metric monitoring and system design.
+
+Step 2
+
+Setting up the foundation for Metric Monitoring, including identifying requirements and challenges.
+
+Metric Monitoring
+Step 3
+
+Define what kind of metrics are needed for the system.
+
+Step 4 – Requirements
+
+Functional Requirements
+
+Collect a variety of metrics.
+
+Provide alerting when thresholds or anomalies occur.
+
+Enable visualization for insights and decision-making.
+
+Non-functional Requirements
+
+Work at large-scale to support massive data.
+
+Ensure reliability so no critical alerts are missed.
+
+Provide flexibility in handling different metric types.
+
+Efficient data collection with low latency.
+
+Five Components of the System
+
+Data Storage
+
+Alert
+
+Visualization
+
+Write-heavy ingestion (metrics are constantly being written).
+
+Read-bursty queries (queries happen in bursts, often during incidents).
+
+Time-series Database
+
+Metrics are stored in a time-series database because of temporal data.
+
+Important aspects:
+
+Data access pattern (mostly writes + bursty reads).
+
+Data model optimized for time-indexed storage.
+
+Choice of data storage system that scales with time-series needs.
+
+High-level Design
+Metrics Collection
+
+Two main approaches:
+
+Pull model (central system pulls metrics from services).
+
+Push model (services push metrics to the central system).
+
+Scaling the Metrics Transmission Pipeline
+
+Transmission must scale to handle millions of metrics.
+
+Aggregation can happen at different layers to reduce load.
+
+Components
+
+Cache layer: temporary storage for fast access.
+
+Query service: handles user/system queries.
+
+Time-series database query: optimized for time-based lookups.
+
+Time-series database: main storage engine.
+
+Storage Layer Optimizations
+
+Space optimization to reduce storage costs.
+
+Data encoding and compression for efficient storage.
+
+Downsampling: storing lower-resolution data for old metrics.
+
+Cold storage: moving older data to cheaper storage.
+
+Scaling Through Kafka
+
+Kafka can be used as a scalable message bus for metric ingestion.
+
+Alternatives to Kafka may be considered depending on system requirements.
+
+Alerting System
+
+Must detect anomalies, thresholds, or sudden changes.
+
+Ensure no missed alerts for critical issues.
+
+Visualization
+
+Dashboards and visual tools to present metrics.
+
+Supports quick diagnosis and trend analysis.
+
+Wrap Up
+
+A metric monitoring system requires careful design of data collection, storage, querying, alerting, and visualization.
+
+Scalability, reliability, and efficiency are key.
+
+Trade-offs must be made between storage cost, query performance, and system flexibility.
