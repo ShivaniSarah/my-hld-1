@@ -1,1 +1,2239 @@
-..
+13 Stock Exchange
+In this chapter, the focus is on designing an electronic stock exchange system. The primary goal of any exchange is to efficiently match buyers and sellers.
+Historically, exchanges worked via bartering and shouting on trading floors, but with the rise of supercomputers and networks, trades are executed silently and at extremely high speeds.
+Modern trading is not just about buying/selling products but also includes speculation and arbitrage. Technology has greatly transformed the trading landscape, leading to exponential growth in trading volume.
+When people think of stock exchanges, the NYSE (New York Stock Exchange) and Nasdaq often come to mind, but many other exchanges exist—some specialized in technology, others emphasizing fairness.
+Before diving into the design, it is important to clarify the scale and characteristics of the system.
+NYSE: trades billions of matches per day
+
+
+HKEX (Hong Kong Exchange): trades about 200 billion shares per day
+
+
+Figure 13.1 shows the world’s largest exchanges in the “trillion-dollar club” by market capitalization.
+
+
+
+Step 1 - Understand the Problem and Establish Design Scope
+A modern exchange is complex with stringent requirements for:
+Latency
+
+
+Throughput
+
+
+Robustness
+
+
+Interview Q&A (to clarify requirements)
+Candidate: Which securities are we going to trade? (Stocks, options, futures?)
+ Interviewer: Only stocks, for simplicity.
+Candidate: Which order operations are supported? New orders, cancel, replace? Limit, market, or conditional orders?
+ Interviewer: Support only:
+Placing new orders
+
+
+Canceling orders
+
+
+Limit orders only (no market/conditional orders).
+
+
+Candidate: Does the system support after-hours trading?
+ Interviewer: No, only normal trading hours.
+Candidate: What are the basic functions and scale (users, symbols, orders)?
+ Interviewer:
+Clients can place/cancel limit orders
+
+
+Clients receive matched trades in real-time
+
+
+Clients can view the real-time order book (buy/sell lists)
+
+
+System must support:
+
+
+Tens of thousands of users simultaneously
+
+
+At least 100 symbols
+
+
+Billions of orders per day
+
+
+Must also handle risk checks
+
+
+Candidate: What are risk checks?
+ Interviewer: Example: a user can only trade a maximum of 1 million Apple shares per day.
+Candidate: Do we also need wallet management?
+ Interviewer: Yes, very important. Users must:
+Have sufficient funds to place an order
+
+
+Funds must be withheld for pending orders to prevent overspending
+
+
+
+Non-functional Requirements
+After functional requirements, we consider non-functional requirements. Based on the interviewer’s constraints ("100 symbols", "tens of thousands of users"), the system is small-to-medium scale, but should be extensible to larger workloads.
+List of Non-functional Requirements:
+Availability
+
+
+At least 99.99% uptime
+
+
+Even seconds of downtime can damage reputation
+
+
+Fault Tolerance
+
+
+Must recover quickly from system failures
+
+
+Minimize impact of production incidents
+
+
+Latency
+
+
+Round-trip latency must be at the millisecond level
+
+
+Focus on the 99th percentile latency (worst-case users)
+
+
+Measured from the moment an order enters → to when it is executed and confirmed
+
+
+A consistently high 99th percentile leads to poor user experience
+
+
+Security
+
+
+Must include account management
+
+
+KYC (Know Your Client) checks required for compliance before new account creation
+
+
+Market data pages (public) must be protected against DDoS attacks
+
+
+
+Back-of-the-envelope Estimation
+Quick calculations to estimate system scale:
+100 symbols
+
+
+1 billion orders per day
+
+
+Trading hours (NYSE example):
+
+
+9:30 am – 4:00 pm Eastern
+
+
+Total = 6.5 hours/day
+
+
+QPS (Queries Per Second):
+QPS=1,000,000,0006.5×3600≈43,000QPS = \frac{1,000,000,000}{6.5 \times 3600} \approx 43,000QPS=6.5×36001,000,000,000​≈43,000
+So, about 43,000 orders per second on average
+
+
+Peak QPS:
+Trading volume spikes at market open and close
+
+
+Assume 5× average QPS
+
+
+Peak QPS=5×43,000=215,000Peak\ QPS = 5 \times 43,000 = 215,000Peak QPS=5×43,000=215,000
+Thus, the system must handle up to 215,000 orders per second at peak.
+
+Step 2 - Propose High-Level Design and Get Buy-In
+Before designing an exchange, we need to understand some basic business concepts and terminology. These help us see how orders flow through the system and why certain components exist.
+
+Business Knowledge 101
+Broker
+Most retail clients (regular people trading stocks) don’t connect to the exchange directly.
+
+
+They trade via brokers such as Charles Schwab, Robinhood, E*Trade, Fidelity, etc.
+
+
+Brokers provide a user interface (UI) like web or mobile apps where retail users can:
+
+
+Place trades
+
+
+View market data
+
+
+
+Institutional Client
+Institutional clients trade with much larger volumes and use specialized trading software.
+
+
+Their requirements are different:
+
+
+Pension funds → want stable income. They trade infrequently but in large volumes. They need features like order splitting so their big trades don’t move the market too much.
+
+
+Hedge funds (market makers) → provide liquidity and earn money through commission rebates. They need low latency trading (fast execution) — they can’t just use a web/mobile UI like retail clients.
+
+
+
+Limit Order
+A buy or sell order with a fixed price.
+
+
+It might not be matched immediately.
+
+
+It can also be partially matched if only part of the quantity is available at that price.
+
+
+
+Market Order
+A buy or sell order without specifying price.
+
+
+Executed immediately at the prevailing market price.
+
+
+Guarantees execution but sacrifices cost control.
+
+
+Useful in fast-moving market conditions.
+
+
+
+Market Data Levels
+In the US stock market, there are three tiers of price quotes:
+Level 1 (L1)
+Contains only the best bid price, best ask price, and their quantities.
+
+
+Bid price = highest price a buyer is willing to pay.
+
+
+Ask price = lowest price a seller is willing to sell.
+
+
+Level 2 (L2)
+Shows multiple price levels beyond the best bid/ask.
+
+
+Gives more depth of market information.
+
+
+Level 3 (L3)
+Shows not only prices and quantities but also the individual orders queued at each price level.
+
+
+Provides the deepest market transparency.
+
+
+
+Candlestick Chart
+Represents stock prices over a specific time period (e.g., 1 min, 5 min, 1 hr, 1 day, 1 week).
+
+
+Each candlestick shows:
+
+
+Open price
+
+
+Close price
+
+
+High price
+
+
+Low price
+
+
+Also has upper and lower shadows (wicks) to indicate the range beyond open/close.
+
+
+
+FIX (Financial Information eXchange protocol)
+Created in 1991.
+
+
+A vendor-neutral communication protocol for securities transactions.
+
+
+Used widely in exchanges and trading firms.
+
+
+Example FIX message: encodes trade info such as time, stock symbol, buy/sell, order type, quantity, price, etc.
+
+
+
+High-Level Design
+Now that we understand the basics, let’s see the high-level architecture of a stock exchange.
+Main Components (from Figure 13.6)
+Client Gateway → validates and normalizes incoming orders.
+
+
+Order Manager → handles risk checks and wallet balance checks.
+
+
+Matching Engine → finds matches between buy and sell orders.
+
+
+Sequencer → ensures deterministic order of trades.
+
+
+Wallet → tracks user funds.
+
+
+Market Data Publisher → broadcasts order book updates and candlestick charts.
+
+
+Data Service → stores and provides real-time market data to brokers.
+
+
+Reporter & DB → logs orders/executions for compliance and reporting.
+
+
+
+Tracing the Life of an Order
+Trading Flow (Critical Path — must be very fast)
+Client places an order → through broker’s web or mobile app.
+
+
+Broker sends the order → to the exchange.
+
+
+Order enters Client Gateway → does input validation, rate limiting, authentication, normalization. Then forwards to Order Manager.
+ 4–5. Order Manager runs risk checks → based on rules set by the risk manager.
+
+
+Wallet check → ensures the client has enough funds for the trade.
+ 7–9. Matching Engine → tries to match the order. If matched, it creates executions (fills) for both buyer and seller.
+
+
+The Sequencer ensures all orders and executions are processed in a deterministic order.
+ 10–14. Execution reports → returned back to the client.
+
+
+⚡ This flow is the critical path because it has strict latency requirements. Everything must happen very fast.
+
+Market Data Flow (Not Critical Path)
+M1. Matching Engine generates a stream of executions (fills) as trades happen.
+ M2. Market Data Publisher processes this stream → builds candlestick charts and order books. Sends them to the Data Service.
+ M3. Data Service stores market data for real-time analytics. Brokers then connect to it to get updated data and show it to their clients.
+
+Reporting Flow (Not Critical Path)
+R1–R2. Reporter collects all reporting fields (e.g., client_id, price, quantity, order_type, filled_quantity, remaining_quantity).
+Writes consolidated records into the database.
+
+
+
+Key Takeaways
+The Trading Flow (order placement, matching, execution) is critical → must be ultra-fast.
+
+
+The Market Data Flow and Reporting Flow are secondary → lower latency requirements.
+
+
+The architecture ensures fairness, transparency, compliance, and speed for all clients (retail + institutional).
+Trading Flow
+The trading flow is the critical path of the exchange. Everything in it must happen extremely fast because delays can affect fairness, execution quality, and liquidity.
+The heart of the trading flow is the matching engine, which we’ll start with.
+
+Matching Engine
+The matching engine (also called the cross engine) is responsible for:
+Maintain the order book for each symbol
+
+
+An order book is the list of buy and sell orders for a particular trading symbol.
+
+
+Its construction and data model will be explained in detail later.
+
+
+Match buy and sell orders
+
+
+A match creates two executions (fills):
+
+
+one on the buy side
+
+
+one on the sell side
+
+
+The matching must be both fast and accurate.
+
+
+Distribute the execution stream as market data
+
+
+Once trades happen, the resulting data must be shared quickly with the rest of the system.
+
+
+A key requirement is determinism:
+Given the same sequence of input orders, the matching engine must always produce the exact same sequence of executions.
+
+
+This deterministic behavior ensures high availability, recovery consistency, and predictable replay of trades.
+
+
+
+Sequencer
+The sequencer makes the matching engine deterministic. Its responsibilities:
+Stamp incoming orders with a sequence ID before they reach the matching engine.
+
+
+Stamp executions (fills) coming out of the matching engine with sequence IDs as well.
+
+
+There are two sequencers:
+Inbound sequencer → For incoming orders.
+
+
+Outbound sequencer → For outgoing executions.
+
+
+Why sequence IDs are critical:
+Timeliness and fairness – Ensures trades are processed in exact arrival order.
+
+
+Fast recovery / replay – If the system crashes, it can replay the sequence to restore state.
+
+
+Exactly-once guarantee – Prevents duplicate or missing executions.
+
+
+Sequencer also functions as:
+A message queue:
+
+
+One queue for sending incoming orders to the matching engine.
+
+
+Another for sending executions back to the order manager.
+
+
+An event store: Keeps the history of orders and executions.
+
+
+It’s similar to having two Kafka streams (inbound & outbound), but built for lower latency and predictability than Kafka can provide.
+
+
+
+Order Manager
+The order manager sits between the client and the matching engine.
+On receiving an inbound order:
+Risk checks – e.g., verify daily trade volume is below a set limit (e.g., $1M/day).
+
+
+Wallet check – ensure the client has sufficient funds to cover the trade.
+
+
+Send order to sequencer – where it gets a sequence ID, then forwarded to the matching engine.
+
+
+To reduce latency and bandwidth usage, only necessary attributes are sent to the matching engine (not the full order).
+
+
+On receiving executions from the matching engine:
+Executions (via the outbound sequencer) are returned to the brokers through the client gateway.
+
+
+Key challenges:
+Must be fast, efficient, and accurate.
+
+
+Maintains the current states of orders (pending, filled, partially filled, canceled, etc.).
+
+
+Complexity arises because there can be tens of thousands of order state transitions in real systems.
+
+
+➡️ Event sourcing is a suitable design for the order manager, since it allows replaying events to rebuild order states accurately.
+
+Client Gateway
+The client gateway is the entry point for client orders.
+Responsibilities:
+Receives orders from clients and routes them to the order manager.
+
+
+Provides these critical functions (must be lightweight and latency-sensitive):
+
+
+Authentication (Auth)
+
+
+Rate limiting
+
+
+FIXT protocol support
+
+
+Validation
+
+
+Normalization
+
+
+Design considerations:
+Must be kept as light as possible, because it is latency-sensitive.
+
+
+Complex logic should be handled in the matching engine or risk checks, not in the gateway.
+
+
+Different gateways for different clients:
+Retail clients: Website/App HTTP gateways.
+
+
+Institutional clients (e.g., market makers):
+
+
+Require very low latency and high throughput.
+
+
+Often use API gateways (FIX/Non-FIX).
+
+
+Extreme case: Colocation (colo) engine – brokers rent servers in the exchange’s data center to minimize latency (literally just the speed of light between the colo server and exchange server).
+
+
+
+Market Data Flow
+The market data publisher (MDP) handles the generation and distribution of market data.
+Responsibilities of the MDP:
+Receives executions from the matching engine.
+
+
+Builds order books from the execution stream.
+
+
+Generates candlestick charts (OHLC – Open, High, Low, Close) from the execution data.
+
+
+Together, order books and candlestick charts form the market data.
+Distribution:
+Market data is sent to the data service, which makes it available to subscribers (brokers, apps, traders, etc.).
+
+
+
+✅ That’s the complete breakdown of the trading flow:
+Matching Engine (core logic)
+
+
+Sequencer (determinism & ordering)
+
+
+Order Manager (state & checks)
+
+
+Client Gateway (entry point)
+
+
+Market Data Flow (distribution)
+
+
+Reporting Flow
+Overview
+Reporter role:
+
+
+The reporter is not in the trading critical path (doesn’t directly affect order execution).
+
+
+But it is critical for the system because it provides:
+
+
+Trading history
+
+
+Tax reporting
+
+
+Compliance reporting
+
+
+Settlements
+
+
+Books & Records
+
+
+Performance requirements:
+
+
+Trading flow requires efficiency and low latency.
+
+
+Reporter is less sensitive to latency, but accuracy and compliance are key.
+
+
+Data handling:
+
+
+Incoming orders carry full order details.
+
+
+Outgoing executions usually contain:
+
+
+Order ID
+
+
+Price
+
+
+Quantity
+
+
+Execution status
+
+
+The reporter merges attributes from both orders and executions to generate accurate reports.
+
+
+
+Figure 13.11: Reporter Flow
+Components in the reporting system work as follows:
+Order Manager → sends orders.
+
+
+Matching Manager → sends fills or rejects.
+
+
+Reporter → merges attributes:
+
+
+Receives NewOrderReq and NewOrderAck.
+
+
+Receives Fill Request/Response and ExecutionReport.
+
+
+Reporter output is consumed by:
+
+
+Settlement & Clearing
+
+
+Books & Records
+
+
+Reporting (compliance, tax, etc.).
+
+
+
+API Design
+Overview
+Clients interact with the stock exchange via brokers to:
+
+
+Place orders
+
+
+View executions
+
+
+View market data
+
+
+Download historical data for analysis
+
+
+RESTful conventions are used for the API interface between brokers and client gateway.
+
+
+RESTful API may not satisfy latency requirements of institutional clients (like hedge funds).
+
+
+These institutions may use specialized protocols, but functionality remains the same.
+
+
+
+Order API
+Endpoint:
+POST /v1/order
+
+Purpose: Place an order (requires authentication).
+Parameters:
+symbol: stock symbol (String)
+
+
+side: buy or sell (String)
+
+
+price: price of limit order (Long)
+
+
+orderType: limit or market (String, design only supports limit orders)
+
+
+quantity: number of shares (Long)
+
+
+Response Body:
+id: order ID (Long)
+
+
+creationTime: system creation timestamp (Long)
+
+
+filledQuantity: executed quantity (Long)
+
+
+remainingQuantity: quantity yet to be executed (Long)
+
+
+status: new / canceled / filled (String)
+
+
+Other attributes: same as input parameters
+
+
+Response Codes:
+200: success
+
+
+40x: parameter error / access denied / unauthorized
+
+
+500: server error
+
+
+
+Execution API
+Endpoint:
+GET /v1/execution?symbol={:symbol}&orderId={:orderId}&startTime={:startTime}&endTime={endTime}
+
+Purpose: Query execution info (requires authentication).
+Parameters:
+symbol: stock symbol (String)
+
+
+orderId: optional order ID (String)
+
+
+startTime: start time (epoch, Long)
+
+
+endTime: end time (epoch, Long)
+
+
+Response Body:
+executions: array of executions with attributes:
+
+
+id: execution ID (Long)
+
+
+orderId: order ID (Long)
+
+
+symbol: stock symbol (String)
+
+
+side: buy or sell (String)
+
+
+price: execution price (Long)
+
+
+orderType: limit or market (String)
+
+
+quantity: filled quantity (Long)
+
+
+Response Codes:
+200: success
+
+
+40x: parameter error / not found / access denied / unauthorized
+
+
+500: server error
+
+
+
+Order Book API
+Endpoint:
+GET /v1/marketdata/orderBook/L2?symbol={:symbol}&depth={:depth}
+
+Purpose: Query Level 2 (L2) order book for a symbol with a given depth.
+Parameters:
+symbol: stock symbol (String)
+
+
+depth: order book depth per side (Int)
+
+
+startTime: query start time (epoch, Long)
+
+
+endTime: query end time (epoch, Long)
+
+
+Response Body:
+bids: array of {price, size}
+
+
+asks: array of {price, size}
+
+
+Response Codes:
+200: success
+
+
+40x: parameter error / not found / access denied / unauthorized
+
+
+500: server error
+
+
+
+Historical Prices (Candlestick Charts) API
+Endpoint:
+GET /v1/marketdata/candles?symbol={:symbol}&resolution={:resolution}&startTime={:startTime}&endTime={:endTime}
+
+Purpose: Query candlestick chart data for a symbol within a time range and resolution.
+Parameters:
+symbol: stock symbol (String)
+
+
+resolution: candlestick window length in seconds (Long)
+
+
+startTime: start time (epoch, Long)
+
+
+endTime: end time (epoch, Long)
+
+
+Response Body:
+candles: array with candlestick attributes:
+
+
+open: opening price (Double)
+
+
+close: closing price (Double)
+
+
+high: highest price (Double)
+
+
+low: lowest price (Double)
+
+
+Response Codes:
+200: success
+
+
+40x: parameter error / not found / access denied / unauthorized
+
+
+500: server error
+Data Models
+In a stock exchange, three main types of data are critical:
+Product, order, and execution
+
+
+Order book
+
+
+Candlestick chart
+
+
+We’ll explore them one by one.
+
+Product, Order, and Execution
+Product
+A product represents the attributes of a traded symbol.
+
+
+Examples of attributes:
+
+
+Product type (equity, futures, options, etc.)
+
+
+Trading symbol (e.g., AAPL for Apple)
+
+
+UI display symbol (symbol shown in UI)
+
+
+Settlement currency (e.g., USD)
+
+
+Lot size (minimum tradable quantity)
+
+
+Tick size (smallest price movement allowed)
+
+
+Key property:
+
+
+Product data doesn’t change frequently.
+
+
+Mostly used for UI display.
+
+
+Can be stored in any database and is highly cacheable.
+
+
+
+Order
+An order is an inbound instruction for buying or selling.
+
+
+Contains fields such as:
+
+
+orderID (unique ID)
+
+
+productID
+
+
+price, quantity
+
+
+side (buy/sell)
+
+
+orderStatus, orderType
+
+
+timeInForce (validity of order)
+
+
+symbol, userID, broker, accountID
+
+
+entryTime, transactionTime
+
+
+Not every order will result in an execution.
+
+
+
+Execution
+An execution (also called a fill) is the result of a matched order.
+
+
+Each execution represents either the buy or sell side of a matched trade.
+
+
+Fields include:
+
+
+execID (execution ID)
+
+
+orderID (linked order)
+
+
+price, quantity, side
+
+
+execStatus, transactionTime
+
+
+feeCurrency, feeRate, feeAmount
+
+
+For every matched order, there are two executions:
+
+
+One for the buyer
+
+
+One for the seller
+
+
+
+Logical Model (Figure 13.12)
+Product, Order, Execution are related but this is not a database schema.
+
+
+Orders link to products.
+
+
+Executions link back to orders.
+
+
+
+Usage of Orders & Executions
+Orders and executions appear in all three flows of stock exchange operations:
+Critical Trading Path
+
+
+Orders/executions are not stored in DB for performance reasons.
+
+
+Executed in memory.
+
+
+Persisted via hard disk or shared memory for recovery.
+
+
+Stored in sequencer for fast recovery.
+
+
+Archived after market close.
+
+
+Reporter
+
+
+Orders/executions are written to a database.
+
+
+Used for reconciliation, tax reporting, and auditing.
+
+
+Market Data Processor
+
+
+Executions are forwarded here.
+
+
+Used to reconstruct:
+
+
+Order book
+
+
+Candlestick chart data
+
+
+
+Order Book
+Definition
+An order book is a list of buy and sell orders for a specific instrument.
+
+
+Organized by price level.
+
+
+It is the key data structure in the matching engine.
+
+
+
+Requirements of an Efficient Order Book
+Constant lookup time
+
+
+Get volume at a price level or between price levels.
+
+
+Fast add/cancel/execute operations
+
+
+Preferably O(1) time complexity.
+
+
+Fast update
+
+
+Modify or replace an existing order quickly.
+
+
+Query best bid/ask
+
+
+Best bid = highest buy price.
+
+
+Best ask = lowest sell price.
+
+
+Iterate through price levels
+
+
+Needed for market data feeds and analytics.
+
+
+
+Example Execution (Figure 13.13)
+Apple stock order book:
+
+
+Sell side (ask) has orders at 100.10, 100.11, etc.
+
+
+Buy side (bid) has orders at 100.08, 100.07, etc.
+
+
+A large market buy order for 2,700 shares arrives:
+
+
+Matches all orders at 100.10 (best ask).
+
+
+Then consumes orders at 100.11 until filled.
+
+
+After execution, best ask moves to 100.11 (spread widens).
+
+
+
+Code Snippet (Order Book Implementation)
+class PriceLevel {
+    private Price limitPrice;
+    private long totalVolume;
+    private List<Order> orders;  // inefficiency here
+}
+
+class Book<Side> {
+    private Side side;
+    private Map<Price, PriceLevel> limitMap;
+}
+
+class OrderBook {
+    private Book<Buy> buyBook;
+    private Book<Sell> sellBook;
+    private PriceLevel bestBid;
+    private PriceLevel bestOffer;
+    private Map<OrderID, Order> orderMap;
+}
+
+
+Problem in Implementation
+The orders list uses a plain list (List<Order>).
+
+
+This makes cancel/match operations O(n) because deletion requires traversal.
+
+
+
+Optimization: Use Doubly-Linked List
+By using a doubly-linked list instead of a plain list:
+Place new order
+
+
+Add order to tail of PriceLevel.
+
+
+O(1) complexity.
+
+
+Match order
+
+
+Remove order from head of PriceLevel.
+
+
+O(1) complexity.
+
+
+Cancel order
+
+
+Use orderMap (HashMap<OrderID, Order>) to find the order in O(1).
+
+
+Since the list is doubly-linked, order can be removed directly using previous and next pointers (no traversal).
+
+
+O(1) complexity.
+
+
+
+Visualization (Figure 13.14)
+Buy book stored in a LinkedHashMap<Price, PriceLevel>.
+
+
+Orders inside a DoubleLinkedList.
+
+
+HashMap<OrderID, Order> provides direct access for canceling.
+
+
+Three operations explained:
+
+
+Place → append to tail.
+
+
+Match → remove from head.
+
+
+Cancel → lookup in orderMap then remove.
+
+
+
+Importance in Market Data Processor
+Order book structure is also used downstream.
+
+
+Market data processor reconstructs L1, L2, and L3 market data from executions:
+
+
+L1 → Best bid/ask only.
+
+
+L2 → Aggregated order book by price levels.
+
+
+L3 → Full depth with individual orders.
+Candlestick Chart
+A candlestick chart is one of the key data structures (alongside the order book) used in a market data processor to generate market data.
+It is modeled with two classes:
+Candlestick → Represents a single candlestick with attributes.
+
+
+CandlestickChart → Maintains a collection (linked list) of candlesticks over time.
+
+
+When a time interval for a candlestick ends, a new Candlestick object is created for the next interval and added to the linked list in the CandlestickChart.
+
+Candlestick Class
+The class stores key trading metrics for a given interval:
+openPrice: The first price of the interval.
+
+
+closePrice: The last price of the interval.
+
+
+highPrice: The highest price during the interval.
+
+
+lowPrice: The lowest price during the interval.
+
+
+volume: The traded volume in that interval.
+
+
+timestamp: The time the candlestick represents.
+
+
+interval: Duration of the candlestick (e.g., 1 min, 5 min).
+
+
+
+CandlestickChart Class
+Maintains a linked list of candlesticks (sticks).
+
+
+Over time, new candlesticks are appended as trading continues.
+
+
+
+Memory Optimizations
+Tracking candlestick history across many symbols (stocks, crypto, futures, etc.) and intervals consumes significant memory. Optimizations include:
+Use pre-allocated ring buffers
+
+
+Instead of dynamically creating new objects, candlesticks are stored in a pre-allocated circular buffer.
+
+
+This reduces the cost of repeated memory allocations.
+
+
+Limit in-memory sticks & persist the rest to disk
+
+
+Keep only recent data in memory.
+
+
+Archive older candlesticks into disk storage for long-term use.
+
+
+
+Market Data Persistence
+Real-time data is stored in in-memory columnar databases (e.g., KDB).
+
+
+After the market closes, the data is moved into a historical database for long-term analytics and backtesting.
+
+
+
+Step 3 – Design Deep Dive
+Now that the basics are clear, let’s examine how modern exchanges evolved.
+
+Performance
+Latency is critical.
+It’s not enough to have low average latency.
+
+
+Stability matters → 99th percentile latency must also be very low.
+
+
+Latency Formula
+Latency = executionTimeAlongCriticalPath
+
+Two ways to reduce latency:
+Reduce tasks on the critical path.
+
+
+Fewer components → lower latency.
+
+
+Reduce time per task.
+ a. Minimize/eliminate network & disk usage.
+ b. Optimize execution time within each task.
+
+
+
+The Critical Trading Path
+Includes only essential components:
+gateway → order manager → sequencer → matching engine
+
+Logging and other non-critical processes are removed to save latency.
+
+
+
+Latency Breakdown
+Network latency: ~500 microseconds per round trip.
+
+
+If multiple components communicate across the network → single-digit milliseconds total.
+
+
+Disk persistence (sequencer): Even sequential writes → tens of milliseconds latency.
+
+
+Thus, traditional designs had end-to-end latency in tens of milliseconds.
+ ✔ Fine in the past.
+ ✘ Too slow for today’s ultra-low-latency competition.
+
+Modern Exchange Evolution
+Exchanges improved latency from milliseconds → microseconds by:
+Eliminating network hops → Run everything on one server.
+
+
+Avoiding disk writes → Use memory-mapped files (mmap) in RAM.
+
+
+
+Low-Latency Single Server Design
+As shown in Figure 13.15, all components run on one server:
+Order Manager
+
+
+Matching Engine
+
+
+Market Data Publisher
+
+
+Risk Check, Position Keeper, Reporter, Logging
+
+
+They communicate via mmap (shared memory), not over network.
+
+Application Loops
+Each component uses an application loop:
+A single-threaded while(true) polling loop.
+
+
+Executes only mission-critical tasks.
+
+
+Provides predictable execution time → lower 99th percentile latency.
+
+
+Each loop is:
+Single-threaded
+
+
+Pinned to a CPU core
+
+
+
+Example: Order Manager (Figure 13.16)
+Input thread receives orders.
+
+
+Application loop (pinned to CPU 1) processes them.
+
+
+Output thread sends results.
+
+
+Benefits of CPU pinning:
+No context switching (dedicated CPU).
+
+
+No locks or lock contention (single-threaded state updates).
+
+
+Trade-off:
+Code complexity increases.
+
+
+Engineers must ensure tasks don’t block the loop too long.
+
+
+
+mmap (Memory Mapping)
+mmap is a POSIX system call → maps a file into memory.
+
+
+If file is stored in /dev/shm (memory-backed filesystem) → no disk access at all.
+
+
+Enables fast inter-process communication (IPC).
+
+
+Advantages:
+Acts as an event bus.
+
+
+Message transfer = sub-microsecond.
+
+
+No network, no disk.
+
+
+This is combined with event sourcing to build ultra-low latency microservices inside one server.
+Event Sourcing
+We discussed event sourcing in the "Digital Wallet" chapter (page 341). This section gives an overview.
+
+Traditional Application State Persistence
+In traditional applications, the database stores only the current states of entities (e.g., orders).
+
+
+When an issue occurs, it is hard to trace because the database does not keep the history of how the current state was reached.
+
+
+The database has no record of past events, only the final snapshot of state.
+
+
+
+Event Sourcing Concept
+Instead of persisting the current states, event sourcing stores an immutable log of all state-changing events.
+
+
+These events are the golden source of truth.
+
+
+The current state can always be reconstructed by replaying the events in sequence.
+
+
+
+Comparison: Non-Event Sourcing vs Event Sourcing (Figure 13.17)
+Non-Event Sourcing (Classic Database Schema):
+Tracks only the latest order status.
+
+
+Example:
+
+
+V1: Order status = "New"
+
+
+V2: Order status = "Filled"
+
+
+Missing: how the order changed from "New" to "Filled."
+
+
+Event Sourcing:
+Stores every event that changed the order state.
+
+
+Example event log:
+
+
+Event 100 → NewOrderEvent
+
+
+Event 101 → OrderFilledEvent
+
+
+By replaying events, we can reconstruct any order state at any point in time.
+
+
+
+Event Sourcing Design (Figure 13.18)
+This design uses an mmap event store as a message bus.
+It resembles the Pub-Sub model in Kafka.
+
+
+If latency is not critical, Kafka itself can be used as the event store.
+
+
+
+Components in the Design
+External Domain → Trading Domain Communication
+
+
+Communication uses FIX protocol (introduced on page 382 in Business Knowledge 101).
+
+
+The FIX Gateway transforms FIX into FIX over Simple Binary Encoding (SBE) for fast and compact encoding.
+
+
+Each order becomes a NewOrderEvent sent via the Event Store Client.
+
+
+Order Manager (inside Matching Engine)
+
+
+Receives NewOrderEvent from the event store.
+
+
+Validates the order and updates its internal order states.
+
+
+Sends the order to the matching core.
+
+
+Order Filled
+
+
+If the order is matched, an OrderFilledEvent is generated and added to the event store.
+
+
+Other Components
+
+
+Examples: market data processor and reporter.
+
+
+They subscribe to the event store and process events accordingly.
+
+
+
+Key Design Differences
+Order Manager as a Reusable Library
+
+
+Instead of a centralized order manager, it is embedded in multiple components.
+
+
+Reason: Order states are important for many components.
+
+
+A centralized manager would hurt latency, especially for non-critical path components (e.g., reporter).
+
+
+With event sourcing, each component maintains its own copy of order states, but since all consume the same event log, the states are guaranteed to be identical and replayable.
+
+
+Sequencer Design
+
+
+In this design, the sequencer is not a separate visible component.
+
+
+Why? Because the event store entry itself contains a sequence field.
+
+
+The sequencer is responsible for assigning sequence IDs to events before they enter the event store.
+
+
+
+Sequencer Characteristics
+Single Writer Principle:
+
+
+Only one sequencer per event store.
+
+
+Having multiple sequencers causes lock contention (they fight for write access), which is very costly in high-throughput systems like exchanges.
+
+
+Thus, a single sequencer stamps the sequence IDs and forwards events quickly.
+
+
+Simplified Role:
+
+
+Unlike in older designs where the sequencer also acted as a message store, here it does only sequencing (very fast).
+
+
+High Availability:
+
+
+Backup sequencers can be deployed.
+
+
+If the primary sequencer fails, a backup can take over.
+
+
+
+Sequencer Workflow (Figure 13.19)
+Components (Gateway, Matching Engine, etc.)
+
+
+Write events to their local ring buffer.
+
+
+Sequencer Operation
+
+
+Pulls events from each component’s ring buffer.
+
+
+Assigns a sequence ID to each event.
+
+
+Writes the event into the event store (mmap).
+
+
+
+✅ In summary:
+Traditional DBs only store final states → hard to debug or replay history.
+
+
+Event sourcing logs all events → truth is in the event log.
+
+
+Components reconstruct state by replaying events.
+
+
+The sequencer ensures events are ordered consistently.
+
+
+Single-writer sequencer avoids contention and ensures high throughput.
+
+
+Event sourcing design allows distributed components to share consistent states without a central bottleneck.
+High Availability
+The design target is 99.99% uptime (4 nines), which means the exchange system can only be unavailable for 8.64 seconds per day. To achieve this level of reliability, the system must be able to recover almost instantly if any component goes down.
+Identifying Single Points of Failure
+A single point of failure (SPOF) can bring down the whole exchange.
+
+
+Example: if the matching engine fails, it could be catastrophic.
+
+
+Solution: run redundant instances (primary + backup).
+
+
+Fast Failure Detection and Failover
+The system must quickly detect if a component fails and immediately switch to the backup instance.
+
+
+Stateless vs. Stateful Services
+Stateless services (e.g., client gateway): easy to scale by adding servers.
+
+
+Stateful services (e.g., order manager, matching engine): more complex because their state must be copied to replicas.
+
+
+Hot-Warm Matching Engine (Figure 13.20)
+Hot instance: primary, processes and outputs events.
+
+
+Warm instance: processes the same events but does not output them.
+
+
+If the hot engine fails, the warm engine immediately takes over.
+
+
+If the warm fails, it can rebuild state from the event store.
+
+
+Event sourcing makes recovery deterministic and accurate.
+
+
+Detecting Problems
+Use monitoring (hardware + processes).
+
+
+Add heartbeats from the matching engine. If a heartbeat is missed, it may indicate failure.
+
+
+Limitation of Single Server Hot-Warm
+Works only within a single server boundary.
+
+
+To achieve true high availability, the concept must extend across multiple machines or even data centers.
+
+
+Whole servers (not just processes) act as hot or warm.
+
+
+The event store must be replicated across all warm replicas.
+
+
+Replication can be done efficiently using reliable UDP broadcasting (e.g., as in Aeron).
+
+
+
+Fault Tolerance
+The hot-warm approach works but has weaknesses.
+ Example: if all warm instances also fail, it’s catastrophic. To protect against rare disasters, companies replicate data across multiple data centers (different cities). This mitigates risks like earthquakes or power outages.
+Key Questions for Fault Tolerance
+1. Failover Decision
+When and how should we decide to failover?
+
+
+Challenge: defining what "down" really means.
+
+
+Issues:
+False alarms may cause unnecessary failovers.
+
+
+Software bugs may take down both primary and backup.
+
+
+Solutions:
+Initially, use manual failover.
+
+
+Automate only after gaining operational experience.
+
+
+Use chaos engineering to test and discover edge cases early.
+
+
+
+2. Leader Election
+Once failover is decided, which backup instance becomes leader?
+
+
+Solved by leader election algorithms like Raft.
+
+
+Raft Example (Figure 13.21):
+A cluster of 5 servers, each with its own event store.
+
+
+Leader replicates events to all followers via RPC.
+
+
+To commit an operation, majority votes are required (formula: n/2 + 1).
+
+
+Example: with 5 servers, minimum votes = 3.
+
+
+Heartbeat Mechanism:
+Leader sends periodic heartbeat messages (empty AppendEntries RPCs).
+
+
+If a follower doesn’t receive heartbeats within a timeout, it starts an election.
+
+
+First to timeout becomes candidate and requests votes.
+
+
+If majority votes are gained → becomes new leader.
+
+
+If multiple candidates → split vote, election is retried.
+
+
+Raft Terms (Figure 13.22):
+Time is divided into terms.
+
+
+Each term includes either normal operation or an election phase.
+
+
+
+3. Recovery Time Objective (RTO)
+RTO = maximum downtime allowed before serious business impact.
+
+
+For a stock exchange, RTO must be at seconds level.
+
+
+Requires automatic failover.
+
+
+Strategy: categorize services by priority and define degradation levels (minimum service set maintained during recovery).
+
+
+
+4. Recovery Point Objective (RPO)
+RPO = maximum acceptable data loss.
+
+
+For an exchange, data loss is not acceptable → RPO ≈ 0.
+
+
+Must back up data continuously.
+
+
+With Raft:
+
+
+Multiple data copies across cluster nodes.
+
+
+Consensus ensures data consistency.
+
+
+If leader crashes, new leader can continue without data loss.
+
+
+
+✅ In summary:
+High availability requires redundancy, fast failover, and replication (hot-warm, extended across data centers).
+
+
+Fault tolerance requires global replication, robust leader election (Raft), very low RTO (seconds), and near-zero RPO (no data loss).
+
+
+Techniques: event sourcing, heartbeats, chaos engineering, Raft consensus, reliable replication.
+Matching Algorithms
+Matching algorithms are at the core of an exchange’s matching engine, which pairs buy and sell orders. The pseudocode provided describes a FIFO (First-In-First-Out) matching system at a high level. Let’s break it down:
+1. Order Handling Flow
+handleOrder(orderBook, orderEvent):
+    if (orderEvent.sequenceId != nextSequence):
+        return Error(OUT_OF_ORDER, nextSequence)
+
+    if (!validateOrder(symbol, price, quantity)):
+        return ERROR(INVALID_ORDER, orderEvent)
+
+    order = createOrderFromEvent(orderEvent)
+
+    switch (msgType):
+        case NEW:
+            return handleNew(orderBook, order)
+        case CANCEL:
+            return handleCancel(orderBook, order)
+        default:
+            return ERROR(INVALID_MSG_TYPE, msgType)
+
+Sequencing check → Ensures orders are processed in sequence, avoiding out-of-order execution.
+
+
+Validation → Checks if the order has valid symbol, price, and quantity.
+
+
+Order creation → Builds an internal Order object.
+
+
+Dispatch by type:
+
+
+NEW → goes to handleNew().
+
+
+CANCEL → goes to handleCancel().
+
+
+Anything else → error.
+
+
+
+2. Handling New Orders
+handleNew(orderBook, order):
+    if (BUY.equals(order.side)):
+        return match(orderBook.sellBook, order)
+    else:
+        return match(orderBook.buyBook, order)
+
+Buy order → matched against the sell book.
+
+
+Sell order → matched against the buy book.
+
+
+
+3. Handling Cancel Orders
+handleCancel(orderBook, order):
+    if (!orderBook.orderMap.contains(order.orderId)):
+        return ERROR(CANNOT_CANCEL_ALREADY_MATCHED, order)
+
+    removeOrder(order)
+    setOrderStatus(order, CANCELED)
+    return SUCCESS(CANCEL_SUCCESS, order)
+
+If the order already matched, it cannot be canceled.
+
+
+Otherwise, remove from order book, mark as canceled, and confirm success.
+
+
+
+4. Matching Logic (FIFO)
+match(book, order):
+    leavesQuantity = order.quantity - order.matchedQuantity
+    iterator = book.limitMap.get(order.price).orders
+
+    while (iterator.hasNext() & leavesQuantity > 0):
+        matched = min(iterator.next.quantity, order.quantity)
+        order.matchedQuantity += matched
+        leavesQuantity = order.quantity - order.matchedQuantity
+        remove(iterator.next)
+        generateMatchedFill()
+
+    return SUCCESS(MATCH_SUCCESS, order)
+
+Leaves Quantity → remaining unmatched portion of the order.
+
+
+Iterator → traverses orders at a price level.
+
+
+Matching → FIFO ensures older orders get filled first.
+
+
+Generate fill → produces trade execution records.
+
+
+Stop when fully matched or no more orders available.
+
+
+
+5. Extensions: FIFO with LMM (Lead Market Maker)
+A variation where Lead Market Makers get priority for a predefined ratio of trades, even ahead of the FIFO queue.
+
+
+LMMs negotiate this privilege with the exchange.
+
+
+Used in futures trading, e.g., CME.
+
+
+
+Determinism
+Determinism ensures the system behaves consistently and predictably.
+1. Functional Determinism
+Achieved by using sequencers and event sourcing.
+
+
+Guarantees that if events are replayed in the same order, results will always be identical.
+
+
+Actual timestamps don’t matter → only event order matters.
+
+
+Example: Figure 13.23 shows timestamps being converted from uneven dots to continuous dots for replay/recovery efficiency.
+
+
+
+2. Latency Determinism
+Ensures stable latency across trades.
+
+
+Measured by percentile latency (99th or 99.99th percentile).
+
+
+Tools: HdrHistogram to calculate latency distribution.
+
+
+If 99th percentile latency is low → system is stable.
+
+
+Investigating Latency Spikes
+In Java systems, safe points can cause latency fluctuations.
+
+
+Example: HotSpot JVM’s Stop-the-World garbage collection interrupts processing temporarily.
+
+
+
+Market Data Publisher Optimizations
+Market Data Publisher (MDP) distributes market data to clients, built from matched results.
+1. Order Book & Candlestick Data
+Matched results from matching engine → used to rebuild order book.
+
+
+Used to generate candlestick charts (1 min, 1 hr, 1 day).
+
+
+Retail clients often get limited L2 depth (e.g., 5 levels free, 10 levels paid).
+
+
+Since MDP memory is finite → candlestick storage must have upper limits.
+
+
+
+2. Market Data Publisher Design (Figure 13.24)
+Components:
+Order Book (rebuilt continuously).
+
+
+Ring Buffer → holds recent 100 ticks.
+
+
+Candlestick Charts → built from ticks.
+
+
+Persistence Layer → stores long-term data.
+
+
+Data Service → serves subscribers.
+
+
+
+3. Ring Buffer Characteristics
+Circular buffer (fixed-size queue with head connected to tail).
+
+
+Producer pushes data, consumers pull data.
+
+
+Pre-allocated memory → no new allocations/deallocations.
+
+
+Lock-free structure → reduces contention.
+
+
+Padding → ensures sequence numbers don’t share cache lines, preventing false sharing and boosting performance.
+
+
+
+✅ In short:
+Matching algorithms → FIFO and LMM-enhanced matching.
+
+
+Determinism → ensures consistent outputs & stable latencies.
+
+
+Market Data Publisher → efficiently distributes real-time market data using ring buffers and candlestick aggregation.
+
+
+Distribution Fairness of Market Data
+In stock trading, latency (delay in receiving information) plays a critical role. If one participant receives market data even a few milliseconds earlier than others, they essentially gain an unfair advantage, like having an oracle that can see the future.
+For a regulated exchange, it’s crucial that all participants receive market data at the same time to ensure fairness.
+If this fairness is not enforced, problems arise. For example:
+Suppose the Market Data Publisher (MDP) maintains a subscriber list.
+
+
+If the first client to connect always receives data first, then smart clients will race to connect as early as possible when the market opens.
+
+
+This leads to unfair competition and possible network congestion.
+
+
+To prevent this, exchanges need mechanisms to ensure equal data distribution.
+
+Multicast
+Data over the internet can be transported using three main types of protocols:
+Unicast → One source sends data to one destination (point-to-point).
+
+
+Broadcast → One source sends data to all hosts within a subnet.
+
+
+Multicast → One source sends data to a group of specific subscribers, possibly across different networks.
+
+
+In exchange design, multicast is preferred because:
+It allows many receivers in a multicast group to receive the same data simultaneously.
+
+
+It avoids the inefficiency of sending multiple unicast copies of the same message.
+
+
+⚠️ However, multicast is usually implemented over UDP (User Datagram Protocol), which is unreliable. This means:
+Data packets might get lost.
+
+
+Not all receivers are guaranteed to get every update.
+
+
+👉 To fix this, exchanges use reliable multicast solutions (with retransmission mechanisms) to ensure data consistency across all subscribers.
+
+Colocation
+Another important fairness topic is colocation services.
+Exchanges allow hedge funds, brokers, or trading firms to place their servers inside the same data center as the exchange’s matching engine.
+
+
+Since latency is essentially proportional to cable length, colocated firms experience extremely low latency.
+
+
+This does not break fairness, because:
+It’s available to everyone willing to pay for it.
+
+
+It is treated as a paid VIP service, rather than a secret advantage.
+
+
+Thus, colocation is considered an accepted industry practice for low-latency trading.
+
+Network Security
+Exchanges must also defend against cyber threats, especially DDoS (Distributed Denial of Service) attacks, which attempt to overwhelm systems with huge volumes of traffic.
+Here are some defense techniques:
+Isolation of services
+
+
+Separate public-facing services from private core systems.
+
+
+If DDoS hits public endpoints, critical internal trading systems remain safe.
+
+
+Use read-only replicas for serving data externally.
+
+
+Caching layer
+
+
+Cache data that doesn’t change frequently.
+
+
+Most queries are answered from cache instead of hitting the database.
+
+
+Harden URLs
+
+
+Example of a bad URL:
+ https://my.website.com/data?from=123&to=456 → easy for attackers to generate many variants.
+
+
+Example of a better URL:
+ https://my.website.com/data/recent → predictable, cacheable by CDNs, harder to abuse.
+
+
+Safelist/Blocklist
+
+
+Allow only trusted IPs (safelist).
+
+
+Block known malicious IPs (blocklist).
+
+
+Many network gateways provide this functionality.
+
+
+Rate limiting
+
+
+Restrict the number of requests per client per second.
+
+
+Prevents a single user from flooding the system.
+
+
+These techniques together help keep exchanges online and resilient against DDoS.
+
+Step 4 - Wrap Up
+After analyzing fairness and security, one might think the simplest deployment model is:
+Run the exchange on a single gigantic server or even one single process.
+
+
+This eliminates network hops and complexity, ensuring fairness.
+
+
+Interestingly, some real exchanges do exactly this.
+However, with the rise of cryptocurrency exchanges:
+Many are deployed on cloud infrastructure (AWS, GCP, etc.).
+
+
+This allows faster setup and scalability.
+
+
+Decentralized Finance (DeFi) projects use Automatic Market Making (AMM) instead of order books, changing the model completely.
+
+
+👉 Cloud adoption lowers the entry barrier for new exchanges, injecting innovation and competition into the financial world.
+
+Chapter Summary
+Step 1 (Non-functional requirements)
+
+
+Availability: 99.99% uptime
+
+
+Fault tolerance
+
+
+Millisecond-level latency
+
+
+Security
+
+
+Support for 100 symbols
+
+
+Peak load: 215k QPS (queries per second)
+
+
+Trading flow, market data flow, reporting flow
+
+
+Step 2 (API Design)
+
+
+Stock Exchange API includes:
+
+
+Order book
+
+
+Historical prices
+
+
+Products, orders, executions
+
+
+Candlestick chart
+
+
+Data model & performance
+
+
+Event sourcing for consistency
+
+
+High availability & fault tolerance
+
+
+Matching algorithms
+
+
+Step 3 (Determinism & Fairness)
+
+
+Market data publisher optimization
+
+
+Fairness considerations
+
+
+Multicast design
+
+
+Colocation practices
+
+
+Network security
+
+
+Step 4 (Wrap Up)
+
+
+Single-server model for simplicity
+
+
+Cloud deployment in crypto exchanges
+
+
+AMM models in DeFi replacing order books
+
+
+Cloud lowers entry barrier → more innovation
+
+
+
+✨ In short:
+ Exchanges must balance fairness (equal market data delivery), performance (low latency), and security (DDoS defense). Traditional exchanges optimize with multicast, colocation, and robust infrastructure, while newer crypto exchanges explore cloud and DeFi innovations.
+
+
+
