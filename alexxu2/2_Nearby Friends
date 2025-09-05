@@ -1075,3 +1075,184 @@ Key Differences
 
 
 
+Chapter Summary
+Step 1
+
+The first step involves understanding the problem:
+We want to design a Nearby Friends feature (like in social apps such as Facebook, Snapchat, etc.) where users can see friends within a certain radius in real-time.
+
+Step 2
+
+Define the requirements of the system before diving into the design.
+
+Nearby Friends
+
+This is the main feature:
+
+Show a list of friends who are nearby the user.
+
+Automatically update the list when friends move closer or farther away.
+
+Provide real-time location updates for smooth user experience.
+
+Step 3
+
+Write down functional and non-functional requirements.
+
+Step 4 - Functional Requirements
+
+View nearby friends
+
+Users should be able to see a list of friends within a certain distance (e.g., 5 miles).
+
+Update nearby friend list
+
+If friends move, the list should update automatically.
+
+Non-functional Requirements
+
+Low latency
+
+Updates should happen quickly to feel real-time.
+
+5-mile radius
+
+Only friends within 5 miles should appear in the list.
+
+Location refresh interval: 30s
+
+Every 30 seconds, users’ devices send their latest location.
+
+Locate update QPS: 334k
+
+System must handle ~334k queries per second (high scale).
+
+Estimation
+
+Estimate scale and load of the system:
+
+How many users are active.
+
+How many location updates come per second.
+
+How much data is stored in location cache and history.
+
+This helps decide hardware, infrastructure, and optimization needs.
+
+High-level Design Diagram
+
+The architecture includes:
+
+RESTful API servers → Handle client requests for nearby friends.
+
+WebSocket servers → Push real-time location updates.
+
+Redis location cache → Fast in-memory lookup for user coordinates.
+
+Location history database → Store long-term user movement data.
+
+Redis pub/sub server → Distribute location update events across servers.
+
+Periodic location update → Clients send location every 30s.
+
+API Design
+
+The system exposes APIs such as:
+
+POST /location → Update user’s current location.
+
+GET /nearby-friends → Fetch list of friends within radius.
+
+WebSocket events → Real-time updates when friend enters/leaves radius.
+
+Data Model
+
+Location Cache
+
+Key: user_id
+
+Value: latitude, longitude, timestamp
+
+Location History Database
+
+Store user’s past location updates for analytics, tracking, or debugging.
+
+API Servers
+
+Interface between mobile clients and backend storage.
+
+Scale Each Component
+
+API servers → Auto-scale with load balancers.
+
+WebSocket servers → Handle persistent connections.
+
+Redis cache → Shard by user_id for scalability.
+
+Location history DB → Partition by user_id and time.
+
+Pub/sub servers → Distribute updates efficiently.
+
+User Database
+
+Stores user profile data (id, name, friend list).
+
+Used to fetch which users count as "friends" before showing nearby list.
+
+Location Cache
+
+Optimized for fast read/write of latest user location.
+
+Redis or similar in-memory store.
+
+Redis Pub/Sub Server
+
+Publishes location updates so multiple backend servers get notified.
+
+Ensures real-time synchronization across services.
+
+Alternative to Redis Pub/Sub
+
+Other options:
+
+Kafka → Better for large-scale event streaming.
+
+RabbitMQ → Reliable messaging.
+
+gRPC streaming → For peer-to-peer communication.
+
+Adding/Removing Friends
+
+System should dynamically update nearby list when a new friend is added or removed.
+
+Must handle changes immediately without waiting for refresh.
+
+Users with Many Friends
+
+Challenge: A user with thousands of friends can cause high computation load.
+
+Optimizations:
+
+Pre-compute nearby lists.
+
+Prioritize closest N friends.
+
+Use spatial indexing (GeoHash, R-tree).
+
+Nearby Random Person
+
+Instead of just friends, system could show strangers nearby (e.g., Tinder, dating apps).
+
+Requires different privacy and filtering rules.
+
+Wrap Up
+
+The Nearby Friends feature requires balancing real-time updates with scalability.
+
+Redis cache + Pub/Sub ensures low-latency updates.
+
+Databases store historical data and friend lists.
+
+System must handle millions of updates per second while keeping latency low.
+
+Design should allow future extensions (random nearby users, recommendations).
