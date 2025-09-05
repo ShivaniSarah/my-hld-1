@@ -1326,3 +1326,153 @@ This is a typical big data processing system. Prior knowledge of tools like Apac
 
 
 
+Chapter Summary
+Step 1
+
+Understand the problem statement: we want to design a system that aggregates ad clicks/impressions to provide metrics such as top ads, filtering by attributes, and handling huge amounts of raw event data efficiently.
+
+Step 2
+
+Define high-level goals:
+
+Efficiently aggregate ad click events.
+
+Provide real-time and batch insights.
+
+Ensure scalability, correctness, and fault tolerance.
+
+Ads Aggregation
+Step 3
+
+Process ad click events into meaningful aggregated results (counts, rankings).
+
+Step 4
+
+Decide how the system will serve queries for aggregated metrics such as top ads per region, time window, etc.
+
+Functional Requirements
+
+Aggregate ad clicks/impressions in near real-time.
+
+Return top 100 ads by clicks.
+
+Support filtering queries (e.g., by region, device, campaign).
+
+Support both raw data storage and aggregated data access.
+
+Non-Functional Requirements
+
+Correctness: Ensure event counts are accurate, even with late/delayed events.
+
+Robustness: System should continue working during failures.
+
+Low latency: Aggregations should be available within a few minutes.
+
+Scalability: Handle massive workloads.
+
+Estimation
+
+1 billion ad clicks/day.
+
+Peak QPS: 50,000 queries per second.
+
+Daily storage requirement: ~100 GB of raw event data.
+
+Query API Design
+
+APIs to fetch:
+
+Aggregated counts.
+
+Top 100 ads.
+
+Aggregation with filtering.
+
+Support time-based windows (e.g., last 1 hour, daily).
+
+Data Model
+
+Raw data: Each event contains ad ID, user ID, timestamp, device, geo, etc.
+
+Aggregated data: Pre-computed counts (ad ID → click count per time window).
+
+Must support comparison queries (e.g., trend of ad clicks across regions).
+
+Choose Database
+
+Raw data → Append-only storage (HDFS, S3, or Kafka).
+
+Aggregated data → Fast queryable store (Cassandra, DynamoDB, ClickHouse, or Elasticsearch).
+
+Async Processing
+
+Use streaming pipelines (Kafka + Flink/Spark Streaming) for near real-time.
+
+Or batch pipelines (MapReduce, Spark Batch) for large offline aggregations.
+
+MapReduce
+
+Suitable for batch aggregation of billions of records.
+
+Not ideal for real-time queries (used for daily reports instead).
+
+Support 3 Use Cases
+
+Top ads in real-time.
+
+Filtered aggregation queries (region, device, campaign).
+
+Historical analysis on stored raw + aggregated data.
+
+High-Level Design
+Streaming vs Batching
+
+Streaming: Low latency (minutes), continuous aggregation.
+
+Batching: High throughput, suitable for offline reports.
+
+Time
+
+Aggregation windows (minute, hourly, daily).
+
+Aggregation Window
+
+Define how long events are grouped (sliding, tumbling windows).
+
+Delivery Guarantees
+
+At-least-once or exactly-once event processing (to ensure no double counts).
+
+Scale the System
+
+Partition data by ad ID, campaign, or time to distribute load.
+
+Fault Tolerance
+
+Use checkpoints and replication (e.g., Kafka + Flink checkpoints).
+
+Data Monitoring and Correctness
+
+Validate incoming event volume vs aggregated counts.
+
+Detect anomalies (e.g., sudden traffic spikes).
+
+Correct errors caused by late-arriving events.
+
+Alternative Solution
+
+Instead of building from scratch:
+
+Use existing analytics systems (like Apache Druid, ClickHouse, or BigQuery).
+
+These provide built-in aggregation, scaling, and query APIs.
+
+Wrap Up
+
+Ads aggregation requires scalable, fault-tolerant pipelines.
+
+Choose between streaming (real-time) and batch (offline) depending on latency needs.
+
+Ensure correctness, robustness, and monitoring for production readiness.
+
+Database choice + processing model (async, MapReduce, streaming) define trade-offs in performance and cost.
