@@ -1,1 +1,1737 @@
-..
+
+9 S3-like Object Storage
+
+This chapter discusses how an object storage service similar to Amazon Simple Storage Service (S3) works. S3 is one of the most popular storage services in the cloud, offered by AWS, and it provides object storage via a RESTful API interface.
+
+Facts about AWS S3
+
+Launched in June 2006 – AWS introduced S3 as one of its earliest services.
+
+2010 – Added features like versioning, bucket policy, and multipart upload (to handle large files by splitting into chunks).
+
+2011 – Introduced server-side encryption, multi-object delete, and object expiration for better management and security.
+
+2013 – Amazon reported 2 trillion objects stored in S3.
+
+2014–2015 – Added lifecycle policies, event notifications, and cross-region replication.
+
+2021 – AWS reported over 100 trillion objects stored in S3.
+
+Storage System 101
+
+Storage systems can be divided into three broad categories:
+
+Block storage
+
+File storage
+
+Object storage
+
+Block Storage
+
+Oldest type of storage (since the 1960s).
+
+Examples: HDDs (Hard Disk Drives) and SSDs (Solid-State Drives) directly attached to servers.
+
+How it works:
+
+Presents raw blocks to the server as a volume.
+
+The server decides how to use these blocks:
+
+It may format them into a file system (like NTFS, ext4, etc.)
+
+Or an application may directly manage the blocks (e.g., a database or virtual machine engine for maximum performance).
+
+Not limited to local storage:
+
+Block storage can also be provided over a network.
+
+Common protocols:
+
+Fibre Channel (FC)
+
+iSCSI
+
+Even when accessed over the network, it still looks like raw blocks to the server.
+
+File Storage
+
+Built on top of block storage.
+
+Provides a higher-level abstraction:
+
+Instead of raw blocks, it organizes data into files and directories (hierarchical structure).
+
+Common solution for organizations:
+
+Data stored as files inside folders.
+
+Protocols to make file storage available across many servers:
+
+SMB/CIFS (commonly used in Windows environments)
+
+NFS (commonly used in Unix/Linux environments).
+
+Advantages:
+
+Servers don’t need to worry about formatting blocks or volume management.
+
+Easy to share files across teams.
+
+Best use cases:
+
+General-purpose file system access
+
+Collaboration within organizations
+
+Object Storage
+
+Newer type of storage, compared to block and file.
+
+Tradeoff:
+
+Sacrifices performance for durability, scalability, and low cost.
+
+Target use case:
+
+Stores relatively “cold” data (not frequently accessed).
+
+Popular for archival and backup.
+
+How it works:
+
+Stores data as objects (not files or blocks).
+
+No hierarchical structure – all objects live in a flat namespace.
+
+Access is provided through a RESTful API (not file-system-like access).
+
+Disadvantages:
+
+Slower compared to block or file storage.
+
+Cloud adoption:
+
+Almost every public cloud provider has object storage:
+
+AWS S3
+
+Google Cloud Storage
+
+Azure Blob Storage
+
+Comparison of Storage Types
+1. Mutability (Content updates)
+
+Block storage – Mutable (can overwrite blocks).
+
+File storage – Mutable (can update/overwrite files).
+
+Object storage – Not mutable.
+
+Objects are immutable once stored.
+
+If you want to update, you upload a new version (object versioning supported).
+
+2. Cost
+
+Block storage – High cost.
+
+File storage – Medium to high cost.
+
+Object storage – Low cost.
+
+3. Performance
+
+Block storage – Medium to very high (best for databases/VMs).
+
+File storage – Medium to high.
+
+Object storage – Low to medium (slower due to API access and scale).
+
+4. Consistency
+
+All three types (block, file, object) – Strong consistency [5].
+
+5. Data Access Protocols
+
+Block storage – SAS / iSCSI / Fibre Channel.
+
+File storage – Standard file access protocols: SMB/CIFS, NFS.
+
+Object storage – RESTful API.
+
+6. Scalability
+
+Block storage – Medium scalability.
+
+File storage – High scalability.
+
+Object storage – Vast scalability (designed to hold trillions of objects).
+
+7. Best Use Cases
+
+Block storage – Virtual machines (VMs), high-performance apps like databases.
+
+File storage – General-purpose file sharing and collaboration.
+
+Object storage – Binary/unstructured data (images, videos, backups, logs).
+
+
+
+
+
+Terminology
+
+To design an S3-like object storage system, we need to understand several core object storage concepts.
+
+Bucket
+
+A logical container for objects.
+
+Each bucket has a globally unique name.
+
+To upload data to S3, a bucket must be created first.
+
+Object
+
+An individual piece of data stored in a bucket.
+
+Contains:
+
+Object data (payload): Any sequence of bytes we want to store.
+
+Metadata: Name-value pairs describing the object.
+
+Versioning
+
+A bucket-level feature that maintains multiple variants of the same object.
+
+Enables recovery of objects that are accidentally deleted or overwritten.
+
+Uniform Resource Identifier (URI)
+
+Object storage provides RESTful APIs for accessing resources (buckets and objects).
+
+Each resource is uniquely identified by a URI.
+
+Service-level agreement (SLA)
+
+A contract between provider and client.
+
+Example: Amazon S3 Standard-IA SLA includes:
+
+Durability: 99.999999999% across multiple availability zones.
+
+Resiliency: Data survives loss of an entire availability zone.
+
+Availability: 99.9%.
+
+Step 1 - Understand the Problem and Establish Design Scope
+Candidate: Which features should be included in the design?
+
+Interviewer: The system should support:
+
+Bucket creation.
+
+Object uploading and downloading.
+
+Object versioning.
+
+Listing objects in a bucket (similar to aws s3 ls).
+
+Candidate: What is the typical data size?
+
+Interviewer: Both:
+
+Massive objects (several GBs+).
+
+Large number of small objects (tens of KBs).
+
+Candidate: How much data do we need to store in one year?
+
+Interviewer: 100 PB (petabytes).
+
+Candidate: Can we assume data durability is 6 nines (99.9999%) and service availability is 4 nines (99.99%)?
+
+Interviewer: Yes.
+
+Non-functional Requirements
+
+Store 100 PB of data.
+
+Data durability: 99.9999% (6 nines).
+
+Service availability: 99.99% (4 nines).
+
+Storage efficiency: Reduce costs while maintaining reliability and performance.
+
+Back-of-the-envelope Estimation
+Bottlenecks
+
+Disk capacity OR Disk IOPS.
+
+Disk capacity assumption (object size distribution):
+
+20%: Small (< 1 MB).
+
+60%: Medium (1–64 MB).
+
+20%: Large (> 64 MB).
+
+Disk IOPS assumption:
+
+A single 7200 rpm SATA HDD → 100–150 random seeks/sec (~100–150 IOPS).
+
+Median object size for estimation:
+
+Small = 0.5 MB.
+
+Medium = 32 MB.
+
+Large = 200 MB.
+
+Storage usage ratio:
+
+Assume 40% usage efficiency.
+
+Calculation:
+
+Total data = 100 PB = 100 × 1000 × 1000 × 1000 MB = 10¹¹ MB.
+
+Usable = 10¹¹ × 0.4.
+
+Weighted average object size = (0.2 × 0.5 MB) + (0.6 × 32 MB) + (0.2 × 200 MB).
+
+This gives ~0.68 billion objects.
+
+Metadata = ~1 KB per object → 0.68 TB metadata storage needed.
+
+👉 Even if not exact, this gives a sense of scale and constraints.
+
+Step 2 - Propose High-level Design and Get Buy-in
+
+Before designing, we must understand object storage properties:
+
+Object immutability
+
+Objects are immutable once written.
+
+Can only be deleted or replaced with a new version.
+
+No incremental changes are allowed.
+
+Key-value store
+
+Object URI = Key.
+
+Object data = Value.
+
+Example request/response:
+
+Request
+
+GET /bucket1/object1.txt HTTP/1.1
+
+
+Response
+
+HTTP/1.1 200 OK
+Content-Length: 4567
+[4567 bytes of object data]
+
+Write once, read many times
+
+Objects are written once, read many times.
+
+According to LinkedIn research: 95% of requests are reads.
+
+Support both small and large objects
+
+Must handle a wide range of object sizes efficiently.
+
+UNIX File System Analogy
+
+In UNIX file systems:
+
+File name stored in inode.
+
+File data stored at disk blocks.
+
+Inode contains pointers to data blocks.
+
+In object storage:
+
+Metadata store (like inode) stores object metadata.
+
+Data store (like disk blocks) stores object data.
+
+Metadata uses object ID → data location mapping (via network request).
+
+👉 Key insight:
+Object storage separates metadata and data, similar to UNIX FS separation of inodes and file data.
+
+
+
+
+
+Unix File System vs. Object Store System
+
+In a traditional Unix file system, metadata and data are tightly coupled. An inode stores metadata such as:
+
+File name
+
+Owner UID (user ID)
+
+Group UID
+
+Mode (permissions)
+
+File block pointers (which point to where the actual file data is stored on disk)
+
+This means metadata and data live together, and local disk access is needed for both.
+
+In contrast, an object store system separates metadata and data:
+
+Metadata Store (MetaStore): Holds mutable information (e.g., object name → object ID mapping, versioning, access control).
+
+Data Store: Holds immutable binary data (the actual object).
+
+This separation makes the design simpler and allows independent optimization of metadata and object data handling.
+
+Bucket and Object (Figure 9.3)
+
+An object must belong to a bucket, which provides a namespace. The two key parts are:
+
+Bucket Metadata
+
+ID
+
+Bucket Name
+
+Policy (permissions, retention)
+
+Lifecycle (expiration rules, versioning)
+
+Object Metadata
+
+ID (UUID, unique identifier for the object)
+
+Object Name
+
+Version ID
+
+Expiration
+
+Access Control
+
+The object’s actual data (e.g., binary 0101001, 1010100) is stored separately in the data store.
+
+High-Level Design (Figure 9.4)
+
+The architecture of an object store includes the following components:
+
+Load Balancer
+
+Distributes RESTful API requests (e.g., PUT, GET) across multiple API servers.
+
+API Service
+
+Stateless, can be horizontally scaled.
+
+Orchestrates RPC (remote procedure calls) to:
+
+Identity and Access Management (IAM)
+
+Metadata Service
+
+Data Store
+
+Identity & Access Management (IAM)
+
+Authentication: Verifies who you are.
+
+Authorization: Validates what operations you’re allowed to perform (READ, WRITE, DELETE).
+
+Data Store
+
+Stores the actual object data.
+
+Accessed via object ID (UUID) only.
+
+Metadata Store
+
+Stores object metadata (object name, UUID, bucket info).
+
+Often backed by a database.
+
+Note: some systems (e.g., Ceph’s Rados Gateway) don’t have a standalone metadata service — metadata itself is stored as objects in the data store.
+
+Uploading an Object (Figure 9.5)
+
+An object must reside in a bucket. The workflow has 7 steps:
+
+Client request:
+Sends HTTP PUT /bucket-to-share to create a bucket.
+
+IAM validation:
+API service checks IAM → verifies the user has WRITE permission.
+
+Create bucket metadata:
+API service calls the metadata store to create a bucket entry in the metadata DB.
+
+Upload object request:
+Client sends HTTP PUT /bucket-to-share/script.txt.
+
+IAM validation (again):
+API service checks user identity + WRITE permission for this bucket.
+
+Store object data:
+API service sends the uploaded data payload to the data store.
+Data store saves it, generates a UUID, and returns it.
+
+Create object metadata:
+API service calls metadata store to save an entry with:
+
+object_name = script.txt
+
+object_id = UUID (e.g., 239D5866-0052-00F6-014E-C914E61ED42B)
+
+bucket_id (bucket UUID)
+
+Sample metadata entry (Table 9.2):
+
+
+| object\_name | object\_id                           | bucket\_id                           |
+| ------------ | ------------------------------------ | ------------------------------------ |
+| script.txt   | 239D5866-0052-00F6-014E-C914E61ED42B | 82AA1B2E-F599-4590-B5E4-1F51AAE5F7E4 |
+
+
+
+
+Sample API Request (Listing 9.2):
+
+PUT /bucket-to-share/script.txt HTTP/1.1
+Host: foo.s3example.org
+Date: Sun, 12 Sept 2021 17:51:00 GMT
+Authorization: authorization-string
+Content-Type: text/plain
+Content-Length: 4567
+x-amz-meta-author: Alex
+
+[4567 bytes of object data]
+
+Downloading an Object (Figure 9.6)
+
+Buckets don’t have a real directory hierarchy. Instead, hierarchy is simulated using object names like:
+
+/bucket-to-share/script.txt
+
+Workflow (5 steps):
+
+Client request:
+Sends HTTP GET /bucket-to-share/script.txt.
+
+IAM validation:
+API service verifies READ permission via IAM.
+
+Metadata lookup:
+API service queries metadata store → maps object_name to UUID.
+
+Data fetch:
+API service retrieves the object data from data store using UUID.
+
+Return to client:
+API service sends the object data back in HTTP response.
+
+Sample API Request (Listing 9.3):
+
+GET /bucket-to-share/script.txt HTTP/1.1
+Host: foo.s3example.org
+Date: Sun, 12 Sept 2021 18:30:01 GMT
+Authorization: authorization-string
+
+
+
+Step 3 – Design Deep Dive
+
+In this section, we take a detailed look at the internal design of the data store system and its components.
+
+We’ll cover:
+
+Data store
+
+Metadata data model
+
+Listing objects in a bucket
+
+Object versioning
+
+Optimizing uploads of large files
+
+Garbage collection
+
+Data Store
+
+The data store is responsible for persisting and retrieving object data. It interacts closely with the API service, which handles requests from users.
+
+API Service and Data Store Interaction
+
+Upload flow:
+
+API service receives an upload request with file content.
+
+It forwards the request to the data store.
+
+Data store saves the object and returns an ObjectID (UUID).
+
+Download flow:
+
+API service receives a download request with ObjectID.
+
+It queries the data store.
+
+Data store returns the corresponding object data.
+
+(Shown in Figure 9.7)
+
+High-level Design for the Data Store
+
+The data store has three main components (Figure 9.8):
+
+Data Routing Service
+
+Placement Service
+
+Data Nodes
+
+Data Routing Service
+
+Provides RESTful or gRPC APIs to access the data node cluster.
+
+Stateless service, scalable by adding more servers.
+
+Responsibilities:
+
+Query the placement service to select the best data node for storage.
+
+Read data from data nodes and return to API service.
+
+Write data to data nodes.
+
+Placement Service
+
+Decides which data nodes (primary + replicas) will store an object.
+
+Maintains a virtual cluster map, containing the physical topology of the cluster.
+
+Ensures replicas are physically separated → improves durability.
+
+Virtual cluster map example (Figure 9.9):
+
+Shows datacenters, hosts, and partitions where data can be placed.
+
+Node health monitoring:
+
+Uses heartbeats from data nodes.
+
+If no heartbeat is received within 15 seconds, node is marked as down.
+
+High availability:
+
+Placement service should be deployed as a cluster of 5 or 7 nodes.
+
+Uses Paxos or Raft consensus protocol.
+
+Ensures the system continues working as long as >50% nodes are alive.
+
+Example: In a 7-node cluster, up to 3 failures are tolerated.
+
+Data Node
+
+Stores the actual object data.
+
+Provides reliability and durability via replication groups.
+
+Runs a data service daemon that:
+
+Sends regular heartbeats to the placement service.
+
+Reports:
+
+Number of disk drives managed (HDD/SSD).
+
+How much data is stored on each drive.
+
+On first heartbeat:
+
+Placement service assigns a unique ID to the data node.
+
+Adds node to the virtual cluster map.
+
+Returns:
+
+Node’s unique ID.
+
+Virtual cluster map.
+
+Replication rules.
+
+Data Persistence Flow (Figure 9.10)
+
+API service forwards object data to the data store.
+
+Data routing service:
+
+Generates a UUID for the object.
+
+Queries placement service for the primary data node.
+
+Placement service consults the virtual cluster map and returns the primary node.
+
+Data routing service sends the object data (with UUID) to the primary node.
+
+Primary node:
+
+Saves data locally.
+
+Replicates to two secondary nodes.
+
+Only after replication succeeds → acknowledges back.
+
+UUID (ObjectID) is returned to the API service.
+
+Deterministic Lookup – Consistent Hashing
+
+In Step 2, placement service must map UUID → replication group.
+
+This lookup must be:
+
+Deterministic (always same result for same UUID).
+
+Must survive node addition/removal.
+
+Consistent Hashing is a common way to achieve this.
+
+Consistency vs Latency (Figure 9.11)
+
+Replication introduces a trade-off:
+
+Strongest consistency, highest latency
+
+Data acknowledged only after all 3 nodes (primary + 2 replicas) confirm storage.
+
+Medium consistency, medium latency
+
+Data acknowledged after primary + 1 replica confirm.
+
+Eventual consistency with risk of partial replication.
+
+Weakest consistency, lowest latency
+
+Data acknowledged after only the primary node persists.
+
+Eventual consistency, but fastest writes.
+
+Options (2) and (3) → eventual consistency models.
+
+How Data is Organized
+
+Naïve approach: Store each object as a standalone file.
+
+Problems with many small files:
+
+Wasted disk blocks
+
+Filesystems store files in fixed-size blocks (typically 4KB).
+
+Even a 1KB file consumes an entire 4KB block → wasted space.
+
+Inode exhaustion
+
+File systems track files via inodes (metadata blocks).
+
+Inode count is fixed at disk initialization.
+
+Millions of small files can consume all inodes.
+
+OS performance also degrades with many inodes, despite caching.
+
+
+Metadata Issue with Small Objects
+
+Storing a large number of small objects as individual files creates problems:
+
+The filesystem metadata overhead becomes significant.
+
+Lookup operations slow down.
+
+The storage system becomes inefficient.
+
+Merging Small Objects into Large Files
+
+To solve this, many small objects are merged into a single large file, which works like a Write-Ahead Log (WAL):
+
+When an object is saved, it is appended to the current read-write file.
+
+When the file reaches its capacity threshold (usually a few GBs), it is marked as read-only.
+
+A new read-write file is created to receive further writes.
+
+Once a file is read-only, it only serves read requests.
+
+👉 This reduces metadata overhead and groups multiple objects together efficiently.
+
+Serialization of Writes
+
+Objects are stored sequentially in the read-write file (one after another).
+
+To maintain this strict on-disk layout, write access must be serialized.
+
+This means even if multiple CPU cores receive write requests in parallel, they must take turns writing to the file.
+
+On modern servers with many cores, this restricts write throughput significantly.
+
+Fix
+
+Instead of using one shared read-write file, we can provide dedicated read-write files per core.
+
+This allows each CPU core to write independently, boosting throughput.
+
+Object Lookup
+
+With objects stored inside large files, the system must know where each object lives.
+To locate an object by its UUID, the data node needs:
+
+The data file containing the object.
+
+The starting offset of the object in the file.
+
+The size of the object.
+
+Database Schema (Object Mapping Table)
+
+A relational schema is used for object lookup.
+
+Table: object_mapping
+
+
+| Field         | Description                                |
+| ------------- | ------------------------------------------ |
+| object\_id    | UUID of the object                         |
+| file\_name    | The name of the file containing the object |
+| start\_offset | Starting address of the object in the file |
+| object\_size  | Size of the object in bytes                |
+
+
+
+Choice of Database
+
+Two options were considered for storing mappings:
+
+RocksDB (File-based Key-Value Store)
+
+Fast for writes.
+
+Slower for reads.
+
+Relational Database (B+ Tree Storage Engine)
+
+Fast for reads.
+
+Slower for writes.
+
+Since the data access pattern is "write once, read many times", a relational database is preferred.
+
+Deployment of Database
+
+The mapping table size is massive at scale.
+
+Using a single large cluster for all data nodes is possible but hard to manage.
+
+However, mapping data is local to each data node (no sharing required).
+
+👉 Solution: Deploy a lightweight relational database (SQLite) on each data node.
+
+SQLite is file-based, reliable, and easy to manage.
+
+Updated Data Persistence Flow
+
+Steps for saving a new object:
+
+API service sends a request to save a new object (e.g., object 4).
+
+Data node service appends the object to the end of the current read-write file (/data/c).
+
+A new record is inserted into the object_mapping table with:
+
+object_id
+
+file_name
+
+start_offset
+
+object_size
+
+Data node service returns the object’s UUID to the API service.
+
+✅ This ensures that:
+
+Objects are efficiently stored in large files.
+
+Metadata lookup is fast via SQLite.
+
+Reads are optimized since objects are only written once.
+
+
+
+Durability
+
+Data reliability is critical in storage systems. To achieve six nines (99.9999%) durability, every possible failure scenario must be considered. The main techniques are replication (multiple copies) and erasure coding (data + parity).
+
+Hardware failure and failure domain
+Hard drive failures
+
+Every storage medium (HDDs, SSDs, NVMe) has some failure probability.
+
+Example: spinning hard drives have an Annual Failure Rate (AFR) of ~0.81%.
+
+Relying on one drive cannot achieve high durability.
+
+Replication
+
+A proven approach is replicating data across multiple drives.
+
+If we store 3 copies of the data, then losing one drive does not cause data loss.
+
+Calculation (simplified):
+
+Probability a single disk fails in a year = 0.0081.
+
+Probability all 3 copies fail = 0.0081³ ≈ 0.000000531.
+
+Therefore, durability ≈ 1 – 0.000000531 ≈ 0.999999 (six nines).
+
+⚠️ Note: This is only a rough estimate. Actual durability requires deeper statistical modeling.
+
+Failure domain
+What is a failure domain?
+
+A failure domain is a section of the environment that can fail as a unit. If something goes wrong in that section, everything inside it may be affected.
+
+Examples of failure domains
+
+Node-level: A single server (CPU, memory, power supply, disks).
+
+Rack-level: A rack of servers sharing network switches & power.
+
+Room/floor-level: Multiple racks grouped together.
+
+Availability Zone (AZ)-level: Entire datacenter region with independent power & networking.
+
+Why this matters?
+
+Replicating within one rack protects against disk failure but not rack power loss.
+
+Replicating across different AZs ensures data survives large-scale failures like power outages, cooling failures, or natural disasters.
+
+Example: Multi-datacenter replication (Figure 9.14)
+
+Data is replicated across 3 Availability Zones.
+
+Each AZ has independent power & networking.
+
+Within each AZ, data may be further spread across racks and nodes.
+
+This does not directly increase mathematical durability but improves resilience against catastrophic failures.
+
+Erasure coding
+What is it?
+
+Instead of making full copies (replication), erasure coding splits data into chunks and adds parity blocks (mathematical redundancy).
+
+Even if some chunks are lost, data can be reconstructed using the parity.
+
+This achieves similar durability as replication but with less storage overhead.
+
+Example: (4 + 2) Erasure Coding (Figure 9.15)
+
+Split data: Original data is broken into 4 chunks → d1, d2, d3, d4.
+
+Generate parities:
+
+Using formulas (simplified example):
+
+p1 = d1 + 2×d2 - d3 + 4×d4
+
+p2 = -d1 + 5×d2 + d3 - 3×d4
+
+This creates 2 parity chunks → p1, p2.
+
+Failure happens: Suppose d3 and d4 are lost (node crashes).
+
+Reconstruction: The formulas can reconstruct d3 and d4 using d1, d2, p1, p2.
+
+👉 Advantage: Instead of storing 3 full copies (3× storage overhead), erasure coding only needs 1.5× storage here (4 data + 2 parity).
+
+Example: (8 + 4) Erasure Coding (Figure 9.16)
+
+Data splitting: Original data → 8 chunks.
+
+Parity calculation: 4 parities are generated.
+
+Total pieces: 12 (all same size).
+
+Distribution: Each piece is placed in a different failure domain (e.g., different nodes, racks, or AZs).
+
+Fault tolerance: The system can survive up to 4 simultaneous failures without data loss.
+
+This setup ensures that large-scale failures (like losing multiple nodes) do not result in permanent data loss.
+
+✅ Summary
+
+Replication (e.g., 3 copies) → simple, achieves ~six nines durability but high storage cost.
+
+Failure domains → replication across AZs/racks protects against catastrophic outages.
+
+Erasure coding → smarter redundancy (data + parity), reduces storage overhead while maintaining high durability.
+
+Best practice: Many large-scale storage systems (e.g., AWS S3, GCP, Azure) combine multi-AZ replication with erasure coding for maximum durability & efficiency.
+
+
+Failure Domain
+(8 + 4) Erasure Coding
+
+In replication, the data router only needs to read an object from one healthy node.
+
+In erasure coding, the data router must read from at least 8 healthy nodes.
+
+This is a design tradeoff:
+
+Replication → simpler, faster reads.
+
+Erasure coding → more complex, slower access, but better durability and lower storage cost.
+
+For object storage, where storage cost is the main factor, erasure coding might be worth the tradeoff.
+
+Storage Overhead of Erasure Coding
+
+Erasure coding requires 1 parity block for every 2 data chunks → 50% storage overhead (Figure 9.17).
+
+3-copy replication requires 200% storage overhead (Figure 9.17).
+
+Comparison: 3-Copy Replication vs Erasure Coding (4+2)
+
+3-copy replication:
+
+Data distributed across 3 nodes.
+
+Example: 1 GB stored → needs 3 GB (200% overhead).
+
+Erasure coding (4+2):
+
+Data distributed across 6 nodes.
+
+Example: For every 4 data chunks → 2 parity chunks added.
+
+Storage overhead = 50%.
+
+Durability of Erasure Coding
+
+Node annual failure rate: 0.81% (per Backblaze calculation [20]).
+
+Replication: achieves 6 nines durability.
+
+Erasure coding (8+4): achieves 11 nines durability.
+
+Erasure coding wins on durability, but requires complex math (see [20] for details).
+
+Table 9.5: Replication vs Erasure Coding
+
+| Feature                | Replication                                         | Erasure Coding                                            |
+| ---------------------- | --------------------------------------------------- | --------------------------------------------------------- |
+| **Durability**         | 6 nines (3 copies)                                  | 11 nines (8+4) → **Erasure coding wins**                  |
+| **Storage efficiency** | 200% overhead                                       | 50% overhead → **Erasure coding wins**                    |
+| **Compute resource**   | No computation → **Replication wins**               | Requires parity calculations                              |
+| **Write performance**  | Fast (just replicate) → **Replication wins**        | Slower (needs parity calculation)                         |
+| **Read performance**   | Fast, unaffected by failures → **Replication wins** | Reads always involve multiple nodes, slower under failure |
+
+
+
+Summary:
+
+Replication → better for latency-sensitive applications.
+
+Erasure coding → better for cost efficiency and durability, but adds complexity.
+
+Correctness Verification
+Problem: Data Corruption
+
+Disk failures can be detected and handled by reconstructing data (via replication or erasure coding).
+
+But in-memory data corruption is common in large-scale systems.
+
+To address this: use checksums across process boundaries.
+
+Checksums
+
+A checksum is a small block of data that helps detect errors.
+
+Process:
+
+Original data → run through checksum algorithm → generate checksum.
+
+After transmission → compute checksum again.
+
+Compare the two checksums:
+
+If different → data corrupted.
+
+If same → very high probability data is correct (not 100%, but practically safe).
+
+Figure 9.18 shows checksum generation.
+
+Figure 9.19 shows checksum comparison.
+
+Checksum Algorithms
+
+Examples: MD5 [26], SHA1 [27], HMAC [28].
+
+A good checksum algorithm produces very different outputs even for small input changes.
+
+For this design, a simple algorithm (MD5) is chosen.
+
+Implementation in the Design
+
+Checksum appended at the end of each object.
+
+Before marking a file as read-only, the system:
+
+Computes checksum of the entire file.
+
+Stores it at the end of the file.
+
+Figure 9.20 shows the file layout with appended checksum.
+
+
+Add Checksum to Data Node
+
+When using (8 + 4) erasure coding with checksum verification, the system ensures data integrity as follows:
+
+Fetch data and checksum
+
+The client fetches the object’s data along with its stored checksum.
+
+Compute checksum and verify
+
+The client calculates a checksum for the received data.
+
+If checksums match: The data is correct and error-free.
+
+If checksums differ: The data is corrupted, so the system tries to recover it by fetching from other failure domains (i.e., other data replicas).
+
+Repeat until all 8 pieces are returned
+
+This process continues for all 8 required data fragments.
+
+Once all 8 valid fragments are collected, the system reconstructs the original data and sends it back to the client.
+
+Metadata Data Model
+
+The system uses a database schema to store object and bucket metadata. The design must support three main queries.
+
+Schema
+Queries to Support:
+
+Query 1: Find the object ID by object name.
+
+Query 2: Insert and delete an object based on the object name.
+
+Query 3: List objects in a bucket sharing the same prefix.
+
+Database Tables
+
+bucket table
+
+bucket_name
+
+bucket_id
+
+owner_id
+
+enable_versioning
+
+object table
+
+bucket_name
+
+object_name
+
+object_version
+
+object_id
+
+Scale the Bucket Table
+
+A user is typically limited in the number of buckets they can create.
+
+Example calculation:
+
+1 million customers × 10 buckets each × 1 KB per record = 10 GB total.
+
+10 GB easily fits on a modern database server.
+
+Scaling issue: A single DB server might not have enough CPU or network bandwidth for all reads.
+
+Solution: Replicate the bucket table across multiple database replicas to distribute read load.
+
+Scale the Object Table
+
+The object table contains metadata for potentially billions of objects.
+
+It cannot fit into a single database instance at scale, so we need sharding.
+
+Sharding Options:
+
+Shard by bucket_id
+
+All objects in one bucket go to the same shard.
+
+Problem: Causes hotspot shards, since a single bucket may contain billions of objects.
+
+Shard by object_id
+
+Distributes load evenly.
+
+Problem: Makes queries 1 & 2 inefficient, since they rely on object name (URI), not object_id.
+
+Shard by (bucket_name, object_name) → Chosen method
+
+Hash <bucket_name, object_name> to distribute load evenly.
+
+Benefits:
+
+Efficient for queries 1 (find by name) and 2 (insert/delete by name).
+
+Drawback: Query 3 (list objects in a prefix) is less direct but still solvable.
+
+Listing Objects in a Bucket
+
+Object stores (like S3) are flat key-value stores, not hierarchical file systems.
+Objects are accessed via URIs:
+
+s3://bucket-name/object-name
+
+Example:
+
+s3://mybucket/abc/d/e/f/file.txt
+
+Bucket: mybucket
+
+Object: abc/d/e/f/file.txt
+
+Prefixes
+
+A prefix is the starting string of the object name.
+
+Example prefix: abc/d/e/f/
+
+AWS S3 uses prefixes to organize objects similar to directories, but prefixes are not real directories.
+
+AWS S3 Listing Commands
+1. List all buckets owned by a user
+aws s3 list-buckets
+
+2. List objects at the same level as a given prefix
+aws s3 ls s3://mybucket/abc/
+
+
+Objects deeper than the prefix are rolled up into a common prefix.
+
+Example objects:
+
+CA/cities/losangeles.txt  
+CA/cities/sanfrancisco.txt  
+NY/cities/ny.txt  
+federal.txt  
+
+
+Querying with prefix / → Results:
+
+CA/  
+NY/  
+federal.txt  
+
+3. Recursively list all objects under a prefix
+aws s3 ls s3://mybucket/CA/ --recursive
+
+
+Results:
+
+CA/cities/losangeles.txt  
+CA/cities/sanfrancisco.txt  
+
+Single Database
+
+How to support listing commands in a single DB setup:
+
+List all buckets owned by a user
+
+SELECT * FROM bucket WHERE owner_id = {id};
+
+
+List objects with a given prefix
+
+SELECT * FROM object
+WHERE bucket_id = "123" AND object_name LIKE 'abc/%';
+
+
+Returns all objects in bucket 123 whose names start with abc/.
+
+Application logic handles rollups
+
+In case of use case 2 (list by level), the application rolls up objects with additional slashes.
+
+In recursive listing (use case 3), the application simply lists all objects matching the prefix.
+
+
+
+
+Distributed Databases
+
+When working with distributed databases, handling metadata and object listings can get complex, especially when sharding is involved. Let’s break it down step by step.
+
+Sharded Metadata Table and Listing Problem
+
+If the metadata table is sharded, the challenge arises in implementing the listing function.
+
+The main issue:
+→ We don’t know which shard contains the required data.
+
+The straightforward solution is to query all shards and aggregate results.
+
+Example approach:
+
+The metadata service queries every shard with:
+
+SELECT * FROM object
+WHERE bucket_id = "123" AND object_name LIKE 'a/b/%'
+
+
+The metadata service aggregates results from each shard and returns them to the caller.
+
+✅ This works, but pagination becomes complicated.
+
+Pagination in a Single Database
+
+For a single database, pagination is simple. Suppose we want to return 10 objects per page:
+
+Query for the first page:
+
+SELECT * FROM object
+WHERE bucket_id = "123" AND object_name LIKE 'a/b/%'
+ORDER BY object_name OFFSET 0 LIMIT 10;
+
+
+The OFFSET and LIMIT ensure we only fetch the first 10 objects.
+
+For the next page, the client uses a cursor returned by the server.
+
+The cursor encodes the offset.
+
+Example for second page:
+
+SELECT * FROM object
+WHERE bucket_id = "123" AND object_name LIKE 'a/b/%'
+ORDER BY object_name OFFSET 10 LIMIT 10;
+
+
+This continues until a special end cursor indicates no more results.
+
+Why Pagination is Complicated in Sharded Databases
+
+Objects are distributed across shards.
+
+Different shards return a varying number of results:
+
+Some shards may return a full page (10 objects).
+
+Others may return partial results or even be empty.
+
+The application layer aggregates and sorts results, then returns a page (10 objects).
+
+Problem:
+
+Objects excluded from one round must be considered again in the next round.
+
+Each shard ends up having a different offset.
+
+The server must track all offsets per shard inside the cursor.
+
+With hundreds of shards → hundreds of offsets to maintain.
+
+Solution: Denormalized Listing Table
+
+A tradeoff-based solution is possible:
+
+Denormalize the listing data into a separate table that is sharded by bucket ID.
+
+This table is only used for listing objects.
+
+Benefits:
+
+The listing query runs against a single database instead of across shards.
+
+Even for buckets with billions of objects, performance remains acceptable.
+
+Simplifies implementation since pagination behaves like the single-database case.
+
+⚠️ Tradeoff:
+
+Object storage systems are optimized for scale and durability, not for listing performance.
+
+This solution embraces that fact by isolating the listing workload separately.
+
+Object Versioning
+
+Object versioning is another critical feature in distributed object storage.
+
+What is Object Versioning?
+
+Versioning ensures that multiple versions of an object are preserved in a bucket.
+
+Without versioning:
+
+If a document is modified and saved under the same name, the old version is overwritten.
+
+The old metadata is marked as deleted, and its space is reclaimed by the garbage collector.
+
+With versioning:
+
+All previous versions are retained in the metadata store.
+
+The old versions are never deleted from the object store.
+
+Allows recovery from accidental deletions or overwrites.
+
+Example Workflow of Uploading a Versioned Object
+
+Before this works:
+👉 Versioning must be enabled on the bucket.
+
+Steps (as illustrated in Figure 9.22):
+
+PUT Object Request
+
+A client sends a PUT request to upload an object.
+
+The request flows through:
+
+Load balancer
+
+API Service
+
+Identity Service (for validation & authorization)
+
+Validation and Checks by Storage Service:
+
+Check if object exists (to decide if this is a new object or an update).
+
+Check if versioning is enabled for the bucket.
+
+Metadata Handling:
+
+If versioning is enabled, a new metadata entry is created for the object.
+
+The old metadata entry is not deleted but preserved as a previous version.
+
+Data Storage:
+
+The object itself is written to the storage nodes.
+
+The metadata DB records all versions of the object.
+
+✅ End Result:
+
+With versioning enabled, every new upload of the same object creates a new version.
+
+Older versions are retained and retrievable.
+
+
+Upload flow (PUT request) — steps 1–5
+
+What happens when a client uploads script.txt with an HTTP PUT:
+
+Client sends the PUT request.
+
+The client issues an HTTP PUT to the object-storage API asking to store an object named script.txt.
+
+Authentication & authorization.
+
+The API service first verifies the caller’s identity (authentication).
+
+Then it checks that the caller has WRITE permission on the target bucket (authorization). If either check fails, the upload is rejected.
+
+Data is persisted in the data store.
+
+Once the API service accepts the request, it uploads the object bytes to the data store (the place that holds object payloads/blobs).
+
+The data store persists those bytes as a new object and returns to the API a new unique identifier for that stored object — a UUID (this is the object_id).
+
+API records metadata.
+
+The API service calls the metadata store to save metadata for this object (attributes such as bucket_id, object_name, object_id, size, content-type, timestamps, etc.).
+
+Versioning in the metadata store (if versioning enabled).
+
+The metadata store’s object table includes a column object_version that is only used when versioning is enabled.
+
+Instead of overwriting the old metadata row, the system inserts a new metadata row with the same bucket_id and object_name but with:
+
+a new object_id (the UUID returned by the data store), and
+
+a new object_version (a TIMEUUID generated at insert time).
+
+Because a TIMEUUID encodes time information and sorts by insertion time, the current version is simply the row with the largest object_version among rows that share the same object_name.
+
+(This design lets the metadata store keep the history of previous versions while making it efficient to find the current one.)
+
+(See the text’s Figure 9.23 which shows script.txt with several object rows and the current version pointing at the most recent object_id/object_version.)
+
+Versioned metadata (Figure 9.23) — how it looks & why
+
+Multiple metadata rows for the same logical object name: when versioning is enabled, every upload for script.txt creates a new metadata row rather than updating the previous row.
+
+Columns used: bucket_id, object_name (same across versions), object_id (unique UUID per stored payload), and object_version (a TIMEUUID used to order versions).
+
+Finding the current version: query for rows with the same bucket_id+object_name and pick the row with the largest object_version (or order by object_version DESC LIMIT 1). That gives you the metadata and object_id for the currently visible version.
+
+Why this is useful:
+
+history is preserved (ability to retrieve older versions if the API supports it),
+
+since TIMEUUID preserves time-order, you can cheaply find the latest version without destructive updates.
+
+Delete object by inserting a delete marker (Figure 9.24)
+
+Deleting ≠ removing all rows. When deleting an object in a versioned bucket, the system does not remove previous versions. Instead it inserts a delete marker, which is simply another metadata row that marks “this version is a deletion”.
+
+Delete marker becomes the current version. Because the delete marker has a object_version (a TIMEUUID) generated when it is inserted, it will be the largest object_version and therefore becomes the current version for that object_name.
+
+Behavior on GET when current version is a delete marker: a normal GET for the object (without specifying a version) will see the delete marker as the current version and return 404 Object Not Found.
+
+Previous versions still exist. Even though the object name now resolves to a delete marker, older versions (previous rows) remain in the metadata store and their object payloads still exist in the data store. Depending on the API, those older versions can often be listed or retrieved by specifying their version id.
+
+(See Figure 9.24 in the text which shows the delete marker as the current record while prior versions remain below it.)
+
+Optimizing uploads of large files
+
+Problem: large objects (the book estimates ~20% are large; some multiple GBs) are slow and fragile to upload in a single PUT. If the network fails midway you’d otherwise have to restart the entire upload.
+
+Solution: split the large object into smaller independent parts and upload each part separately. After all parts arrive, the storage system reassembles the final object. This is the multipart upload pattern.
+
+Benefits:
+
+Retry only failing parts — you don’t need to restart the whole transfer.
+
+Parallel uploads — parts can be uploaded in parallel, improving throughput.
+
+Resumability — interrupted uploads can resume from the last successful part.
+
+Integrity checks per-part — each uploaded part is verified via a checksum (ETag).
+
+Multipart upload (Figure 9.25) — steps 1–6
+
+How multipart upload works (steps from the text):
+
+Initiate multipart upload.
+
+Client sends a request to start a multipart upload for an object; the object store responds with an uploadID that uniquely identifies this multipart upload session.
+
+Receive uploadID.
+
+The uploadID is used by the client for all subsequent part uploads for this object; it ties parts to the same final object assembly.
+
+Split and upload parts.
+
+Client splits the large file into parts. Example from text: file size 1.6 GB split into 8 parts → each part is 1.6 ÷ 8 = 0.2 GB = 200 MB. (Arithmetic: 1.6 / 8 = 0.2; 0.2 GB = 200 MB assuming decimal GB→MB here as in the example.)
+
+The client uploads each part to the data store, sending the uploadID and the part number for each part.
+
+Data store returns an ETag for each part.
+
+When a part is uploaded successfully, the data store returns an ETag for that part. The ETag is a checksum of the part (the text says “mds checksum” — typically this is an MD5 or other checksum) and is used to verify the integrity of that part during completion.
+
+Client sends Complete Multipart Upload with list of parts and ETags.
+
+After all parts are uploaded, the client sends the completion request that includes the uploadID, the part numbers, and the corresponding ETags for each part.
+
+Data store reassembles the object and verifies parts.
+
+The data store reassembles the final object by concatenating parts in part-number order.
+
+It uses the supplied ETags to verify each part’s integrity. If verification succeeds, the store writes out the final object and returns success.
+
+Notes and practical details (extensions of the text, all consistent with the described design):
+
+The ETag ensures parts were uploaded intact; if a part’s ETag doesn’t match during completion, the completion fails for that upload (client must re-upload the bad part).
+
+Retrying a multipart upload is efficient: failed part uploads can be retried individually.
+
+Abort semantics: systems usually allow aborting in-progress multipart uploads to reclaim partial storage for uploaded parts that were never completed.
+
+Ordering: the final object’s bytes are the parts concatenated in the order specified by part numbers, so clients must ensure part numbers reflect the intended byte order.
+
+Parallelism & throughput: because parts are independent, the client and data store can upload/receive parts concurrently, increasing throughput significantly for large objects.
+
+(See Figure 9.25 which diagrams initiation → part uploads (each returning an ETag) → completion → success.)
+
+Quick checklist (to confirm we covered every point in the text)
+
+ PUT request from client to upload script.txt.
+
+ API verifies identity and WRITE permission.
+
+ Data store persists payload, returns a new UUID (object_id).
+
+ Metadata store is called to store metadata.
+
+ Versioning uses object_version (a TIMEUUID), new metadata row inserted (not overwrite).
+
+ Current version = largest object_version among rows with same object_name. (Figure 9.23.)
+
+ Delete inserts a delete marker row which becomes the current version; GET returns 404 when current is delete marker (Figure 9.24).
+
+ Large objects should be uploaded via multipart upload (break into parts, upload parts independently).
+
+ Multipart steps: initiate → get uploadID → upload parts (each returns ETag) → complete with uploadID + part numbers + ETags → data store reassembles (Figure 9.25).
+
+ ETag = checksum used to verify multipart uploads (text says “mds checksum” — likely intended as an MD5 checksum or other content checksum).
+
+
+
+Large Object Reassembly
+
+When a very large object is uploaded in multiple parts, the system must reassemble these parts into a single complete object. This reassembly process can take several minutes because of the object size.
+
+Once the reassembly is complete, the system returns a success message to the client.
+
+Problem with Old Parts
+
+After the large object has been reassembled, the individual parts used for reassembly are no longer useful. These unused parts will consume storage unnecessarily if not removed.
+
+To handle this, we introduce a garbage collection service, which is responsible for freeing up space taken by parts that are no longer needed.
+
+Garbage Collection
+
+Garbage collection is the automatic process of reclaiming storage space that is no longer used.
+
+Ways Data Might Become Garbage:
+
+Lazy object deletion
+
+When an object is deleted, it is marked as deleted but not immediately removed from storage.
+
+Orphan data
+
+Data that was partially uploaded but never completed, e.g., abandoned multipart uploads.
+
+Corrupted data
+
+Data that fails integrity checks such as checksum verification.
+
+Behavior of Garbage Collector
+
+The garbage collector does not immediately delete objects from the data store.
+
+Instead, deleted objects are cleaned up periodically using a compaction mechanism.
+
+Additionally, the garbage collector also ensures cleanup across replicas:
+
+Replication setup:
+
+If an object is deleted, it must be removed from both primary and backup nodes.
+
+Erasure coding setup:
+
+For an (8 + 4) setup (8 data fragments + 4 parity fragments = 12 total nodes), the object must be deleted from all 12 nodes.
+
+Compaction
+
+Compaction is the process of reorganizing data files by removing deleted or invalid objects and writing only valid objects to new files.
+
+Example from Figure 9.26:
+
+The garbage collector copies objects from /data/b into a new file /data/d.
+
+Objects marked with delete flags (like Object 2 and Object 5) are skipped.
+
+After copying valid objects, the garbage collector updates the object_mapping table.
+
+Example: "Object 3" keeps the same obj_id and object_size, but its file_name and start_offset are updated to reflect the new location.
+
+To maintain consistency, the update to file_name and start_offset is wrapped in a database transaction.
+
+Key Point:
+
+After compaction, the new file is smaller than the old file because deleted objects are not copied.
+
+To avoid too many small files:
+
+The garbage collector usually waits until multiple read-only files exist before compacting.
+
+Then, it merges many small read-only files into fewer large files.
+
+Step 4 - Wrap Up
+
+This chapter provided a high-level design of an S3-like object storage system.
+
+Key Coverage in the Chapter:
+
+Comparison of Storage Types
+
+Block storage, file storage, and object storage.
+
+Basic Object Storage Operations
+
+Uploading, downloading, listing objects in a bucket, and versioning.
+
+Object Storage Components
+
+Data store: Where actual object data is saved.
+
+Metadata store: Keeps track of object locations, versions, and multipart uploads.
+
+Data Reliability & Durability Methods
+
+Replication
+
+Erasure coding
+
+Multipart Uploads
+
+Explained how multipart uploads work.
+
+Described the database schema required to support them.
+
+Scalability via Sharding
+
+Showed how metadata can be partitioned (sharded) for scalability.
+
+Garbage Collection
+
+Introduced the garbage collector for cleaning unused parts, orphaned data, corrupted data, and deleted objects.
+
+Explained compaction and replica cleanup mechanisms.
+
+📌 Chapter Summary
+
+This chapter designed an S3-like object storage system by breaking it into data storage and metadata storage. It explained how objects are uploaded, downloaded, listed, and versioned. For reliability, both replication and erasure coding techniques were introduced.
+
+The chapter highlighted challenges with multipart uploads and deletion handling, showing the need for a garbage collection system. Garbage collection ensures unused parts, corrupted data, and deleted objects are periodically cleaned through compaction, reclaiming storage and optimizing file sizes.
+
+Overall, the design balances reliability, scalability, durability, and efficient space usage, giving a complete view of how real-world cloud object storage like Amazon S3 is built.
+
+
+
