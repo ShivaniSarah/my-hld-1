@@ -1,1 +1,1058 @@
-..
+8 Distributed Email Service
+
+In this chapter, we design a large-scale email service like Gmail, Outlook, or Yahoo Mail.
+
+The internet’s growth has caused a massive explosion in email volume. For example:
+
+In 2020, Gmail had over 1.8 billion active users.
+
+Outlook had over 400 million users worldwide.
+
+Popular providers include:
+
+outlook.com
+
+gmail.com
+
+yahoo.com
+
+Step 1 - Understand the Problem and Establish Design Scope
+
+Modern email services are very complex with lots of features. Since we can’t design the entire system in a short time, it’s important to ask clarifying questions and narrow down the scope.
+
+Example Interview Dialogue
+
+Candidate: How many people use the product?
+Interviewer: 1 billion users.
+
+Candidate: I think the following features are important:
+
+Send and receive emails
+
+Fetch all emails
+
+Filter emails by read/unread status
+
+Search emails by subject, sender, and body
+
+Anti-spam and anti-virus
+
+Interviewer: Good list! Let’s not worry about authentication for now. We’ll focus on the other features.
+
+Candidate: How do users connect with mail servers?
+Interviewer: Traditionally via SMTP, POP, IMAP, and vendor-specific protocols. But for this interview, assume HTTP is used for client-server communication.
+
+Candidate: Can emails have attachments?
+Interviewer: Yes.
+
+Non-functional Requirements
+
+Reliability
+
+Emails should never be lost.
+
+Availability
+
+User data and emails must be replicated across multiple nodes.
+
+The system should still function even if parts of it fail.
+
+Scalability
+
+The system should handle growing numbers of users and emails.
+
+Performance should not degrade with scale.
+
+Flexibility and Extensibility
+
+The system should support adding new features easily.
+
+Traditional protocols (POP, IMAP) are limited.
+
+We may need custom protocols to meet modern needs.
+
+Back-of-the-envelope Estimation
+
+Since emails are storage-heavy, let’s estimate scale:
+
+Users: 1 billion
+
+Emails sent per person per day: 10
+
+Total QPS (queries per second) for sending:
+
+10
+9
+×
+10
+/
+10
+5
+≈
+100
+,
+000
+10
+9
+×10/10
+5
+≈100,000
+
+Emails received per person per day: 40
+
+Average metadata size: 50 KB
+
+Metadata storage for 1 year:
+
+1
+𝐵
+×
+40
+×
+365
+×
+50
+𝐾
+𝐵
+=
+730
+ 
+𝑃
+𝐵
+1B×40×365×50KB=730PB
+
+Attachments: 20% of emails have one
+
+Average attachment size: 500 KB
+
+Attachment storage for 1 year:
+
+1
+𝐵
+×
+40
+×
+365
+×
+20
+%
+×
+500
+𝐾
+𝐵
+=
+1
+,
+460
+ 
+𝑃
+𝐵
+1B×40×365×20%×500KB=1,460PB
+
+👉 Clearly, this requires a distributed database solution.
+
+Step 2 - Propose High-level Design and Get Buy-in
+
+We now discuss email basics, traditional mail servers, and distributed mail servers.
+
+Email Knowledge 101
+
+Different email protocols are used to send/receive emails:
+
+SMTP (Simple Mail Transfer Protocol)
+
+Standard protocol for sending emails between mail servers.
+
+POP (Post Office Protocol)
+
+Used to download emails from server to local client.
+
+Once downloaded, emails are deleted from the server.
+
+Means emails are only available on one device.
+
+Requires downloading the entire email, including attachments.
+
+Defined in RFC 1939.
+
+IMAP (Internet Mail Access Protocol)
+
+Used to read emails from server.
+
+Emails are kept on the server (can be accessed from multiple devices).
+
+Only downloads email headers first, body only when clicked.
+
+Much better for slow connections.
+
+Most widely used protocol for individuals.
+
+HTTPS (Web Access)
+
+Not technically a mail protocol.
+
+Commonly used by web-based clients.
+
+Example: Microsoft Outlook uses ActiveSync over HTTPS for mobile devices.
+
+Domain Name Service (DNS)
+
+DNS servers are used to look up the MX (Mail Exchanger) record of a recipient’s domain.
+
+Example: running DNS lookup for gmail.com returns MX records.
+
+Each record has a priority number:
+
+Lower number = higher priority.
+
+Example:
+
+gmail-smtp-in.1.google.com (priority 5) is tried first.
+
+If it fails, the sender tries alt1.gmail-smtp-in.1.google.com (priority 10), and so on.
+
+This ensures reliable delivery even if some servers are down.
+
+
+
+
+
+Attachment
+
+An email attachment is a file that is sent along with an email message.
+
+Attachments are usually Base64 encoded so that binary files (like images, PDFs, etc.) can be sent safely over text-based email protocols.
+
+Size limits exist:
+
+Outlook → 20 MB
+
+Gmail → 25 MB (as of June 2021).
+
+These limits vary depending on the type of account (individual vs. corporate).
+
+MIME (Multipurpose Internet Mail Extension):
+A standard specification that enables sending different types of attachments (text, audio, video, etc.) over email.
+
+Traditional Mail Servers
+
+Before distributed systems, emails were handled by traditional single-server mail servers. These worked well for a limited number of users but were not scalable.
+
+Traditional Mail Server Architecture
+
+When Alice (alice@outlook.com
+) sends an email to Bob (bob@gmail.com
+), the process has 4 steps:
+
+Alice sends email:
+
+Alice composes an email in Outlook client.
+
+The email is sent to the Outlook mail server.
+
+Protocol used: SMTP (Simple Mail Transfer Protocol).
+
+Outlook mail server forwards email:
+
+Outlook server queries the DNS to locate the recipient’s SMTP server (in this case, Gmail’s SMTP server).
+
+The email is transferred to Gmail’s SMTP server.
+
+Protocol used: SMTP (server-to-server communication).
+
+Gmail server stores email:
+
+Gmail mail server stores the email in its storage system.
+
+It becomes available for Bob to retrieve.
+
+Bob fetches email:
+
+When Bob logs in to Gmail, the Gmail client fetches the email from Gmail’s IMAP/POP server.
+
+Protocol used: IMAP (Internet Message Access Protocol) or POP (Post Office Protocol).
+
+Storage
+
+In traditional systems, emails were stored in local file directories.
+
+Each email was a separate file with a unique name.
+
+Each user had a directory storing:
+
+Mailboxes
+
+Configuration data
+
+Maildir Format
+
+A popular way of organizing email storage.
+Structure:
+
+home/
+   user1/
+       Maildir/
+           cur/
+           new/
+           tmp/
+   user2/
+       Maildir/
+           cur/
+           new/
+           tmp/
+
+
+cur/ → read messages
+
+new/ → new messages
+
+tmp/ → temporary storage
+
+Problems with this approach:
+
+Worked well for small users, but failed at scale:
+
+Hard to retrieve & back up billions of emails.
+
+Disk I/O bottleneck when storage became huge.
+
+Not highly available or reliable (disk/server failure risk).
+
+Evolution of Email
+
+Started in the 1960s with only text.
+
+Modern email now supports:
+
+Multimedia
+
+Threading
+
+Search
+
+Labels, etc.
+
+However, old protocols (POP, IMAP, SMTP) were not designed for scale → they struggle with billions of users and new features.
+
+Distributed Mail Servers
+
+Modern mail servers are distributed to handle scale, reliability, and modern features.
+
+Email APIs
+
+"Email APIs" vary depending on context:
+
+SMTP/POP/IMAP APIs → for native mobile/desktop clients.
+
+SMTP → for communication between sender & receiver servers.
+
+RESTful APIs (over HTTP) → for modern webmail applications.
+
+Common Webmail APIs
+
+Send Email
+
+Endpoint: POST /v1/messages
+
+Sends messages to recipients in To, Cc, Bcc.
+
+List Folders
+
+Endpoint: GET /v1/folders
+
+Returns all folders of a user.
+
+Example folders (per RFC6154): All, Archive, Drafts, Flagged, Junk, Sent, Trash.
+
+Response includes:
+
+id (folder ID)
+
+name (folder name)
+
+user_id (owner reference)
+
+List Messages in a Folder
+
+Endpoint: GET /v1/folders/{folder_id}/messages
+
+Returns all messages under a folder.
+
+Needs pagination in real-world usage.
+
+Get a Specific Message
+
+Endpoint: GET /v1/messages/{message_id}
+
+Returns detailed information about a specific message.
+
+Response includes:
+
+Sender (name, email)
+
+Recipients (list of name/email)
+
+Subject
+
+Body
+
+Attachments
+
+Read status
+
+Distributed Mail Server Architecture
+
+Scaling email requires multiple servers with different responsibilities.
+
+High-Level Design (Figure 8.5)
+
+Components:
+
+Webmail
+
+Users access emails via browsers.
+
+Web Servers
+
+Handle user-facing requests: login, signup, user profile, sending emails, fetching folders/messages.
+
+All API requests go through web servers.
+
+Real-Time Servers
+
+Push new email updates instantly to clients.
+
+Stateful servers (maintain persistent connections).
+
+Support real-time communication via:
+
+WebSocket (preferred, elegant, real-time).
+
+Long polling (fallback when WebSocket not supported).
+
+Example: Apache James → supports JMAP (JSON Meta Application Protocol) over WebSocket.
+
+Metadata Database
+
+Stores mail metadata (subject, body, sender, recipients, etc.).
+
+Choice of database depends on scalability and query needs.
+
+Attachment Store
+
+Handles file attachments separately from metadata for efficiency.
+
+Distributed Cache
+
+Speeds up frequently accessed data.
+
+Search Store
+
+Optimized for searching through emails quickly (e.g., indexing).
+
+Storage Layer
+
+Handles large-scale, reliable, distributed storage for email data.
+
+
+
+Attachment Store
+
+For storing attachments (images, videos, files, etc.), we use an object store like Amazon S3.
+
+Reasons for using S3:
+
+It is scalable and can handle very large files.
+
+Attachments can be up to 25 MB in size, which is a good fit for object stores.
+
+Why Cassandra is not a good fit for attachments:
+
+Even though Cassandra supports the BLOB data type (theoretical max size = 2 GB), the practical limit is much smaller (less than 1 MB).
+
+Storing large attachments in Cassandra prevents efficient row caching, since attachments take up too much memory space.
+
+Distributed Cache
+
+Since recent emails are the most frequently accessed, keeping them in cache memory greatly reduces load time.
+
+Redis is a great choice because:
+
+It supports rich data structures like lists.
+
+It is easy to scale horizontally.
+
+Search Store
+
+For searching emails, we use a distributed document store.
+
+It is based on an inverted index data structure.
+
+This allows fast full-text search, which is critical for email systems.
+
+The deep dive section (not shown here) would explain how the inverted index works in detail.
+
+Workflows
+
+The system has two main workflows:
+
+Email Sending Flow
+
+Email Receiving Flow
+
+Right now, the focus is on the Email Sending Flow.
+
+Email Sending Flow
+
+(Figure 8.6 in the text illustrates this flow.)
+
+Step 1: User Action
+
+A user writes an email in webmail and presses Send.
+
+The request goes to the Load Balancer.
+
+Step 2: Load Balancer
+
+Ensures the system does not exceed rate limits.
+
+Routes the request to the web servers.
+
+Step 3: Web Servers
+
+Perform multiple tasks:
+
+Basic validation of the email: e.g., check if the email size is within allowed limits.
+
+Domain check: if the recipient’s email domain is the same as the sender’s:
+
+The web server checks for spam and viruses.
+
+If clean, the email is directly inserted into:
+
+The sender’s Sent Folder.
+
+The recipient’s Inbox Folder.
+
+The recipient can fetch the email directly via REST API.
+
+In this case, steps after this are not needed (no SMTP outgoing flow).
+
+Step 4: Message Queues
+
+If the email passes validation, it goes to the outgoing queue.
+
+If validation fails, it goes to the error queue.
+
+Details:
+
+Outgoing queue:
+
+Contains valid emails.
+
+If the attachment is too large, it is stored in the object store (S3).
+
+A reference link to the attachment is saved in the message.
+
+Error queue:
+
+Holds emails that failed validation.
+
+Step 5: SMTP Outgoing Workers
+
+These workers pull messages from the outgoing queue.
+
+Tasks performed:
+
+Ensure the email is spam-free and virus-free before sending.
+
+Step 6: Storage Layer
+
+The outgoing email is stored in the sender’s Sent Folder inside the database/storage layer.
+
+Step 7: SMTP Delivery
+
+SMTP outgoing workers send the email to the recipient’s mail server over the Internet.
+
+Message Queue Importance
+
+Each message in the queue contains all metadata needed to construct the email.
+
+The message queue provides asynchronous processing, meaning web servers don’t wait for SMTP delivery.
+
+Scaling advantage:
+
+SMTP workers are decoupled from web servers.
+
+We can scale SMTP workers independently depending on traffic.
+
+Monitoring Outgoing Queue
+
+The outgoing queue must be monitored continuously.
+If too many emails are stuck in the queue, possible reasons include:
+
+Recipient mail server unavailable:
+
+Solution: Retry later using exponential backoff (increasing wait times between retries).
+
+Not enough consumers (workers):
+
+Solution: Add more SMTP workers to process the queue faster.
+
+
+
+📩 Email Receiving Flow
+
+The email receiving flow describes how incoming emails are handled by the system, from SMTP load balancer entry to being delivered to the user’s inbox (either in real time or when they come back online).
+
+1. Incoming Emails at SMTP Load Balancer
+
+All incoming emails first arrive at the SMTP load balancer.
+
+The load balancer distributes traffic among SMTP servers.
+
+At this stage, an Email Acceptance Policy can be applied (e.g., invalid emails are bounced immediately to avoid wasting resources).
+
+2. Attachment Handling
+
+If an email attachment is too large to put into the queue, it is stored separately in the Attachment Store (e.g., Amazon S3).
+
+3. Incoming Email Queue
+
+Emails are placed in the incoming email queue.
+
+This queue decouples SMTP servers from mail processing workers, so they can scale independently.
+
+The queue also acts as a buffer during traffic spikes.
+
+4. Mail Processing Workers
+
+These workers handle:
+
+Spam filtering
+
+Virus scanning
+
+Other email validations
+
+Only emails that pass validation continue through the flow.
+
+5. Storage
+
+Emails are stored in the:
+
+Mail storage (main database)
+
+Cache (for quick access to recent emails)
+
+Object store (attachments, large objects, etc.)
+
+6. Real-Time Delivery
+
+If the receiver is online, the email is pushed to real-time servers.
+
+These are WebSocket servers that allow instant email delivery to clients.
+
+7. Offline Delivery
+
+If the receiver is offline, the email stays in the storage layer.
+
+When the user comes back online, their webmail client connects to web servers via RESTful API.
+
+The web servers pull new emails from storage and deliver them to the client.
+
+🔍 Step 3 – Design Deep Dive
+
+Now we examine the key components of the email server in more depth, especially focusing on scalability.
+
+Metadata Database
+Characteristics of Email Metadata
+
+Headers: Small, frequently accessed.
+
+Bodies: Can be large, but infrequently accessed (users usually read once).
+
+Isolation: Email operations (fetch, mark as read, search) are per user only.
+
+Recency effect: Most queries are for recent data (82% within 16 days).
+
+Reliability: Extremely high reliability needed (data loss not acceptable).
+
+Choosing the Right Database
+
+Relational Databases (MySQL/Postgres)
+
+Pros: Indexing for fast searches.
+
+Cons: Emails are often large (100KB+ with HTML), BLOB searches inefficient → not ideal.
+
+Distributed Object Storage (e.g., S3)
+
+Pros: Great for backup of raw emails.
+
+Cons: Poor for user-facing features (mark as read, search, threading).
+
+NoSQL Databases
+
+Gmail uses Bigtable (custom implementation, not open source).
+
+Cassandra could work but has not been proven at large email provider scale.
+
+✅ Characteristics an Ideal Email Database Must Have:
+
+Handle single columns of size up to MBs.
+
+Strong consistency.
+
+Reduced disk I/O.
+
+High availability and fault tolerance.
+
+Easy incremental backups.
+
+Attachment Store
+
+Attachments stored in Amazon S3 (object storage).
+
+Scalable and designed for large files (images, videos, docs).
+
+Attachments can be up to 25MB.
+
+❌ Why not Cassandra?
+
+Practical blob size limit (< 1MB).
+
+Large blobs break row cache efficiency.
+
+Distributed Cache
+
+Used to store recent emails in memory.
+
+Greatly improves load time for clients.
+
+Redis is a good fit because:
+
+Supports lists and other structures.
+
+Easy to scale.
+
+Search Store
+
+Implemented as a distributed document store.
+
+Uses inverted index data structure.
+
+Supports fast full-text search.
+
+📤 Email Sending Flow
+
+The email sending flow describes how emails are processed when a user sends an email.
+
+1. Sending Email
+
+A user writes an email in webmail and hits send.
+
+The request is sent to the load balancer.
+
+2. Load Balancer
+
+Ensures rate limiting.
+
+Routes request to the web servers.
+
+3. Web Servers
+
+Responsible for:
+
+Basic validation (e.g., size limits).
+
+Domain check (if sender and recipient are on the same domain).
+
+If yes → check for spam & viruses, then directly insert email into:
+
+Sender’s Sent Folder
+
+Recipient’s Inbox Folder
+
+In this case, recipient fetches email via REST API (skip queue).
+
+4. Message Queues
+
+Outgoing queue: Valid emails go here.
+
+If attachment is too large → store in object store, reference it in queue.
+
+Error queue: Invalid emails go here.
+
+5. SMTP Outgoing Workers
+
+Pull messages from outgoing queue.
+
+Ensure emails are spam & virus free.
+
+6. Storage
+
+Outgoing email is saved in Sent Folder of the storage layer.
+
+7. Send to Recipient
+
+SMTP outgoing workers deliver the email to the recipient mail server.
+
+Importance of Outgoing Queue
+
+Contains all metadata needed to reconstruct email.
+
+Allows asynchronous processing.
+
+Decouples web servers from SMTP workers → enables independent scaling.
+
+Monitoring Outgoing Queue
+
+If backlog grows, investigate:
+
+Recipient’s server is down → retry later using exponential backoff.
+
+Not enough SMTP workers → scale up consumers.
+
+
+
+Data Model
+
+An email service requires an efficient data model to store and retrieve emails at scale. A NoSQL column-family database (like Cassandra) is suitable because of its ability to handle large amounts of distributed data.
+
+Partition Key: Distributes data across nodes in the cluster. Choosing the right partition key ensures data is evenly spread.
+
+Clustering Key: Determines the order of data within a partition, enabling sorted queries (e.g., emails sorted by time).
+
+For this design, user_id is often used as the partition key to keep all of a user’s data (folders, emails) together on a single shard.
+
+Queries
+
+The email service needs to support several important queries at the data layer.
+
+Query 1: Get all folders for a user
+
+Each user has multiple folders (Inbox, Sent, Drafts, etc.).
+
+The table folders_by_user uses user_id as the partition key, ensuring all folders of one user are grouped together.
+
+Table: folders_by_user
+
+
+| Column       | Type | Key            |
+| ------------ | ---- | -------------- |
+| user\_id     | UUID | Partition Key  |
+| folder\_id   | UUID | Clustering Key |
+| folder\_name | TEXT | –              |
+
+
+
+This allows efficient retrieval of all folders for a specific user.
+
+Query 2: Display all emails for a specific folder
+
+When a folder is opened (e.g., Inbox), emails should be retrieved sorted by timestamp (most recent first).
+
+To achieve this, a composite partition key (user_id, folder_id) is used.
+
+email_id is a TIMEUUID and acts as the clustering key to maintain chronological order.
+
+Table: emails_by_folder
+
+| Column     | Type     | Key                               |
+| ---------- | -------- | --------------------------------- |
+| user\_id   | UUID     | Partition Key (part of composite) |
+| folder\_id | UUID     | Partition Key (part of composite) |
+| email\_id  | TIMEUUID | Clustering Key                    |
+| from       | TEXT     | –                                 |
+| subject    | TEXT     | –                                 |
+| preview    | TEXT     | –                                 |
+| is\_read   | BOOLEAN  | –                                 |
+
+
+
+Another supporting table:
+
+Table: emails_by_user
+
+| Column      | Type           | Key            |   |
+| ----------- | -------------- | -------------- | - |
+| user\_id    | UUID           | Partition Key  |   |
+| email\_id   | TIMEUUID       | Clustering Key |   |
+| from        | TEXT           | –              |   |
+| to          | LIST<TEXT>     | –              |   |
+| subject     | TEXT           | –              |   |
+| body        | TEXT           | –              |   |
+| attachments | LIST\<filename | size>          | – |
+
+
+
+This enables fetching email lists quickly, ordered by recency.
+
+Query 3: Create/Delete/Get an Email
+
+To retrieve an email’s full details, we query the emails_by_user table using email_id.
+
+Attachments are handled separately in the attachments table because emails may contain multiple large attachments.
+
+
+Table: attachments
+
+
+| Column    | Type     | Key            |
+| --------- | -------- | -------------- |
+| email\_id | TIMEUUID | Partition Key  |
+| filename  | TEXT     | Clustering Key |
+| url       | TEXT     | –              |
+
+
+This separation avoids storing large files directly inside Cassandra.
+
+Query 4: Fetch All Read or Unread Emails
+Problem
+
+In relational databases, filtering by is_read is easy (WHERE is_read = true).
+
+But in NoSQL (like Cassandra), queries are restricted to partition and clustering keys. Since is_read is neither, filtering cannot be done directly.
+
+Solution: Denormalization
+
+Create two separate tables:
+
+read_emails
+
+unread_emails
+
+Emails move between the two tables when their read status changes.
+
+Tables: read_emails & unread_emails
+
+| Column     | Type     | Key            |
+| ---------- | -------- | -------------- |
+| user\_id   | UUID     | Partition Key  |
+| folder\_id | UUID     | Partition Key  |
+| email\_id  | TIMEUUID | Clustering Key |
+| from       | TEXT     | –              |
+| subject    | TEXT     | –              |
+| preview    | TEXT     | –              |
+
+
+
+Query Example (Unread Emails):
+
+
+
+SELECT * FROM unread_emails
+WHERE user_id = <user_id> AND folder_id = <folder_id>
+ORDER BY email_id;
+
+
+
+This approach improves performance at scale, at the cost of added application complexity.
+
+Bonus Point: Conversation Threads
+
+Threads group related emails (replies + original message).
+
+Email headers include fields used for reconstruction:
+
+Header Field	
+
+
+| Header Field    | Description                                             |
+| --------------- | ------------------------------------------------------- |
+| **Message-Id**  | Unique identifier for each email (generated by client). |
+| **In-Reply-To** | ID of the parent email being replied to.                |
+| **References**  | List of related message IDs in the chain.               |
+
+
+
+
+Using these, email clients can build threaded views.
+
+Consistency Trade-Off
+
+Distributed systems must balance Consistency vs Availability (CAP theorem).
+
+For email, Consistency is prioritized over Availability.
+
+A mailbox is managed by a single primary.
+
+During failover, clients cannot access the mailbox (reduced availability), but consistency of emails is guaranteed.
+
+Attachment Store
+
+Attachments are large files (up to 25MB), unsuitable for Cassandra because:
+
+Blob size limit – Practical limit is <1MB.
+
+Row cache issue – Large attachments consume too much memory.
+
+Solution: Use object storage (e.g., Amazon S3) for attachments. Cassandra only stores references (metadata + URLs).
+
+Distributed Cache
+
+Recent emails are frequently accessed.
+
+Redis is used as a cache for faster retrieval.
+
+Redis supports lists and scaling, making it a good fit.
+
+Search Store
+
+Full-text search (by subject, body, sender, etc.) requires inverted indexes.
+
+A distributed document store is used as the search layer (e.g., Elasticsearch).
+
+Workflows
+Email Sending Flow
+
+Steps:
+
+User action: User writes an email and clicks "Send". Request goes to load balancer.
+
+Load balancer: Routes traffic to web servers while enforcing rate limits.
+
+Web servers:
+
+Validate email (size, format, etc.).
+
+Check domain (if sender and recipient domains match → spam/virus scan).
+
+If valid:
+
+Save to sender’s "Sent Folder".
+
+Save to recipient’s "Inbox Folder".
+
+Recipient can fetch email immediately via API (skip later steps).
+
+Message queues:
+
+If email passes validation → add to outgoing queue.
+
+If email fails validation → move to error queue.
+
+If attachments are too large, store them in object storage, saving only references in the queue.
+
+SMTP outgoing workers:
+
+Pull emails from queue.
+
+Perform spam/virus checks.
+
+Save copy in "Sent Folder".
+
+Send to recipient mail server.
+
+Monitoring:
+
+If emails pile up in the outgoing queue:
+
+Recipient’s server might be down → retry with exponential backoff.
+
+Not enough SMTP workers → scale up consumers.
+
+
+
+
