@@ -63,3 +63,7 @@ Example Technologies	Kafka, AWS EventBridge, Azure Event Grid	Kafka, RabbitMQ, R
 So, Pub/Sub is a pattern used inside EDA, but EDA is a broader architectural approach that may use Pub/Sub, but also includes other patterns and responsibilities like orchestration, event processing, and storage.
 Due to the drawbacks / limitations of pub - sub , Event driven Architecture is preferred
 
+
+redis pub sub is not diffucult to delete partitions=> used for dynamically addition/ deletion of partitions eg rabbitmq, sqs
+
+if we know partitions beforehand then use kafka 
