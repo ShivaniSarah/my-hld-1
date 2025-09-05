@@ -1,1 +1,1969 @@
-..
+12 Digital Wallet
+A digital wallet is a service offered by payment platforms that lets users store money digitally and spend it later. Typical flow (as in Figure 12.1) is:
+You deposit money into the wallet from a bank card/bank account.
+
+
+When you shop online, you can pay directly from the wallet balance instead of charging the card again.
+
+
+Beyond paying merchants, many wallets (e.g., PayPal) also support direct person-to-person transfers inside the same platform. Compared with traditional bank-to-bank transfers, cross-wallet transfers are typically faster and often fee-free (or at least cheaper). Figure 12.2 conceptually shows a cross-wallet balance transfer: money is deducted from one user’s wallet and deposited into another user’s wallet on the same payment platform.
+Figure 12.1: Digital wallet
+ Bank card → Bank → Deposit → Digital wallet (Payment System) → E-commerce site (pay with wallet balance)
+Figure 12.2: Cross-wallet balance transfer
+ Payment Platform: Digital wallet — Transfer → Digital wallet
+Step 1 - Understand the Problem and Establish Design Scope
+The interview clarifications narrow the scope and non-functional requirements:
+Scope: Focus only on balance transfer operations between two digital wallets. Other wallet features (top-ups, withdrawals, refunds, disputes, etc.) are out of scope.
+
+
+Throughput target: The system must support 1,000,000 transactions per second (TPS) of transfer commands.
+
+
+Correctness model: Use transactional guarantees (ACID transactions) as sufficient for correctness within the service.
+
+
+Verifying correctness & reproducibility:
+
+
+Post-facto reconciliation with external bank statements can detect mismatches but cannot explain how they arose.
+
+
+Therefore, the system must ensure reproducibility: we can replay all historical data/events from the beginning to reconstruct any wallet’s past balance at any point in time.
+
+
+Availability: 99.99% (four nines) reliability is required.
+
+
+FX: Foreign exchange is out of scope (single currency only).
+
+
+Summary of requirements
+Support balance transfers between two digital wallets.
+
+
+Achieve 1,000,000 TPS.
+
+
+Provide ≥ 99.99% availability.
+
+
+Use transactions (ACID) for correctness.
+
+
+Ensure reproducibility (full historical replay possible).
+
+
+Back-of-the-envelope estimation
+Because transfers must be transactional, we assume a relational/transactional database. A single database node in a typical data center can handle on the order of thousands of TPS (benchmarks vary; we take a conservative 1,000 TPS per node for estimation).
+Key insight: a “transfer” is two database operations.
+ Each transfer performs:
+Debit from the source wallet, and
+
+
+Credit to the destination wallet.
+
+
+So, to support 1,000,000 transfers/sec, the database must handle ~2,000,000 TPS (double the per-transfer ops). With 1,000 TPS per node, you’d need about 2,000 nodes.
+This scales with single-node performance:
+Table 12.1: Mapping between pre-node TPS and node number
+ (Per-node TPS ↑ ⇒ Fewer nodes ⇒ Lower hardware cost)
+Per-node TPS
+Node Number
+100
+20,000
+1,000
+2,000
+10,000
+200
+
+Design implication: A major goal is to maximize per-node TPS (via efficient data models, batching, append-only logs, optimal indexing, lightweight transactions, hot-path optimization, etc.) to reduce total node count and cost while still meeting correctness, availability, and reproducibility targets.
+Step 2 - Propose High-level Design and Get Buy-in
+In this step, we focus on designing a high-level architecture for the wallet system that supports balance transfers. The discussion includes:
+API design
+
+
+Three high-level designs
+
+
+Simple in-memory solution
+
+
+Database-based distributed transaction solution
+
+
+Event sourcing solution with reproducibility
+
+
+
+API Design
+We use RESTful API convention. For this interview scenario, we only need to support one API endpoint:
+API Endpoint:
+POST /v1/wallet/balance_transfer
+
+Purpose: Transfer balance from one wallet (account) to another.
+
+
+Request Parameters:
+Field
+Description
+Type
+from_account
+The debit (source) account
+string
+to_account
+The credit (destination) account
+string
+amount
+The amount of money
+string
+currency
+The currency type (ISO 4217)
+string
+transaction_id
+Unique ID used for deduplication
+uuid
+
+Sample Response Body:
+{
+  "status": "success",
+  "transaction_id": "01589980-2664-11ec-9621-0242ac130002"
+}
+
+Note:
+The field amount is represented as a string instead of a double.
+
+
+This avoids floating-point precision issues (critical in financial systems).
+
+
+Many systems still use float/double for convenience, but precision errors can occur. Using string (or decimal) avoids such risks.
+
+
+
+In-memory Sharding Solution
+Idea
+The wallet application maintains an account balance for each user.
+
+
+Best data structure: Map / Hash Table / Key-Value Store → <user, balance>.
+
+
+A common in-memory choice: Redis.
+
+
+Challenge
+A single Redis node cannot handle 1 million TPS (transactions per second).
+
+
+Solution: Use a Redis cluster with partitioning (sharding).
+
+
+Sharding Process
+Distribute account balances evenly across multiple Redis nodes.
+
+
+A user’s account is placed in a partition using hashing:
+
+
+Pseudocode:
+String accountID = "A";
+Int partitionNumber = 7;
+Int myPartition = accountID.hashCode() % partitionNumber;
+
+Partition info (e.g., number of partitions and Redis node addresses) is stored in ZooKeeper, which acts as a highly-available configuration storage.
+
+
+Wallet Service Responsibilities
+The wallet service is stateless (easy to scale horizontally) and does the following:
+Receives the transfer command.
+
+
+Validates the command.
+
+
+Updates account balances for the two accounts involved in the transfer (may reside on different Redis nodes).
+
+
+Example (Figure 12.3 - In-memory solution)
+3 Redis nodes store accounts of clients A, B, and C.
+
+
+2 Wallet service nodes handle transfer requests.
+
+
+If transferring $1 from A → B:
+
+
+Wallet service updates Redis node holding A → - $1
+
+
+Wallet service updates Redis node holding B → + $1
+
+
+Problem with This Design
+Correctness issue: Updates span multiple Redis nodes.
+
+
+If wallet service crashes after updating A’s account but before updating B’s account, the transfer is incomplete.
+
+
+Lack of atomicity: Both updates must happen together or not at all.
+
+
+
+Distributed Transactions (Database Sharding)
+Idea
+Replace Redis with transactional relational databases.
+
+
+Clients A, B, and C are partitioned across multiple relational databases (instead of Redis nodes).
+
+
+Architecture (Figure 12.4):
+Wallet service interacts with relational database shards.
+
+
+ZooKeeper stores partition info (mapping of accounts → database).
+
+
+Challenge
+Even with transactional databases, transfers often span two different databases.
+
+
+Updating both accounts in separate databases is not atomic by default.
+
+
+Problem
+If wallet service restarts after updating only one account, the second update may never happen.
+
+
+This results in data inconsistency (one account debited, other not credited).
+
+
+➡️ Solution requires a distributed transaction mechanism (e.g., 2PC - Two-Phase Commit) to ensure atomicity across multiple database nodes.
+Distributed Transaction: Two-Phase Commit
+In a distributed system, a transaction may involve multiple processes on multiple nodes. To ensure atomicity (all-or-nothing execution), a distributed transaction is needed.
+There are two ways to implement a distributed transaction:
+Low-level solution (database-driven, e.g., 2PC)
+
+
+High-level solution (application-driven, e.g., TC/C)
+
+
+We’ll examine each.
+
+Low-Level Solution: Two-Phase Commit (2PC)
+The low-level solution relies on the database itself.
+ The most common algorithm is Two-Phase Commit (2PC).
+As the name suggests, it has two phases:
+Steps in 2PC
+The coordinator (in this case, the wallet service) performs read/write operations on multiple databases as usual.
+
+
+Both Database A and Database C are locked during this step (to ensure consistency).
+
+
+When the application is ready to commit, the coordinator asks all databases to prepare the transaction.
+
+
+In the second phase, the coordinator collects replies:
+
+
+If all databases reply YES → the coordinator asks them to commit.
+
+
+If any database replies NO → the coordinator asks them to abort.
+
+
+
+Why 2PC is Called a Low-Level Solution
+The prepare step requires special support from the database.
+
+
+Example: X/Open XA standard allows heterogeneous databases to coordinate in 2PC.
+
+
+
+Problems with 2PC
+Performance Issue
+
+
+Locks are held for a long time while waiting for replies.
+
+
+This can block other transactions.
+
+
+Single Point of Failure
+
+
+If the coordinator crashes, all databases are stuck in uncertainty (don’t know whether to commit or abort).
+
+
+(See Figure 12.6: Coordinator crashes problem.)
+
+Distributed Transaction: Try-Confirm/Cancel (TC/C)
+TC/C is a compensating transaction model.
+ Unlike 2PC, it doesn’t hold locks for long, and each phase is a separate transaction.
+
+Steps in TC/C
+First Phase (Try):
+
+
+Coordinator asks all databases to reserve resources for the transaction.
+
+
+Second Phase:
+
+
+If all reply YES → coordinator asks them to Confirm (apply operation).
+
+
+If any reply NO → coordinator asks them to Cancel (revert operation).
+
+
+
+Key Difference from 2PC
+In 2PC → both phases are wrapped in the same transaction.
+
+
+In TC/C → each phase is an independent transaction.
+
+
+
+TC/C Example: Transfer $1 from Account A to Account C
+At the start:
+Account A = $1
+
+
+Account C = $0
+
+
+Summary Table
+Phase
+Operation on A
+Operation on C
+Try
+Balance change: -$1
+Do nothing (NOP)
+Confirm
+Do nothing
+Balance change: +$1
+Cancel
+Balance change: +$1 (revert)
+Do nothing (NOP)
+
+
+First Phase: Try
+The wallet service (coordinator) sends commands:
+
+
+Database with Account A → reduce balance by $1.
+
+
+Database with Account C → NOP (no operation).
+
+
+Each database replies success if operation is possible.
+
+
+A lock is held during this transaction.
+
+
+(See Figure 12.7: Try phase.)
+
+Second Phase: Confirm
+If all replies are YES:
+Account A → already reduced by $1, no further action.
+
+
+Account C → increase balance by $1.
+
+
+(See Figure 12.8: Confirm phase.)
+
+Second Phase: Cancel
+If any database replies NO in the Try phase:
+Account A → must revert the previous change by adding $1 back.
+
+
+Account C → since no change was made in Try (only NOP), just do another NOP.
+
+
+(See Figure 12.9: Cancel phase.)
+
+Final Notes
+2PC:
+
+
+Low-level, database-dependent.
+
+
+Strong consistency.
+
+
+But suffers from blocking and single point of failure.
+
+
+TC/C:
+
+
+High-level, application-driven.
+
+
+Each phase is a separate transaction.
+
+
+More flexible, avoids long locks.
+
+
+Requires compensating transactions for rollback.
+Comparison between 2PC and TC/C
+Table 12.3 shows both similarities and differences between Two-Phase Commit (2PC) and Try-Confirm/Cancel (TC/C). The key distinction lies in what happens during the second phase:
+In 2PC, all local transactions are not yet done (they remain locked) when the second phase begins.
+
+
+In TC/C, all local transactions are already done (committed or canceled, unlocked) when the second phase begins.
+
+
+This means:
+2PC second phase → is about finishing unfinished transactions (commit or abort).
+
+
+TC/C second phase → is about compensating with a reverse operation if an error occurs.
+
+
+
+Table 12.3: 2PC v.s. TC/C
+Phase
+2PC
+TC/C
+First Phase
+Local transactions are not done yet
+All local transactions are completed (committed or canceled)
+Second Phase: success
+Commit all local transactions
+Execute new local transactions if needed
+Second Phase: fail
+Cancel all local transactions
+Reverse the side effect of the already committed transaction (called “undo”)
+
+
+TC/C (Distributed Transaction by Compensation)
+Definition: TC/C is also called a distributed transaction by compensation.
+
+
+High-level solution: The compensation (undo) is implemented in the business logic, not by the database.
+
+
+Advantage:
+
+
+It is database-agnostic → as long as the database supports transactions, TC/C will work.
+
+
+Disadvantage:
+
+
+The application layer must manage details and handle distributed transaction complexity in business logic.
+
+
+
+Phase Status Table
+An important challenge is:
+👉 What if the wallet service restarts in the middle of TC/C?
+If it restarts, the previous operation history may be lost, making the system unable to recover properly.
+
+
+Solution:
+Store the progress of TC/C as a phase status in a transactional database.
+
+
+
+Information stored in Phase Status
+The phase status must include at least:
+The ID and content of a distributed transaction.
+
+
+The status of the Try phase for each database:
+
+
+Not sent yet
+
+
+Has been sent
+
+
+Response received
+
+
+The name of the second phase:
+
+
+Confirm or Cancel (calculated from the Try phase result)
+
+
+The status of the second phase
+
+
+An out-of-order flag (explained later in Out-of-order Execution section)
+
+
+
+Where to store Phase Status Tables?
+Typically, the phase status is stored in the same database that contains the wallet account (where money is deducted).
+
+
+
+Updated Architecture (Figure 12.10)
+The architecture now includes a Phase Status Table in addition to the Balance Table:
+Each Wallet Service maintains:
+
+
+Partition Info (Zookeeper)
+
+
+Phase Status Table
+
+
+Balance Table
+
+
+This ensures that even if a service restarts, the transaction state can be recovered safely.
+Unbalanced State
+By the end of the Try phase, if $1 is deducted from Account A while Account C remains unchanged, the total balance is $0, which is less than the starting balance of $1.
+This situation violates a fundamental accounting rule:
+ 👉 The sum of balances across accounts should remain the same after a transaction.
+Before TCC starts: A + C = $1
+
+
+After Try phase: A + C = $0 (money temporarily missing)
+
+
+This “missing money” problem is called an unbalanced state (shown in Figure 12.11).
+The good news:
+Although temporarily unbalanced, the TCC (Try-Confirm-Cancel) guarantee ensures final correctness.
+
+
+TCC is made of several local transactions, so the application can see intermediate results.
+
+
+In contrast, DB transactions / 2PC (Two-Phase Commit) keep all this hidden from applications.
+
+
+So, temporary discrepancies are natural in distributed transactions.
+Sometimes, databases resolve them automatically (transparent to us).
+
+
+If not, the application must handle them explicitly.
+
+
+
+Figure 12.11: Unbalanced State
+Sequence:
+Try phase:
+
+
+Account A: - $1
+
+
+Account C: NOP (no operation)
+
+
+Result: A + C = $0 → temporary money loss ($1)
+
+
+Confirm phase:
+
+
+Account C: + $1
+
+
+Result: A + C = $1 → money recovered
+
+
+So during the first phase, money seems lost, but during the second phase, it is restored.
+
+Try Phase Choices
+There are three possible choices for the Try phase (Table 12.4):
+Choice 1: A - $1, C = NOP ✅ (Valid)
+
+
+Choice 2: A = NOP, C + $1 ❌ (Invalid)
+
+
+Choice 3: A - $1, C + $1 ❌ (Invalid)
+
+
+Why some choices are invalid:
+Choice 2 issue:
+
+
+If C succeeds (+ $1) but A fails (NOP), the system enters Cancel.
+
+
+Before Cancel deducts the $1 from C, someone else may withdraw it.
+
+
+Later, the service tries to deduct from C but finds nothing left → transactional guarantee violated.
+
+
+Choice 3 issue:
+
+
+Both A and C are updated concurrently.
+
+
+If C gets + $1 but A fails to - $1, money is artificially created.
+
+
+Complex to resolve → not acceptable.
+
+
+👉 Therefore, only Choice 1 is valid: deduct first from A, and only confirm to add to C.
+
+Out-of-Order Execution
+One side effect of TCC is out-of-order execution.
+Example:
+A transfer of $1 from A → C.
+
+
+Try phase on A fails → wallet service enters Cancel phase.
+
+
+Cancel is sent to both A and C.
+
+
+Problem:
+Due to network delay, Database C receives the Cancel instruction before the Try.
+
+
+Since C hasn’t seen Try yet, it has “nothing to cancel.”
+
+
+This creates inconsistency.
+
+
+Shown in Figure 12.12: Cancel arrives before Try.
+
+Handling Out-of-Order Operations
+To solve this, each node must be able to handle a Cancel without a Try by updating logic as follows:
+Cancel-first handling:
+
+
+If Cancel arrives before Try, leave a flag in the database saying:
+ “Cancel seen, but Try not yet received.”
+
+
+Enhanced Try logic:
+
+
+When Try arrives, it first checks the flag.
+
+
+If a Cancel flag exists → Try immediately fails.
+
+
+👉 This ensures correct handling even when operations arrive out of order.
+
+Distributed Transaction: Saga
+Saga is a popular solution for distributed transactions, especially in microservice architectures. It is considered the de-facto standard for ensuring data consistency across multiple services without requiring strict two-phase commit protocols.
+
+Linear Order Execution
+The core idea of Saga is simple and based on sequential execution:
+All operations are ordered in a sequence
+
+
+Each step is an independent transaction on its own database.
+
+
+Unlike traditional distributed transactions, each service handles its own local commit.
+
+
+Execution is sequential (linear order)
+
+
+Operations are executed one after another.
+
+
+Once one operation finishes successfully, the next one is triggered.
+
+
+Rollback using compensating transactions
+
+
+If any operation fails, the system must undo the previous operations in reverse order.
+
+
+This rollback is done using compensating transactions (an opposite action of the normal one).
+
+
+➡️ Important Note: If there are n operations in the Saga, you must prepare 2n operations:
+n for the normal workflow.
+
+
+n for the compensating transactions (rollback actions).
+
+
+
+Example: Money Transfer
+To understand Saga better, consider transferring $1 from Account A to Account C:
+Normal Execution Order (success path):
+
+
+Step 1: Deduct $1 from A (A − $1).
+
+
+Step 2: Add $1 to C (C + $1).
+
+
+✅ If both succeed → Transaction completes successfully.
+
+
+Error Handling with Rollback (failure path):
+
+
+If C + $1 fails, the system compensates by rolling back:
+
+
+Undo C + $1 → perform C − $1.
+
+
+Undo A − $1 → perform A + $1.
+
+
+Final state: both accounts return to their original values, and the client gets an error message.
+
+
+➡️ As mentioned earlier in the book, the deduction (A − $1) must always happen before the addition (C + $1) to avoid inconsistent states.
+
+Coordination Models
+There are two ways to coordinate Saga operations:
+1. Choreography (Decentralized Coordination)
+Each service listens to events emitted by other services.
+
+
+No central controller exists → fully decentralized.
+
+
+Challenge:
+
+
+Services communicate asynchronously.
+
+
+Each service must maintain its own state machine to decide what to do when events arrive.
+
+
+This becomes hard to manage when the system has many services.
+
+
+2. Orchestration (Centralized Coordination)
+A single coordinator directs all services, telling them when to execute their part.
+
+
+Handles complexity better than choreography.
+
+
+✅ Typically the preferred solution in systems like digital wallets.
+
+
+
+Comparison Between TC/C and Saga
+Both Two-Phase Commit/Cancel (TC/C) and Saga are application-level distributed transaction solutions. Their differences are summarized:
+Aspect
+TC/C
+Saga
+Compensating Action
+Performed in Cancel phase
+Performed in Rollback phase
+Central Coordination
+Yes
+Yes (if orchestration mode is used)
+Execution Order
+Any order possible
+Must be linear
+Parallel Execution
+Yes, possible
+No, strictly sequential
+Partial Inconsistency
+Possible
+Possible
+Logic Level
+Application or database logic
+Application logic only
+
+
+Which One Should We Use?
+The choice depends on latency requirements and system complexity:
+No strict latency requirement / few services
+
+
+Either Saga or TC/C works.
+
+
+✅ If following modern microservice trends → prefer Saga.
+
+
+Latency-sensitive systems / many services
+
+
+TC/C is better since it allows parallel execution, reducing delay.
+
+
+
+Candidate’s Answer (System Design Decision)
+To ensure transactional balance transfer, we:
+Replace Redis with a relational database (since we need reliable transactional guarantees).
+
+
+Implement distributed transactions using either TC/C or Saga.
+
+
+
+Interviewer’s Follow-up (Auditing Requirement)
+While distributed transactions (Saga or TC/C) ensure consistency, they cannot prevent logical mistakes at the application level.
+Example: A user might enter a wrong operation (e.g., transfer the wrong amount).
+
+
+In this case, the distributed transaction works correctly, but the business logic is wrong.
+
+
+👉 To address this, we need an auditing mechanism:
+Keep a complete history of all operations.
+
+
+Trace back the root cause of issues.
+
+
+Provide visibility into all account changes for debugging, compliance, and fraud detection.
+
+
+
+✅ In summary:
+Saga = sequential execution with compensating rollbacks, great for microservices.
+
+
+TC/C = more flexible execution order, better for latency-sensitive systems.
+
+
+Auditing = needed regardless of the distributed transaction model to handle business-level errors and trace operations.
+
+
+
+Event sourcing
+Background
+Auditors ask tough questions like:
+Can we know an account’s balance at any point in time?
+
+
+How do we know historical and current balances are correct?
+
+
+After a code change, how can we prove the system’s logic is still correct?
+
+
+Event sourcing—a DDD technique—answers these systematically by recording every validated change as an event and rebuilding state from those events whenever needed.
+
+Definition
+Event sourcing revolves around four terms:
+Command
+
+
+Event
+
+
+State
+
+
+State machine
+
+
+
+Command
+A command is an intention from the outside world (e.g., “transfer $1 from A to C”).
+
+
+Ordering is crucial: commands go into a FIFO queue so they’re processed in exact arrival order.
+
+
+
+Event
+A command is not a fact; it might be invalid (e.g., transfer would make balance negative).
+
+
+We validate a command first. If it passes, we must fulfill it and record the event—the factual outcome.
+
+
+Two key differences between commands and events:
+
+
+Events must be executed because they record validated facts. We phrase them in past tense (e.g., “transferred $1 from A to C”).
+
+
+Commands may include randomness or I/O; events are deterministic (they’re historical facts).
+
+
+Event generation properties:
+
+
+One command can produce zero or more events.
+
+
+The generation process may involve randomness/I/O, so the same command isn’t guaranteed to yield the same set of events every time. (But once produced, events themselves are fixed facts.)
+
+
+Ordering matters for events too: they’re stored in a FIFO queue that preserves command order.
+
+
+
+State
+State is what changes when events are applied.
+
+
+In a wallet, state is “balances of all client accounts,” naturally modeled as a map:
+
+
+Key = account ID/name
+
+
+Value = balance
+
+
+Typically stored in a key–value store; a relational database can also serve as a KV store (primary key → row).
+
+
+
+State machine
+The state machine drives event sourcing with two responsibilities:
+Validate commands and generate events.
+
+
+Apply events to update state.
+
+
+Important constraints:
+Its behavior must be deterministic.
+
+
+It must not perform randomness or external I/O while applying events.
+
+
+Applying the same event to the same prior state must always yield the same result.
+
+
+
+Static view of event sourcing
+The architecture separates concerns:
+
+
+One (logical) state machine path to validate commands → produce events.
+
+
+Another to apply events → update state.
+
+
+This separation lets the system record facts (events) and then update state reliably.
+
+
+
+Dynamic view of event sourcing
+Over time, the system continuously:
+
+
+Validates the next command, producing events (if valid).
+
+
+Applies the resulting events to the state.
+
+
+This loop—validate → event → apply → state—repeats in strict FIFO order.
+
+
+
+Wallet service example
+Commands = balance transfer requests (e.g., “A → $1 → C”).
+
+
+Commands are appended to a FIFO queue; Kafka is a common choice.
+
+
+State (account balances) lives in a relational database (usable like a KV map).
+
+
+Processing a command (“A → $1 → C”):
+The state machine checks if A has sufficient funds.
+
+
+If valid, it emits two events:
+
+
+A: -$1
+
+
+C: +$1
+
+
+These events are then applied to the database, updating balances.
+
+
+Five-step flow (end-to-end):
+Read the next command from the command queue.
+
+
+Read the current state (balances) from the database.
+
+
+Validate the command; if valid, generate events (e.g., A:-$1, C:+$1).
+
+
+Read the next event from the event queue.
+
+
+Apply the event by updating the state in the database.
+
+
+
+Why this satisfies auditors
+Point-in-time balances: Rebuild state by replaying events up to any timestamp.
+
+
+Correctness (historical & current): Events are immutable, ordered facts; replaying them deterministically reproduces balances.
+
+
+Proving logic after code changes: Keep events fixed and replay under the new code; if results match expected outcomes, the logic is correct—or any divergence is precisely detectable.
+
+
+Reproducibility
+The key benefit of event sourcing is reproducibility. Unlike traditional distributed transaction systems, which only store the latest state (e.g., wallet balance), event sourcing stores all state changes as immutable events.
+In traditional systems:
+
+
+The database only holds the current balance.
+
+
+Historical changes are overwritten.
+
+
+It is difficult to know why a balance was updated.
+
+
+In event sourcing:
+
+
+Every change is stored as an event in an immutable event queue.
+
+
+The database becomes just a projection (view) of the latest state.
+
+
+Historical states can always be reconstructed by replaying events.
+
+
+Because the event list is immutable and replay logic is deterministic, replay always generates the same result.
+
+
+Example – Wallet Service State Reproduction
+Events are appended to the event queue.
+
+
+By replaying these events, we can reproduce historical balances at any point in time.
+
+
+This makes it possible to answer critical audit questions:
+
+
+Do we know the account balance at any given time?
+ → Yes, replay events up to that point.
+
+
+How do we know balances are correct?
+ → Recalculate them from the immutable event list.
+
+
+How do we prove system logic is correct after code changes?
+ → Replay the same events with the new code and verify results match.
+
+
+Because of this audit capability, event sourcing is often the default choice for financial systems such as wallets.
+
+Command-query Responsibility Segregation (CQRS)
+Event sourcing by itself handles writes well, but clients still need to know balances (read side). Simply exposing raw state from the database is inefficient.
+Instead, CQRS separates write and read responsibilities:
+Write Path:
+
+
+State machine processes commands → stores events in the event queue.
+
+
+Read Path:
+
+
+One or more read-only state machines subscribe to events.
+
+
+They rebuild different projections of state to serve queries.
+
+
+Advantages of CQRS
+Multiple projections can be built:
+
+
+Current balances.
+
+
+Time-specific states (e.g., detecting double charges).
+
+
+Audit trails for reconciliation.
+
+
+Clients can rebuild customized views of the state.
+
+
+System is eventually consistent:
+
+
+Read-only state machines may lag,
+
+
+But they always catch up as they replay events.
+
+
+Thus, event sourcing + CQRS ensures scalability, auditability, and flexibility.
+
+Performance Limitation of Basic Event Sourcing
+The design so far is correct and auditable, but:
+It processes one event at a time.
+
+
+Each event may require communication with multiple external systems (e.g., payment gateway, notification service).
+
+
+This makes the system slow under heavy load.
+
+
+
+Making Event Sourcing Faster
+To improve performance while keeping reproducibility and CQRS:
+1. Batching and Parallelism
+Instead of processing one event at a time, process multiple events in batches.
+
+
+Parallel event handlers can speed up execution.
+
+
+Requires careful ordering guarantees (e.g., per account) to preserve correctness.
+
+
+2. Asynchronous Event Handling
+External system calls can be decoupled via asynchronous processing.
+
+
+For example:
+
+
+Event is appended immediately.
+
+
+A separate worker (or microservice) handles external API calls.
+
+
+This reduces blocking time in the main event loop.
+
+
+3. Sharding Event Streams
+Divide the event stream into shards (e.g., per wallet ID or user ID).
+
+
+Each shard can be processed independently in parallel.
+
+
+Ensures scalability without breaking event ordering per account.
+
+
+4. Snapshotting
+Replaying thousands of events from scratch is expensive.
+
+
+Introduce periodic snapshots of state.
+
+
+When rebuilding, load the latest snapshot and replay only the events that occurred after it.
+
+
+This reduces replay latency.
+
+
+5. Optimized Event Storage
+Store events in append-only logs (e.g., Kafka, EventStoreDB).
+
+
+These systems are optimized for sequential writes and fast event replay.
+
+
+6. CQRS-based Read Scaling
+Build specialized read models optimized for queries (e.g., Redis, Elasticsearch).
+
+
+This prevents read traffic from slowing down the event processing pipeline.
+
+
+
+Final Candidate Answer
+Candidate:
+ In this design, event sourcing ensures reproducibility by storing every valid business event in an immutable event queue. This guarantees correctness verification, auditing, and historical reconstruction.
+Interviewer:
+ That’s great. But the architecture currently handles only one event at a time and communicates with external systems, making it slow.
+Candidate (Improvement):
+ To make it faster, we can:
+Use batching and parallelism to process multiple events concurrently.
+
+
+Apply asynchronous event handling for external systems to reduce blocking.
+
+
+Introduce sharded event streams to scale processing across partitions.
+
+
+Implement snapshotting to reduce replay cost.
+
+
+Store events in high-performance append-only logs.
+
+
+Use CQRS read models to optimize queries and reduce load.
+
+
+By combining these techniques, we achieve both reproducibility and high performance in the event-sourcing architecture.
+Step 3 - Design Deep Dive
+In this section, we dive deep into techniques for achieving high performance, reliability, and scalability. The core idea is to keep the hot path local and sequential (to exploit disk and OS caching), then layer in mechanisms for fast recovery and fault tolerance.
+High-performance event sourcing
+Event sourcing keeps an append-only history of commands and events and derives state by replaying them. The earlier baseline wrote commands/events to Kafka and state to a remote database. This deep dive optimizes the hot path by moving storage to the local machine and making access patterns sequential, which modern operating systems and disks handle extremely well.
+File-based command and event list
+What changes
+Local files, not remote Kafka (for the hot path): Writing commands/events to local disk eliminates network hops.
+
+
+Append-only layout: Appending is a sequential write—typically the fastest operation on storage devices. OS page cache and disk prefetchers are tuned for sequential IO.
+
+
+In-memory cache of recent entries: Because commands/events are processed immediately after persistence, keeping a window of recent records in memory avoids reloading from disk.
+
+
+How to implement efficiently
+mmap (memory-mapped files):
+
+
+Maps the file into virtual memory so the OS can back pages with RAM and flush them to disk.
+
+
+For append-only workloads, new writes land in the page cache first (very fast) and are flushed asynchronously; explicit msync/fsync controls durability boundaries.
+
+
+Reads often hit the cache; sequential access patterns are prefetch-friendly.
+
+
+Why it’s fast
+Sequential disk access can outperform many “random” access patterns—even beating random memory lookups in some corner cases—because modern OS kernels optimize heavily for contiguous IO.
+
+
+File-based state
+Goal: Remove remote-DB latency from the state path.
+Options
+SQLite: Local, file-based relational database.
+
+
+RocksDB (chosen): Local, file-based key–value store using an LSM tree:
+
+
+Write-optimized: Writes go to a memtable and WAL, then compacted into SSTables.
+
+
+Read acceleration: A block cache keeps the hottest data in memory.
+
+
+Great fit for high-ingest event-sourced systems where state is frequently updated.
+
+
+Resulting layout
+Local files for Command List, Event List (via mmap), and State (RocksDB + its cache). All IO remains on the box, maximizing throughput and minimizing latency.
+
+
+Snapshot
+Problem: Rebuilding state by replaying every event from day one is slow.
+Solution: Snapshots
+Periodically stop (or briefly quiesce) the state machine and write the current state to a snapshot file (immutable).
+
+
+On startup/recovery, load the latest snapshot and replay only events after the snapshot’s offset.
+
+
+Operational benefit: For finance (e.g., wallet ledgers), generate a daily snapshot at 00:00 so reconciliation runs can load one file instead of replaying an entire history.
+
+
+Storage: Snapshots are large binary artifacts—store them in durable object storage (e.g., HDFS) and retrieve on demand.
+
+
+Outcome
+With commands/events/state/snapshots all file-based, the system fully exploits the machine’s peak IO and the OS’s page cache, while snapshots cap replay time.
+
+
+Candidate
+We can refactor event sourcing so command list, event list, state, and snapshots are all persisted as local files. The event log’s linear processing model matches how disks and OS caches perform best on sequential workloads.
+Interviewer
+Trade-off identified: Local file-based IO is faster than remote Kafka/DB access, but it makes each server stateful, creating a single point of failure (SPOF) if that node (and its disk) dies.
+How to improve reliability (without losing the performance gains):
+Replicate the log with consensus
+
+
+Treat the command/event log as the source of truth and replicate it synchronously to peers using a consensus protocol (Raft/Paxos) with quorum commits.
+
+
+Only acknowledge a write when a majority has persisted it (W≥2 of 3).
+
+
+If the leader fails, elect a follower with an up-to-date log—no data loss beyond the chosen durability boundary.
+
+
+Dual-path durability (local fast path + remote durability)
+
+
+Write locally (mmap) for latency, and asynchronously ship the same appends to a remote durable bus (e.g., Kafka) or object storage.
+
+
+On recovery, rebuild from the latest snapshot + remote log tail if the local disk is lost.
+
+
+For stricter RPO, make the remote write semi-sync (ack after enqueue to Kafka or after object-store multipart commit).
+
+
+Replicated state stores
+
+
+For RocksDB state, either:
+
+
+Rebuild from the replicated log (stateless state nodes; slower failover but simplest), or
+
+
+Replicate state incrementally (RocksDB checkpoints + SST file shipping; followers prewarm state to cut failover time).
+
+
+Snapshot hardening
+
+
+Versioned, immutable snapshots in object storage (HDFS/S3-compatible), with checksums and retention policies.
+
+
+Write-then-rename (atomic snapshot publication) and include the exact log offset covered by the snapshot.
+
+
+Geo-replicate snapshots to withstand AZ/region failures.
+
+
+Sharding and high availability topology
+
+
+Partition by key (e.g., account/user).
+
+
+Each shard has a leader + ≥1 followers on separate machines/AZs.
+
+
+Use automatic leader election and fencing (e.g., epoch/term numbers) to prevent split-brain.
+
+
+Durability discipline on the hot path
+
+
+Use WAL + fsync/msync at well-defined points (per command or batched).
+
+
+Prefer a journaling filesystem and reliable hardware (NVMe/SSD, RAID, battery-backed write cache/UPS) to reduce the risk of partial writes.
+
+
+Idempotency & exactly-once effects
+
+
+Assign monotonic IDs/offsets to commands/events.
+
+
+Make state updates idempotent so replicas and replayers can apply/reapply safely.
+
+
+Track the last applied offset in state to guard against duplicates.
+
+
+Health, monitoring, and repair
+
+
+Heartbeats, lag metrics (leader vs. followers), snapshot freshness, and replication backlog alarms.
+
+
+Automated restore drills (regularly validate you can rebuild from snapshot + log).
+
+
+Backpressure to keep replication within SLA.
+
+
+Cold/warm standby options (when simplicity > consensus)
+
+
+If consensus is overkill, keep a warm standby: continually stream the log and snapshots to a secondary.
+
+
+Promote on failure; RPO/RTO depend on replication lag.
+
+
+Net effect: You keep the latency and throughput benefits of local, sequential IO, while eliminating the SPOF via replication, durable remote copies, snapshots with clear offsets, and automated failover.
+Reliable High-Performance Event Sourcing
+Before explaining the final solution, let’s analyze which parts of the system need reliability guarantees.
+
+Reliability Analysis
+Conceptually, everything a node does revolves around two concepts:
+Data
+
+
+Computation
+
+
+As long as data is durable, computation results can always be recovered by re-running the same code on another node.
+ 👉 This means the reliability problem reduces to the reliability of data.
+There are four types of data in the system:
+File-based command
+
+
+File-based event
+
+
+File-based state
+
+
+State snapshot
+
+
+State and Snapshot
+State and snapshot can always be regenerated by replaying the event list.
+
+
+To improve their reliability, it’s enough to ensure the event list has strong reliability.
+
+
+Command
+At first glance, it seems that making commands reliable should be enough since events are generated from commands.
+
+
+But this is not true, because:
+
+
+Event generation may not be deterministic.
+
+
+Events may depend on random numbers, external I/O, or timing factors.
+
+
+Therefore, commands alone cannot guarantee reproducibility of events.
+
+
+Event
+Event = historical fact that introduces a change to the state (e.g., account balance).
+
+
+Events are immutable and can be used to rebuild state at any time.
+
+
+✅ Conclusion: Events are the only data type that require strong reliability guarantees.
+
+
+
+Consensus
+To ensure events are reliable, we must replicate the event list across multiple nodes. During replication, two properties must be guaranteed:
+No data loss.
+
+
+Relative order of events is preserved across nodes.
+
+
+A consensus-based replication algorithm is the right fit here.
+Example: Raft Consensus Algorithm
+Raft ensures that as long as a majority of nodes are online, their append-only logs (event lists) stay consistent.
+
+
+Example with 5 nodes:
+
+
+If at least 3 nodes are alive, the system continues working.
+
+
+Raft ensures:
+
+
+Strong consistency of event lists.
+
+
+Agreement on event order.
+
+
+Roles in Raft
+A Raft cluster has three roles:
+Leader – receives commands from external clients, converts them into events, and replicates them.
+
+
+Candidate – temporary state during leader election.
+
+
+Follower – replicates events from the leader.
+
+
+✅ The leader is the only entry point for writes, ensuring ordered and consistent replication.
+
+Reliable Solution
+With Raft replication, the event-sourcing system has no single point of failure.
+Architecture
+A Raft node group (e.g., 3 nodes) is used.
+
+
+Steps:
+
+
+Leader accepts commands from users.
+
+
+Converts commands → events.
+
+
+Appends events to its local event log.
+
+
+Raft replicates events to followers.
+
+
+All nodes (leader + followers) process the event log and update their local state.
+
+
+Since all nodes have the same event list, event sourcing ensures their states are identical.
+
+Handling Failures
+A reliable system must handle node crashes gracefully.
+Leader Crash
+If the leader crashes, Raft automatically elects a new leader from the healthy nodes.
+
+
+New leader takes over accepting commands.
+
+
+If the crash happened before converting command → event:
+
+
+The client will see an error or timeout.
+
+
+Client must resend the command to the new leader.
+
+
+Follower Crash
+If a follower crashes, Raft retries replication indefinitely until the follower comes back or a new node replaces it.
+
+
+The system continues serving clients since the leader is still functional.
+
+
+
+Candidate
+Design summary:
+Use Raft consensus algorithm to replicate the event list.
+
+
+Leader receives commands and ensures reliable event replication across nodes.
+
+
+Followers maintain identical event logs → identical state.
+
+
+
+Interviewer’s Point: Scalability
+While the above system ensures reliability and fault tolerance, it is not enough for massive scale.
+With 1 million transactions per second (TPS), a single server cannot handle the load.
+
+
+This requires scaling the system horizontally, not just ensuring reliability.
+
+
+👉 That’s where techniques like sharding event logs, partitioning Raft clusters, and parallel processing of events come into play (next steps beyond just reliability).
+
+Distributed Event Sourcing
+In the earlier architecture, we built a reliable high-performance event sourcing system using Raft and CQRS. While it ensures reliability, it has two main limitations:
+Slow request/response flow in CQRS
+
+
+When a digital wallet is updated, we want an immediate response.
+
+
+But in CQRS, the client doesn’t know when the wallet is updated.
+
+
+The client often has to poll periodically, which can cause delays or overload the system.
+
+
+Limited capacity of a single Raft group
+
+
+A single Raft group cannot handle infinite scale.
+
+
+At large scale, we need to shard data and handle distributed transactions across partitions.
+
+
+The following sections explain how these two issues are solved.
+
+Pull vs Push
+Pull Model
+In the pull model, an external user periodically polls the read-only state machine to check execution status.
+
+
+Problems with this approach:
+
+
+It is not real-time.
+
+
+If polling frequency is high → it may overload the wallet service.
+
+
+(Figure 12.25 illustrates this basic polling setup.)
+
+Pull Model with Reverse Proxy
+To improve the naive pull model, a reverse proxy can be added between the external user and event sourcing nodes.
+
+
+Workflow:
+
+
+User sends a command to the reverse proxy.
+
+
+Proxy forwards it to event sourcing nodes.
+
+
+Proxy polls execution status periodically and forwards results back to user.
+
+
+This simplifies client-side logic, but communication is still not real-time.
+
+
+(Figure 12.26 shows this design.)
+
+Push Model
+With the reverse proxy in place, we can enhance the read-only state machine:
+
+
+Instead of waiting for the client to poll, the state machine pushes execution status back to the proxy immediately when it processes an event.
+
+
+Benefits:
+
+
+Users now experience real-time responses.
+
+
+Client doesn’t need to poll anymore.
+
+
+(Figure 12.27 shows the push-based model.)
+
+Distributed Transaction
+Why We Need It
+Once synchronous execution is adopted in every event sourcing node group, we can reuse distributed transaction protocols such as:
+
+
+TCC (Try-Confirm-Cancel)
+
+
+Saga
+
+
+To scale, we partition data. Example:
+
+
+Partition data by hash(key) ÷ 2.
+
+
+Partition 1 contains account A.
+
+
+Partition 2 contains account C.
+
+
+(Figure 12.28 shows this updated design with partitions, reverse proxy, and transaction coordinator.)
+
+Money Transfer in the Final Design (Saga Model)
+Let’s walk through a money transfer (A → C) using the Saga model.
+ We explain only the happy path (no rollback case).
+Step-by-Step Sequence
+User A initiates transaction
+
+
+Sends a distributed transaction request to Saga coordinator.
+
+
+Transaction has 2 operations: A:-$1 and C:+$1.
+
+
+Coordinator logs transaction
+
+
+Creates a record in the phase status table to track progress.
+
+
+Coordinator orders operations
+
+
+Decides to execute A:-$1 first.
+
+
+Sends this command to Partition 1 (which holds A’s account).
+
+
+Partition 1 receives command
+
+
+Raft leader stores command in log.
+
+
+Validates it.
+
+
+Converts into an event (deduct $1 from A).
+
+
+Raft consensus in Partition 1
+
+
+Synchronizes event across Raft followers.
+
+
+After consensus, event is executed.
+
+
+CQRS update in Partition 1
+
+
+Event sourcing framework updates the read path.
+
+
+State is reconstructed, and execution status is updated.
+
+
+Push status to coordinator
+
+
+Read path pushes status back to Saga coordinator.
+
+
+Coordinator records success
+
+
+Marks operation in Partition 1 as successful in the phase status table.
+
+
+
+Coordinator executes second operation
+
+
+Sends C:+$1 command to Partition 2 (which holds C’s account).
+
+
+Partition 2 receives command
+
+
+Raft leader stores command in log.
+
+
+Validates it.
+
+
+Converts into event (add $1 to C).
+
+
+Raft consensus in Partition 2
+
+
+Synchronizes event across Raft followers.
+
+
+After consensus, event is executed.
+
+
+CQRS update in Partition 2
+
+
+Event sourcing framework updates the read path.
+
+
+State is reconstructed, and execution status is updated.
+
+
+Push status to coordinator
+
+
+Read path pushes success status back to Saga coordinator.
+
+
+Coordinator records success
+
+
+Marks operation in Partition 2 as successful in the phase status table.
+
+
+Transaction completes
+
+
+All operations succeed.
+
+
+Saga coordinator returns final result to caller.
+
+
+(Figure 12.29 shows the numbered sequence of this final design.)
+
+Final Summary
+Problem 1: Delayed response in CQRS → solved by moving from polling to push model through reverse proxy.
+
+
+Problem 2: Limited Raft capacity → solved by sharding partitions and using distributed transactions (Saga/TCC).
+
+
+Money Transfer Example → Saga coordinator ensures correctness across partitions, pushing updates in real-time to proxy → achieving scalable, reliable, and real-time event sourcing.
+
+
+Step 4 – Wrap Up
+In this chapter, we designed a wallet service capable of processing over 1 million payment commands per second. After performing a back-of-the-envelope calculation, we concluded that supporting such a massive load requires a few thousand nodes.
+First Design: In-Memory Key-Value Store (Redis)
+Proposed using in-memory key-value stores such as Redis.
+
+
+Problem: Data is not durable, meaning it can be lost in case of crashes or failures.
+
+
+Second Design: Transactional Databases
+Replaced in-memory cache with transactional databases.
+
+
+To support multiple nodes, different transactional protocols are considered:
+
+
+2PC (Two-Phase Commit)
+
+
+TC/C (Try-Confirm-Cancel)
+
+
+Saga Protocol
+
+
+Problem: Transaction-based solutions make data auditing difficult.
+
+
+Event Sourcing Approach
+Introduced event sourcing to maintain a history of all operations.
+
+
+First implementation: Used an external database and queue.
+
+
+Problem: Not performant at high scale.
+
+
+Improvement: Store command, event, and state directly in a local node.
+
+
+This improved performance but introduced a single point of failure.
+
+
+Reliability with Raft Consensus
+To address the single-node failure problem, we used the Raft consensus algorithm.
+
+
+Raft ensures replication of the event list across multiple nodes, increasing system reliability.
+
+
+Enhancing with CQRS (Command Query Responsibility Segregation)
+Adopted CQRS as part of event sourcing.
+
+
+Added a reverse proxy to convert the asynchronous event sourcing framework into a synchronous one for external users.
+
+
+Used TC/C or Saga protocol to coordinate command executions across multiple node groups.
+
+
+Final Note:
+ Congratulations! At this stage, we built a scalable, reliable, and auditable distributed wallet service that can handle 1 million TPS with durability, fault tolerance, and support for distributed transactions.
+
+Chapter Summary
+Step 1 – Digital Wallet
+Defined the digital wallet service.
+
+
+Step 2 – Functional & Non-Functional Requirements
+Functional Requirements:
+Money transfer between two accounts.
+
+
+Handle 1 million TPS.
+
+
+99.99% reliability.
+
+
+Non-Functional Requirements:
+Support transactions.
+
+
+Ensure reproducibility.
+
+
+API design: wallet/balance_transfer.
+
+
+Proposed Solutions:
+In-memory sharding solution.
+
+
+Database sharding.
+
+
+2 Phase Commit (2PC).
+
+
+Try-Confirm-Cancel (TC/C).
+
+
+Out-of-order execution handling.
+
+
+Step 3 – Event Sourcing
+Introduced event sourcing.
+
+
+Designed for high performance.
+
+
+Improved reliability → distributed event sourcing.
+
+
+Compared pull vs push models.
+
+
+Addressed distributed transactions.
+
+
+Step 4 – Wrap Up
+Reviewed all approaches (Redis, transactional DBs, event sourcing, Raft, CQRS).
+
+
+Final architecture supports high throughput, reliability, reproducibility, durability, and distributed execution.
+
+
+
