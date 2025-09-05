@@ -1012,3 +1012,386 @@ Not enough SMTP workers → scale up consumers.
 
 
 
+Email Deliverability
+
+Setting up a mail server to send emails is easy, but making sure those emails actually land in the user’s inbox (and not in spam) is the hard part.
+Since more than 50% of all emails sent are spam (Statista [19]), new mail servers usually have no reputation and risk being flagged as spam.
+To improve deliverability, the following factors are important:
+
+Dedicated IPs
+
+Use dedicated IP addresses for sending emails.
+
+Emails from new IPs (with no history) are more likely to be rejected by ISPs.
+
+Dedicated IPs help build a reputation over time.
+
+Classify Emails
+
+Send different categories of emails (transactional, marketing, important notices) from different IPs.
+
+If marketing emails and critical emails come from the same server, ISPs may classify all of them as promotional or spam.
+
+Email Sender Reputation
+
+New IP addresses must be “warmed up” gradually by sending a low volume of emails at first and slowly increasing it.
+
+This helps build trust with providers like Gmail, Office365, Yahoo Mail, etc.
+
+According to Amazon SES [20], warming up takes 2–6 weeks.
+
+Ban Spammers Quickly
+
+Detect and ban spammers immediately.
+
+If spammers are not stopped, they can ruin the reputation of the entire server.
+
+Feedback Processing
+
+Set up feedback loops with ISPs to track delivery issues and complaints.
+
+Helps keep complaint rates low and ban spam accounts fast.
+
+Possible Outcomes:
+
+Hard bounce → Email rejected permanently (invalid recipient address).
+
+Soft bounce → Temporary failure (e.g., ISP server busy).
+
+Complaint → User marks the email as spam.
+
+👉 These are processed in separate queues for better handling.
+
+Email Authentication
+
+Phishing and pretexting account for 93% of breaches (Verizon, 2018 [21]).
+To fight this, we use authentication mechanisms:
+
+SPF (Sender Policy Framework) → Verifies sender’s IP.
+
+DKIM (DomainKeys Identified Mail) → Ensures email content is not altered.
+
+DMARC (Domain-based Message Authentication, Reporting, and Conformance) → Aligns SPF & DKIM policies to reduce spoofing.
+
+📌 Example: A Gmail header (Figure 8.9) shows SPF, DKIM, and DMARC all PASS, confirming authenticity.
+
+Search
+
+Email systems support basic and advanced search.
+
+Basic search → Finds keywords in subject or body.
+
+Advanced search → Filters by From, Subject, Unread, Attachments, etc.
+
+Key Characteristics:
+
+Every time an email is sent, received, or deleted, reindexing is required (many writes).
+
+Search is only run when user queries (fewer reads).
+
+👉 Compared with Google Search, email search is different:
+
+
+| Feature      | Google Search                    | Email Search                                 |
+| ------------ | -------------------------------- | -------------------------------------------- |
+| **Scope**    | Whole internet                   | User’s own mailbox                           |
+| **Sorting**  | By relevance                     | By attributes (time, unread, has attachment) |
+| **Indexing** | Takes time, may miss new results | Needs **near real-time** and **accurate**    |
+
+
+
+Attachment Store
+
+Attachments (up to 25 MB) are stored in object storage like Amazon S3 because:
+
+Scalable and suitable for large files (images, videos, docs).
+
+Why not Cassandra (NoSQL)?
+
+Blob size limit → Although it supports blobs up to 2GB, the practical limit is <1MB.
+
+Row cache issue → Attachments are large and consume too much memory.
+
+Distributed Cache
+
+Since users often load their most recent emails, caching them in memory improves performance.
+
+Redis is a good choice because:
+
+It supports lists,
+
+Easy to scale,
+
+Very fast for repeated lookups.
+
+Search Store
+
+Uses a distributed document store.
+
+Built on inverted index (maps words → documents) for fast full-text search.
+
+Ensures accurate and near real-time email search.
+
+Email Workflows
+
+Two main workflows:
+
+Email Sending Flow
+
+Email Receiving Flow (not fully detailed in your text)
+
+Email Sending Flow (Figure 8.6)
+Steps:
+
+User writes an email → Clicks send in webmail → Request goes to load balancer.
+
+Load balancer → Ensures rate limit is not exceeded → Routes traffic to web servers.
+
+Web servers handle:
+
+Email validation (e.g., size limits).
+
+If sender and recipient are on same domain:
+
+Check for spam/virus.
+
+Store in Sent Folder (sender) and Inbox (recipient) directly.
+
+Recipient fetches via API → No need to continue.
+
+Message Queues:
+
+If valid → Email enters outgoing queue.
+
+If attachment is too large → Store in object store, save reference in message.
+
+If invalid → Email goes to error queue.
+
+SMTP Outgoing Workers:
+
+Pull from outgoing queue.
+
+Check for spam/virus.
+
+Storage Layer:
+
+Save outgoing email in sender’s Sent Folder.
+
+Send via SMTP:
+
+SMTP workers send the email to recipient’s mail server.
+
+Monitoring the Outgoing Queue
+
+If many emails are stuck in queue:
+
+Recipient’s server unavailable → Retry with exponential backoff.
+
+Not enough consumers (workers) → Scale up SMTP workers.
+
+👉 The distributed message queue is crucial because it:
+
+Enables asynchronous processing,
+
+Decouples SMTP workers from web servers,
+
+Makes scaling easier.
+
+
+Option 1: Elasticsearch
+
+The design for implementing email search using Elasticsearch is shown in Figure 8.10 (from the text).
+
+Partitioning strategy:
+Since most queries are made on a user’s own emails, we can group documents on the same Elasticsearch node using user_id as the partition key.
+
+Request types:
+
+Search request: Synchronous. The user waits for results after clicking the search button.
+
+Send, Receive, Delete events: Asynchronous. These events trigger reindexing but do not require any immediate response related to search.
+
+Reindexing process:
+
+Managed via offline jobs.
+
+Kafka is used as a buffer/decoupler between services that trigger reindexing and services that perform the actual reindexing.
+
+Advantages of Elasticsearch:
+
+Popular and widely used (as of June 2021).
+
+Excellent support for full-text search.
+
+Challenges:
+
+Keeping Elasticsearch in sync with the primary email store is difficult.
+
+Option 2: Custom Search Solution
+
+Big email providers (e.g., Gmail, Outlook) often build custom search engines tailored to their needs.
+
+Main challenge:
+
+Disk I/O bottleneck — indexing is write-heavy, and with petabytes of daily data and hundreds of thousands of emails per user, disk performance is critical.
+
+LSM Tree (Log-Structured Merge-Tree):
+
+A suitable data structure for write-heavy workloads.
+
+Used in systems like Bigtable, Cassandra, RocksDB.
+
+How it works:
+
+New emails go into Level 0 (in-memory cache).
+
+When memory reaches a threshold, data is merged into higher levels (Level 1, 2, … on disk).
+
+Advantages:
+
+Optimizes sequential writes.
+
+Separates frequently changing data (e.g., folder metadata) from rarely changing data (emails themselves).
+
+Reduces unnecessary updates on immutable data.
+
+Reference: Search in Microsoft Exchange servers can provide deeper insights.
+
+Feature Comparison: Elasticsearch vs Custom Search Engine
+
+
+| Feature                | Elasticsearch                                                               | Custom Search Engine                                |
+| ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------------- |
+| **Scalability**        | Scales reasonably well, but limited for very large workloads                | Easier to scale when optimized for email use case   |
+| **System complexity**  | Requires maintaining **two systems**: metadata store + Elasticsearch        | Only one integrated system                          |
+| **Data consistency**   | Two copies (metadata + Elasticsearch index). Hard to keep in sync           | Only one copy → easier consistency                  |
+| **Data loss**          | Can recover by rebuilding index from primary storage                        | No data loss issue                                  |
+| **Development effort** | Easy to integrate, but at scale requires a **dedicated Elasticsearch team** | Very high engineering effort to design and maintain |
+
+
+Rule of thumb:
+
+Small-scale email system: Use Elasticsearch (quick and easy).
+
+Large-scale system (like Gmail/Outlook): A custom solution is better, with search built natively into the database.
+
+Scalability and Availability
+
+Scalability:
+
+User access patterns are independent → system can scale horizontally (add more servers).
+
+Availability:
+
+Data is replicated across multiple data centers.
+
+Users connect to the nearest mail server (low latency).
+
+During network partitions, users can still access emails from backup data centers (Figure 8.12).
+
+Step 4 – Wrap Up
+
+This chapter walked through designing large-scale email servers:
+
+Gathering requirements → functional and non-functional.
+
+Back-of-the-envelope calculations to estimate scale.
+
+High-level design:
+
+Traditional servers and their limitations.
+
+APIs, send/receive flows.
+
+Metadata database design.
+
+Email deliverability.
+
+Search (Elasticsearch vs custom).
+
+Scalability & availability.
+
+Additional Talking Points (if extra time in interview)
+
+Fault tolerance:
+
+Handle node failures, network partitions, event delays.
+
+Compliance:
+
+Must follow regulations (e.g., GDPR for EU PII).
+
+Support legal intercept requirements.
+
+Security:
+
+Protect against phishing, unsafe links, unauthorized access.
+
+Add features like safe browsing, proactive alerts, encryption, confidential mode.
+
+Optimizations:
+
+Deduplicate attachments in group emails (don’t store multiple copies of the same file in object storage like S3).
+
+Chapter Summary
+Functional requirements
+
+Send and receive emails
+
+Fetch all emails
+
+Filter by read/unread
+
+Search emails
+
+Anti-spam
+
+Reliability (no data loss)
+
+Non-functional requirements
+
+Scalability
+
+Storage-heavy system
+
+Email protocols: POP, IMAP, SMTP
+
+Email basics
+
+Distributed mail servers
+
+DNS MX record
+
+Attachments (MIME format)
+
+High-level design
+
+Email sending flow
+
+Email receiving flow
+
+Key considerations
+
+Choosing the right database
+
+Data model and consistency trade-offs
+
+Metadata database design
+
+Email deliverability
+
+Search (Elasticsearch or custom engine)
+
+Scalability & availability
+
+Other aspects
+
+Fault tolerance (node failures, network issues, delays)
+
+Compliance (GDPR, PII handling, legal intercept)
+
+Security (phishing protection, safe browsing, email encryption, etc.)
+
+Optimizations (attachment deduplication for group emails)
+
+
