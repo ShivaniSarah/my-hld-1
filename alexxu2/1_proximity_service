@@ -891,3 +891,140 @@ Deployed across regions and availability zones for availability, low latency, an
 ✅ Takeaway: By combining geospatial indexing and caching, the system can efficiently serve nearby business data, scale globally, and handle updates efficiently.
 
 
+Chapter Summary
+Step 1
+Proximity Service
+
+The goal is to design a Proximity Service that returns nearby businesses when a user makes a location-based query (e.g., “restaurants near me”).
+
+Step 2
+Return Nearby Businesses
+
+The main functionality is to provide a list of businesses close to the user’s given coordinates, sorted by proximity.
+
+Functional Requirements
+
+Add/Delete/Update a business – Businesses should be dynamically managed in the system.
+
+View a business – Users should be able to query and see business details.
+
+Low latency – The system must respond quickly, ideally in milliseconds, since search is real-time.
+
+Non-Functional Requirements
+
+Data privacy – User and business data must be handled securely.
+
+5,000 search QPS – The system should handle 5,000 queries per second at peak load.
+
+API for Search
+
+We must provide an API endpoint to allow clients to search for nearby businesses.
+
+API Design
+
+APIs for businesses – CRUD APIs to manage business information.
+
+Pagination – Since results can be large, APIs must support pagination for efficiency.
+
+Read/Write ratio – The system should be optimized considering many read-heavy queries (searches) compared to writes (business updates).
+
+Data Schema
+
+Define structured tables for businesses and their geospatial indexing.
+
+High-Level Design Diagram
+
+A high-level architecture diagram should show:
+
+Clients → API Gateway → Search Service → Database (with geospatial index).
+
+Two-Dimensional Search
+Evenly Divided Grid
+
+The world map can be divided into grids of equal size for location partitioning.
+
+Geohash
+
+A geohash encodes latitude and longitude into a compact string for spatial indexing.
+
+Algorithms
+
+Quadtree – Recursively divides a 2D space into four quadrants for efficient spatial lookups.
+
+Google S2 – A library to represent the Earth’s surface using cells projected from a sphere.
+
+Geohash vs Quadtree
+
+Geohash is simpler and efficient for nearby lookups but may struggle with uneven density.
+
+Quadtree adapts better to varying densities, offering more flexibility.
+
+Business Table
+
+The main storage table for business details (id, name, location, category, etc.).
+
+Scale the Database
+
+To handle high QPS, the database must:
+
+Support horizontal scaling.
+
+Use geospatial indexes for fast location-based queries.
+
+Geospatial Index Table
+
+A separate index table stores geohash or quadtree identifiers for quick lookup of nearby businesses.
+
+Step 3
+Step 4
+Cache Key
+
+Caching helps reduce database load by storing frequently queried results.
+
+Caching
+
+Frequently accessed business search results should be cached.
+
+Cache invalidation needed on updates (add/delete/update business).
+
+Types of Data to Cache
+
+Hotspot locations (popular areas).
+
+Recently searched categories.
+
+Popular businesses.
+
+Region and Availability Zone
+
+Data must be stored and served close to users for low latency and high availability.
+
+Filter Results
+
+Results should support filtering by category, rating, distance, etc.
+
+Final Design Diagram
+
+The final system design should include:
+
+Clients → Load Balancer → API Service
+
+Search Service with cache layer + geospatial index
+
+Database with business table + index table
+
+Replication across regions and availability zones.
+
+Wrap Up
+
+Designed a scalable Proximity Service.
+
+Considered functional and non-functional requirements.
+
+Discussed APIs, data schema, and database scaling.
+
+Explored geospatial algorithms (geohash, quadtree, S2).
+
+Added caching and filtering for performance.
+
+Concluded with a final system architecture for high QPS and low latency search.
