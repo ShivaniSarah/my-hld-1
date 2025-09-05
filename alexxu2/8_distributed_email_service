@@ -18,7 +18,8 @@ yahoo.com
 
 Step 1 - Understand the Problem and Establish Design Scope
 
-Modern email services are very complex with lots of features. Since we can’t design the entire system in a short time, it’s important to ask clarifying questions and narrow down the scope.
+Modern email services are very complex with lots of features. 
+Since we can’t design the entire system in a short time, it’s important to ask clarifying questions and narrow down the scope.
 
 Example Interview Dialogue
 
@@ -40,7 +41,8 @@ Anti-spam and anti-virus
 Interviewer: Good list! Let’s not worry about authentication for now. We’ll focus on the other features.
 
 Candidate: How do users connect with mail servers?
-Interviewer: Traditionally via SMTP, POP, IMAP, and vendor-specific protocols. But for this interview, assume HTTP is used for client-server communication.
+Interviewer: Traditionally via SMTP, POP, IMAP, and vendor-specific protocols. 
+But for this interview, assume HTTP is used for client-server communication.
 
 Candidate: Can emails have attachments?
 Interviewer: Yes.
@@ -81,22 +83,7 @@ Emails sent per person per day: 10
 
 Total QPS (queries per second) for sending:
 
-10
-9
-×
-10
-/
-10
-5
-≈
-100
-,
-000
-10
-9
-×10/10
-5
-≈100,000
+109×10/105≈100,000109×10/105≈100,000
 
 Emails received per person per day: 40
 
@@ -104,22 +91,9 @@ Average metadata size: 50 KB
 
 Metadata storage for 1 year:
 
-1
-𝐵
-×
-40
-×
-365
-×
-50
-𝐾
-𝐵
-=
-730
+1𝐵×40×365×50𝐾𝐵=730
  
-𝑃
-𝐵
-1B×40×365×50KB=730PB
+𝑃𝐵1B×40×365×50KB=730PB
 
 Attachments: 20% of emails have one
 
@@ -127,26 +101,8 @@ Average attachment size: 500 KB
 
 Attachment storage for 1 year:
 
-1
-𝐵
-×
-40
-×
-365
-×
-20
-%
-×
-500
-𝐾
-𝐵
-=
-1
-,
-460
- 
-𝑃
-𝐵
+1𝐵×40×365×20%×500𝐾𝐵=1,460𝑃𝐵
+
 1B×40×365×20%×500KB=1,460PB
 
 👉 Clearly, this requires a distributed database solution.
