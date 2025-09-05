@@ -994,3 +994,98 @@ The text explains how to detect traffic impact, manage rerouting notifications, 
 
 
 
+Chapter Summary
+Step 1
+
+This is the starting phase of the system design process for building a navigation or map-based service.
+
+Step 2 – Google Maps
+
+Google Maps (or similar mapping applications) serve as the reference example. They provide essential features such as navigation, real-time location updates, and interactive maps.
+
+Step 4 – User Location Update
+
+The system must continuously track and update the user’s position to enable accurate navigation and directions.
+
+Functional Requirements
+
+Navigation Service – Core feature that provides turn-by-turn navigation.
+
+Map Rendering – Ability to display the map dynamically in 2D/3D views.
+
+Highly Accurate – Accuracy in positioning and route guidance is crucial.
+
+Non-Functional Requirements
+
+Smooth Navigation – The application must run without lags or delays.
+
+Data Usage – Efficient consumption of mobile data.
+
+Storage Estimation – Handling precomputed map data with optimal storage.
+
+Server Traffic – Reducing unnecessary load on servers.
+
+Positioning System – GPS, Wi-Fi, and sensors must work together for location accuracy.
+
+Going from 3D to 2D – Maps are typically stored in 2D tiles, even if they show 3D effects.
+
+Map 101
+
+Geocoding – Converting addresses into geographical coordinates (latitude/longitude).
+
+Geohashing – Encoding geographic location into a short string of characters for efficient storage and lookup.
+
+Routing Tiles – Maps are divided into tiles for efficient rendering and route computation.
+
+Location Service – The backbone system that continuously provides the user’s real-time position.
+
+High-Level Design
+Navigation Service
+
+Provides routing, ETA, and adaptive rerouting based on real-time conditions.
+
+Map Rendering
+
+Responsible for displaying:
+
+Routing Tiles
+
+User Location
+
+Places (POIs)
+
+Precomputed Images
+
+Data
+
+How Location Data is Used – For navigation, recommendations, and analytics.
+
+Precomputed Tiles – Pre-rendered static tiles for fast loading.
+
+Use Vectors – Vector maps allow smooth zooming and rotation with less storage.
+
+Navigation Service – Detailed Components
+
+Geocoding – Convert addresses → coordinates.
+
+Route Planner – Calculate best possible routes.
+
+Shortest-Path Algorithms – Graph-based algorithms like Dijkstra or A*.
+
+ETA Service – Estimate travel time.
+
+Adaptive ETA and Rerouting – Adjust ETA and reroute dynamically based on live traffic.
+
+Wrap Up
+
+The navigation system integrates multiple components:
+
+Accurate positioning system
+
+Efficient map rendering with vector tiles
+
+Smart routing and rerouting services
+
+Optimized data usage and server traffic management
+
+Together, these enable smooth, reliable, and scalable navigation services like Google Maps.
