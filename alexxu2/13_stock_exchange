@@ -6,24 +6,17 @@ When people think of stock exchanges, the NYSE (New York Stock Exchange) and Nas
 Before diving into the design, it is important to clarify the scale and characteristics of the system.
 NYSE: trades billions of matches per day
 
-
 HKEX (Hong Kong Exchange): trades about 200 billion shares per day
 
-
 Figure 13.1 shows the world’s largest exchanges in the “trillion-dollar club” by market capitalization.
-
-
 
 Step 1 - Understand the Problem and Establish Design Scope
 A modern exchange is complex with stringent requirements for:
 Latency
 
-
 Throughput
 
-
 Robustness
-
 
 Interview Q&A (to clarify requirements)
 Candidate: Which securities are we going to trade? (Stocks, options, futures?)
