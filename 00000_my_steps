@@ -1,0 +1,79 @@
+
+deployment
+
+Local postman api contract testing with edges
+Test cases run local
+Edge test cases
+Run all tests
+Secured apis
+Pr raise
+Automatically jenkins pipeline runs for
+Build is created
+All Test cases in repo is run
+Sonar check for code quality branching test coverage 
+Build image is created
+Vulnerability checks
+Accordingly , i will match the java versions according to the Vulnerability reoort
+Snapshot image is created
+Last 1 month image is kept as it is not release image only for testing
+
+We had added maven release plugin in pom.xml
+
+When it is merged to master , repo version is mentioned in pom.xml,  artifact id group id version id to uniquely locate for each library for our package also from its doc page
+
+Maven release plugin will remove snapshot in  build jar and increment version and add snapshot.  Docker will create image.
+
+After merging to master We will run jenkins pipeline.
+
+Jenkins file is run where all commands are mentioned
+
+Git checkout master ....url
+Maven clean release.... increments version and deletes snapshot
+Maven clean install ....it creates jar
+Mvn release perform will do both
+Command to copy the jar from local to artifactory
+Command to merge to git master again
+By raising and approving pr.
+Now the release jar is stored at artifactory.
+Docker build img name path of dockerfile....create image with name and path of jar file from local after running all commands in docker file
+ 
+We will store the image in artifctory 
+
+End of jenkins pipeline.
+
+ except java -jar to run the jar. It will copy the jar in a new path and rename it 
+
+
+In built deployment tool , an internal tool
+Weave train cicd automation tool    , a repo is there where helm charts
+Configs are there corresponding to our service we change image tag where it is stored in our case it is artifactory is there.
+
+When i run the weave train type automation tool  after changing image tag in helm chart in git
+What happens :
+Whenever we change anything in helm chart in any git repo, this change will be pushed as a kube event in Kubernetes cluster.
+
+Helm upgrade to apply new changes in helm chart of got to new running kubernetes.
+
+Helm charts tell cpu , memory, no of pods, to run 
+Kubernetes is container orchestration tool
+One Docker image is like a container with its own environment and dependencies and in our  case springboot application is there so tomcat server is there. 
+Kubernetes will run ....docker run image tag
+Since in docker file it is mentioned in entry point  => Java -jar ..... the jar is run
+
+In public static void main SpribgbootApplication.run is there so it will run the application on tomcat server and bring up.
+
+
+End of  weave train kubernetes
+
+Kubernetes does Rolling deployment 
+
+When new pods with new image will get up then old pods with old image will get down.
+In this 0 downtime . Load balancer will route new requests to new pods . 
+
+Https nginx load balancer middleware api gateway setup firewall domain name canonical name dns  setup
+
+
+
+
+
+
