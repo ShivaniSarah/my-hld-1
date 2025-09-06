@@ -56,6 +56,29 @@ Summary Table:
 | Use Case                  | Internal services     | Public APIs              |
 
 
+------------
+
+RPCs (Remote Procedure Calls) are often faster than traditional REST APIs because they use efficient, binary data formats and HTTP/2 for lower overhead and better multiplexing, allowing for quicker, more direct communication between services for action-oriented tasks. In contrast, REST APIs typically use slower, text-based formats like JSON over HTTP/1.1, which add more data and can be less efficient for high-performance, low-latency applications. 
+Factors contributing to RPC speed
+
+Binary Data Formats:
+Modern RPC frameworks, like gRPC, often use efficient binary serialization formats such as Protocol Buffers (Protobuf). This reduces the size of messages compared to text-based formats like JSON, minimizing bandwidth consumption and improving network performance. 
+
+HTTP/2 and Multiplexing:
+gRPC is built on HTTP/2, a protocol that supports advanced features like multiplexing. Multiplexing allows multiple requests and responses to be sent over a single connection concurrently, dramatically reducing the overhead associated with opening new connections for every request and improving overall speed. 
+
+Efficient Protocol and Low Overhead:
+The RPC communication protocol is designed for efficiency, with low overhead and faster response times. By focusing on direct procedure calls rather than resource-centric operations, it minimizes the amount of information that needs to be sent over the network. 
+
+Language-Specific Proxies:
+RPC systems often use generated code to create client proxies. These proxies provide a seamless interface for calling remote functions as if they were local methods, reducing the need for complex parsing and conversion that can add latency. 
+
+Optimized for Specific Use Cases:
+RPC protocols can be tailored for specific needs, such as real-time data processing or communication with small devices. This customization allows for further optimization, leading to superior performance in certain scenarios compared to more general-purpose REST APIs. 
+
+
+
+-------------
 
 You said:
 when to prefer grpc over rest
