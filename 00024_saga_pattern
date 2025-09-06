@@ -1,5 +1,5 @@
 https://www.geeksforgeeks.org/saga-design-pattern/
-
+check payment system in alexxu 2
 The Saga Pattern is a microservices architectural pattern used to manage distributed transactions or long-lived transactions across multiple services, ensuring data consistency in a decentralized manner without relying on traditional ACID transactions.
 long lived transaction 
 🧩 Why Saga Pattern?
