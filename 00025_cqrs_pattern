@@ -1,6 +1,6 @@
 https://www.geeksforgeeks.org/cqrs-command-query-responsibility-segregation/
 
-
+check digital wallet in alexxu 2
 The CQRS Pattern stands for Command Query Responsibility Segregation. It is an architectural pattern that separates read and write operations into different models, improving scalability, maintainability, and performance in complex systems.
 
 🧠 Concept
