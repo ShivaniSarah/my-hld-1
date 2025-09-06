@@ -1,0 +1,163 @@
+RPC can be written in Java using several approaches, from the native Java Remote Method Invocation (RMI) to modern frameworks like gRPC and Apache Thrift. The best approach depends on whether you need a simple, Java-only solution or a high-performance, polyglot system for microservices. 
+
+Option 1: Java Remote Method Invocation (RMI)
+
+RMI is Java's native mechanism for building distributed applications, allowing objects on one Java Virtual Machine (JVM) to invoke methods on objects running in another JVM. 
+
+How it works
+
+Interfaces: You define a remote interface that extends java.rmi.Remote.
+
+Implementation: The server-side object implements this interface.
+
+Stub/Skeleton: The Java RMI compiler (rmic) generates "stub" and "skeleton" classes. The stub acts as a proxy on the client, and the skeleton is the server-side helper.
+
+Registry: A registry service helps clients look up remote objects by name. 
+
+Example using RMI
+Imagine you want a simple remote calculator service.
+
+1. Define the remote interface (Calculator.java)
+
+java
+
+import java.rmi.Remote; import java.rmi.RemoteException; public interface Calculator extends Remote { int add(int a, int b) throws RemoteException; } 
+
+Use code with caution.
+
+2. Implement the server-side logic (CalculatorImpl.java)
+
+java
+
+import java.rmi.RemoteException; import java.rmi.server.UnicastRemoteObject; public class CalculatorImpl extends UnicastRemoteObject implements Calculator { protected CalculatorImpl() throws RemoteException { super(); } @Override public int add(int a, int b) throws RemoteException { return a + b; } } 
+
+Use code with caution.
+
+3. Create the server (Server.java)
+4. Create the client (Client.java) 
+
+For the full code example and instructions on how to run it, please refer to the referenced document. 
+
+Option 2: gRPC (using Protocol Buffers)
+
+gRPC is a modern, high-performance RPC framework developed by Google. It uses Protocol Buffers (Protobuf) as its Interface Definition Language (IDL) for defining services and the messages that are exchanged. 
+
+How it works
+
+.proto file: You define a service and its methods using the Protobuf IDL.
+
+Code generation: A compiler generates server and client stub code in Java.
+
+Server: You implement the generated service interface.
+
+Client: The generated client stub handles communication, including serialization and deserialization.
+
+HTTP/2: gRPC uses HTTP/2 for transport, which enables features like multiplexing and streaming. 
+
+Example using gRPC
+Let's build the same calculator service with gRPC. 
+
+1. Define the service in calculator.proto
+2. Generate Java code
+3. Implement the server (CalculatorServer.java)
+4. Implement the client (CalculatorClient.java) 
+
+For the full code example and instructions on how to run it, please refer to the referenced document. 
+
+RMI vs. gRPC for Java
+
+Feature RMI (Remote Method Invocation)gRPCLanguage SupportJava-to-Java only.Polyglot (supports multiple languages).ProtocolJava-specific Remote Method Protocol (JRMP).HTTP/2, a modern and efficient protocol.PerformanceCan be faster for pure Java applications, but has limitations.Designed for high performance and low latency.SerializationJava's built-in serialization, which is not cross-language compatible.Protocol Buffers, which is language-neutral and highly efficient.Use CaseIdeal for simple, legacy, or tightly coupled applications within a Java-only ecosystem.Best for modern microservices and applications in polyglot environments.
+
+AI responses may include mistakes. Learn more
+
+Basics tutorial | Java - gRPC
+
+￼
+
+gRPC
+
+Java gRPC with Spring-Boot - Rodrigo Formagio - Medium
+
+￼
+
+Medium
+
+￼
+
+Compare Java RPC vs WebServices - Stack Overflow
+
+￼
+
+Stack Overflow
+
+Show all
+
+￼
+
+￼
+
+￼
+
+18 sites
+
+Java RMI - Introduction - Tutorialspoint
+
+￼
+
+Tutorialspoint
+
+￼
+
+Java Remote Method Invocation: 3 - RMI System Overview
+
+￼
+
+Oracle Help Center
+
+An Overview. Java Remote Method Invocation (RMI) is… - Medium
+
+￼
+
+Medium
+
+￼
+
+Remote Procedure Call (RPC) in Operating System - GeeksforGeeks
+
+￼
+
+GeeksforGeeks
+
+￼
+
+An Overview of RMI Applications (The Java™ Tutorials > RMI)
+
+￼
+
+Oracle Help Center
+
+￼
+
+See all
+
+In Java, the communication between one server and another 
+
+using Remote Method Invocation (RMI) relies on several layers and components that abstract the complexities of network programming. The process enables a client on one Java Virtual Machine (JVM) to invoke methods on a remote object that exists within a separate JVM, often on a different machine. 
+
+Here's a step-by-step breakdown of how the communication works: 
+
+1. RMI registry
+
+The RMI registry is a naming service that runs on the server. Its purpose is to hold the network locations (bindings) of the remote objects that the server wants to make available to clients. 
+
+The server creates a remote object and registers it with a unique name in the RMI registry, typically using the rebind() method of the java.rmi.Naming class.
+
+For example, a server could bind a remote calculator object with the name "CalculatorService". 
+
+2. Client lookup
+
+When a client application wants to use a remote object, it first needs to find it.
+
+The client uses the lookup() method, specifying the server's IP address and the unique name of the remote object.
+
+The RMI
