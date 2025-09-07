@@ -1091,11 +1091,12 @@ Solution 2: Make each key unique by appending row ID.
 
 Heap File Approach
 
-An index stores keys and either:
+An index stores keys and either of :
 
 The actual record (row/document/vertex).
-
+or
 A reference (pointer) to where the record is stored.
+
 
 If stored separately, data goes into a heap file:
 
@@ -1113,21 +1114,41 @@ If new value is larger → must move record to a new location.
 
 Then either update all indexes or leave a forwarding pointer at the old location.
 
-Clustered Index
-
 Sometimes, the indirection (index → heap file) slows down reads.
 
 To optimize, some databases store the actual row directly inside the index → called a clustered index.
 
+
+What is the difference between clustered and non-clustered indexes?
+
+1. Clustered Index:
+
+Organizes the physical data in the table itself in the order of the indexed column(s).
+A table can have only one clustered index.
+Improves range queries and queries that sort data.
+Example: If EmployeeID is the clustered index, the rows in the table are stored physically sorted by EmployeeID.
+
+2. Non-Clustered Index:
+
+Maintains a separate structure that contains a reference (or pointer) to the physical data in the table.
+A table can have multiple non-clustered indexes.
+Useful for specific query conditions that aren’t related to the primary ordering of the data.
+Example: A non-clustered index on LastName allows fast lookups by last name even if the table is sorted by another column.
+
+
+Clustered Index => primary key index
+Non Clustered Index => secondary key index created by us
+
+Some databases store the actual row directly inside the index → called a clustered index.
+
 Example: MySQL’s InnoDB always uses a clustered index for the primary key.
 
 Covering Index (Index with Included Columns)
-
-A compromise between clustered and nonclustered indexes.
-
-Stores only some columns of a table inside the index.
+Stores only some columns of a table inside the index needed for a specific query. 
 
 Allows certain queries to be answered entirely from the index (index “covers” the query).
+
+A compromise between clustered and nonclustered indexes.
 
 Example: SQL Server supports specifying covering indexes.
 
