@@ -1,0 +1,52 @@
+Future and CompletableFuture in Java represent the result of an asynchronous computation, which will be available at some point in
+the future. They do not inherently "work on a thread when it returns output in its own time" in the sense of actively managing a
+dedicated thread for the return value itself. Instead, they manage the computation that produces the output.
+
+Here's how they relate to threads and output:
+
+The computation runs on a thread:
+
+When you initiate an asynchronous task that returns a Future or CompletableFuture, the actual work of that task is executed by a 
+thread from an ExecutorService (like a ThreadPoolExecutor or ForkJoinPool). For CompletableFuture, if no specific Executor is provided,
+it typically uses the ForkJoinPool.commonPool().
+
+Non-blocking retrieval of the result (with CompletableFuture):
+
+While Future.get() blocks the calling thread until the result is available, 
+CompletableFuture offers non-blocking ways to handle the result. Methods like thenApply(), thenAccept(), or thenRun() allow you 
+to specify actions to be performed after the computation completes, without the calling thread needing to wait.
+These actions may be executed on the same thread that completed the CompletableFuture, or on a different thread from an
+Executor if an async variant of the method is used (e.g., thenApplyAsync).
+
+Result becomes available:
+
+Once the asynchronous computation finishes and produces its output, the Future or CompletableFuture is "completed" with that result.
+Subsequent calls to get() (for Future or CompletableFuture) or execution of chained methods (for CompletableFuture) will then be able 
+to access this result. The result itself is not "on a thread" but rather stored within the Future or CompletableFuture object.
+
+
+CompletionStage is an interface in Java 8 that defines the contract for an asynchronous computation stage that can be combined with
+other stages. A Future is a basic, older interface (Java 5) that represents the result of an asynchronous computation but
+lacks non-blocking composition features. 
+The CompletableFuture class, introduced in Java 8, is the concrete implementation that provides the functionality for both interfaces. 
+It implements both Future for basic result handling and CompletionStage for advanced chaining and composition. 
+Key differences
+
+CompletionStage versus CompletableFuture
+To understand the relationship between CompletionStage and CompletableFuture, consider the following:
+CompletionStage is the contract: This interface defines the fluent API for chaining asynchronous operations.
+Its methods (thenApply, thenAccept, etc.) return a new CompletionStage instance, allowing you to build a pipeline of operations.
+CompletableFuture is the implementation: This concrete class implements both Future and CompletionStage. 
+This means you can use a CompletableFuture as a basic Future (blocking get()) or as a chainable CompletionStage (non-blocking then...()
+methods). 
+Best practice is to return CompletionStage from a method that performs an asynchronous operation. This hides the ability to manually 
+complete the CompletableFuture from the caller and encourages a non-blocking, callback-based programming style. 
+
+When an asynchronous computation is completed, the result is stored within the CompletableFuture object.
+A CompletionStage is an interface and cannot store a result itself, as it is a blueprint for the class that implements it. 
+Here's a breakdown to clarify the relationship:
+CompletionStage: An interface that defines a chain of dependent asynchronous computations. Its methods, such as thenApply() or 
+thenAccept(), return another CompletionStage, allowing you to build a pipeline of operations. It dictates how you can react to and
+build on a completion event.
+CompletableFuture: A concrete class that implements the CompletionStage interface (as well as the older Future interface).
+Because it is a class, it can hold internal state, including the result of a computation once it is finished. 
