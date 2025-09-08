@@ -2,7 +2,8 @@
 
 Q — Service discovery & inter-service communication on Azure
 A — Use DNS-based discovery + service registry patterns with Kubernetes (AKS) and Azure DNS. 
-For AKS: services use Kubernetes DNS (ClusterIP + headless services) and Envoy/Istio when service mesh is needed for mTLS,
+For AKS: services use Kubernetes DNS (ClusterIP + headless services) and Envoy/Istio when service mesh is needed for mTLS
+(mutual Transport Layer Security),
 load balancing, retries, and observability. For non-K8s components, use Azure Private Link + Application Gateway for ingress and
 Azure Traffic Manager for cross-region routing. I prefer API Gateway + short-lived service-to-service JWTs (or mTLS) for secure RPC.
 
