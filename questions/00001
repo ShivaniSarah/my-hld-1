@@ -1,1 +1,31 @@
-..
+🔹 Experience-Based Questions
+
+Q1: Can you explain the challenges in ensuring compliance when formatting reports for Experian, TransUnion, and Equifax?
+Sample Answer:
+“The main challenge was that each bureau had its own reporting format and validation rules. For example, Metro2 reports needed strict adherence to fields like Condition Codes, account statuses, and date formatting. I built a validation layer to check every field before report generation and automated schema mapping so that one change at our end didn’t break compliance with the bureau. Finally, I added distribution workflows to ensure the reports were securely delivered to each bureau.”
+
+Q2: What strategies did you use for query optimization, and can you walk me through a concrete example?
+Sample Answer:
+“At Aviso AI, one SQL report query was taking several minutes due to nested joins and lack of proper indexing. I restructured the query, added composite indexes on frequently queried columns, and used partitioning. In NoSQL cases, I denormalized certain collections to reduce repeated lookups. As a result, queries that initially took 2-3 minutes were reduced to under 10 seconds — about a 90% improvement.”
+
+Q3: How did you ensure low latency in the EventHub system with Kafka, Spark, and Redis?
+Sample Answer:
+“We had to process vehicle telemetry data in real-time. I used Kafka for ingestion, Spark for stream processing, and Redis for caching frequently accessed results. To reduce latency, I tuned Kafka partitioning for parallel consumption, used Spark structured streaming with micro-batch tuning, and implemented Redis as a near-cache so the system could respond to events like navigation changes within milliseconds.”
+
+Q4: How do you approach database schema design when moving from SQL to NoSQL?
+Sample Answer:
+“In SQL, I usually design normalized schemas first for data integrity. For NoSQL migrations, I look at the query patterns and optimize for read/write performance rather than strict normalization. For example, when migrating from Snowflake to MongoDB, I denormalized data to store lead details and associated metadata in a single document, which reduced the number of roundtrips for our API calls. Later, with ClickHouse, I optimized columnar storage for analytical queries.”
+
+Q5: Suppose you are designing an API that will serve millions of requests per day. How would you ensure scalability and resilience?
+Sample Answer:
+“I’d start with a microservices architecture, deploy stateless services behind a load balancer, and use caching with Redis to reduce database load. For resilience, I’d implement retries with exponential backoff, circuit breakers, and proper monitoring/alerting. Scaling would be horizontal with Kubernetes auto-scaling, and I’d use async message queues like Kafka for workloads that don’t need synchronous responses.”
+
+Q6: Can you share an example where you had to mentor a teammate or present a complex solution to non-technical stakeholders?
+Sample Answer:
+“At Mercedes Benz R&D, I mentored two junior engineers on building APIs for connected car navigation. They were new to distributed systems, so I explained Kafka concepts with analogies and walked them through live debugging sessions. Separately, I presented the real-time vehicle insights dashboard to a non-technical management team. I avoided jargon and explained the business value — like faster recommendation response time translating into better customer engagement.”
+
+🔹 Soft Skill / Leadership
+
+Q7: How do you prioritize tasks when working on multiple features and production issues at the same time?
+Sample Answer:
+“I usually apply a mix of impact vs urgency analysis. For example, at Aviso AI, I was handling both a feature enhancement request and a production bug affecting key customers. I prioritized the production bug since it directly impacted revenue dashboards. Meanwhile, I broke down the feature work into smaller tasks so progress continued in parallel. Communicating trade-offs with stakeholders was also key.”
