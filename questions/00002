@@ -1,7 +1,7 @@
 ☁️ Cloud & Deployment — Service discovery, CI/CD, Docker/K8s, secrets, TrueFoundry
 
 Q — Service discovery & inter-service communication on Azure
-A — Use DNS-based discovery + service registry patterns with Kubernetes (AKS) and Azure DNS. 
+A — Use DNS-based discovery + service registry patterns with Kubernetes (AKS Azure Kubernetes Service ) and Azure DNS. 
 For AKS: services use Kubernetes DNS (ClusterIP + headless services) and Envoy/Istio when service mesh is needed for mTLS
 (mutual Transport Layer Security),
 load balancing, retries, and observability. For non-K8s components, use Azure Private Link + Application Gateway for ingress and
