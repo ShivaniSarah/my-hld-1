@@ -1,217 +1,315 @@
 ☁️ Cloud & Deployment — Service discovery, CI/CD, Docker/K8s, secrets, TrueFoundry
 
 Q — Service discovery & inter-service communication on Azure
-A — Use DNS-based discovery + service registry patterns with Kubernetes (AKS) and Azure DNS. For AKS: services use Kubernetes DNS (ClusterIP + headless services) and Envoy/Istio when service mesh is needed for mTLS, load balancing, retries, and observability. For non-K8s components, use Azure Private Link + Application Gateway for ingress and Azure Traffic Manager for cross-region routing. I prefer API Gateway + short-lived service-to-service JWTs (or mTLS) for secure RPC.
+A — Use DNS-based discovery + service registry patterns with Kubernetes (AKS) and Azure DNS. 
+For AKS: services use Kubernetes DNS (ClusterIP + headless services) and Envoy/Istio when service mesh is needed for mTLS,
+load balancing, retries, and observability. For non-K8s components, use Azure Private Link + Application Gateway for ingress and
+Azure Traffic Manager for cross-region routing. I prefer API Gateway + short-lived service-to-service JWTs (or mTLS) for secure RPC.
 
 Q — CI/CD pipeline design for many microservices
-A — Multi-repo or mono-repo pipelines with per-service CI and an orchestrated CD. Key steps: build → unit tests → image build (Docker) → security scanning (Snyk/Trivy) → push to registry → run integration tests in ephemeral environment → promote to staging → smoke tests → promote to prod. Use GitHub Actions / Azure DevOps / Jenkins with Helm charts and a templated deployment pipeline (Helm + ArgoCD or Flux) for repeatable, audited rollouts. Add feature flags and canary gates for risky changes.
+A — Multi-repo or mono-repo pipelines with per-service CI and an orchestrated CD. 
+Key steps: build → unit tests → image build (Docker) → security scanning (Snyk/Trivy) → push to registry → run integration tests in 
+ephemeral environment → promote to staging → smoke tests → promote to prod. Use GitHub Actions / Azure DevOps / Jenkins with Helm charts
+and a templated deployment pipeline (Helm + ArgoCD or Flux) for repeatable, audited rollouts. Add feature flags and canary gates for 
+risky changes.
 
 Q — Docker & Kubernetes in production; autoscaling & resource optimization
-A — Containerize minimal Spring Boot images (multi-stage builds, JLink or distroless). Run on AKS with HPA (Horizontal Pod Autoscaler) using CPU or custom metrics (request latency, queue depth) via metrics-server / Prometheus Adapter. Use VPA for safe resource tuning, pod priority/limit ranges, and node pools (spot for non-critical workloads). Optimize JVM startup by using smaller heap on container start and configure container-aware JVM flags (-XX:+UseContainerSupport, -Xmx from env).
+A — Containerize minimal Spring Boot images (multi-stage builds, JLink or distroless). Run on AKS with HPA (Horizontal Pod Autoscaler) 
+using CPU or custom metrics (request latency, queue depth) via metrics-server / Prometheus Adapter. Use VPA for safe resource tuning,
+pod priority/limit ranges, and node pools (spot for non-critical workloads). Optimize JVM startup by using smaller heap on container start
+and configure container-aware JVM flags (-XX:+UseContainerSupport, -Xmx from env).
 
 Q — Secrets management in cloud
-A — Use managed secret stores: Azure Key Vault for AKS/Azure, K8s External Secrets or HashiCorp Vault for multi-cloud. Keep secrets out of images/configmaps; use identity-based access (Managed Identity or service principals) and short-lived credentials. Example: AKS pods obtain a token via Azure AD Pod Identity and fetch secrets from Key Vault at startup or via projected volume.
+A — Use managed secret stores: Azure Key Vault for AKS/Azure, K8s External Secrets or HashiCorp Vault for multi-cloud. Keep secrets out of
+images/configmaps; use identity-based access (Managed Identity or service principals) and short-lived credentials. Example: 
+AKS pods obtain a token via Azure AD Pod Identity and fetch secrets from Key Vault at startup or via projected volume.
 
 Q — TrueFoundry vs Kubernetes/Azure
-A — TrueFoundry abstracts deployment for ML/ML-adjacent infra with simpler model/service lifecycle; good for fast iteration, built-in scaling, and model versioning. Kubernetes/Azure (AKS) offers more control, networking, multi-region, and infra-level features. At Aviso AI we used TrueFoundry for rapid prototyping and model-serving, then migrated stable high-traffic microservices to AKS for fine-grained control, observability, and enterprise-grade policies.
+A — TrueFoundry abstracts deployment for ML/ML-adjacent infra with simpler model/service lifecycle; good for fast iteration,
+built-in scaling, and model versioning. Kubernetes/Azure (AKS) offers more control, networking, multi-region, and infra-level features.
+At Aviso AI we used TrueFoundry for rapid prototyping and model-serving, then migrated stable high-traffic microservices to AKS for 
+fine-grained control, observability, and enterprise-grade policies.
 
 📈 Monitoring & Observability
 
 Q — Monitoring a large-scale backend; tools & practices
-A — Observability stack: metrics (Prometheus), dashboards/alerts (Grafana), logs (ELK or EFK—Elasticsearch/Fluentd/Kibana), tracing (Jaeger/OpenTelemetry). Add APM (NewRelic/Datadog) for deep JVM profiling. Practice: define SLIs/SLOs, service-level dashboards, and automated alerting with runbooks. Tag metrics by service, endpoint, and customer (when multi-tenant).
+A — Observability stack: metrics (Prometheus), dashboards/alerts (Grafana), logs (ELK or EFK—Elasticsearch/Fluentd/Kibana), tracing 
+(Jaeger/OpenTelemetry). Add APM (NewRelic/Datadog) for deep JVM profiling. Practice: define SLIs/SLOs, service-level dashboards, and
+automated alerting with runbooks. Tag metrics by service, endpoint, and customer (when multi-tenant).
 
 Q — Example of alerting for API failures / high latency
-A — Define alerting rules: e.g., error_rate > 2% for 5m or p95_latency > 500ms for 3m. Route alerts by severity (PagerDuty for P0, Slack for P1) and include playbook link with runbook steps (check logs, traces, recent deploys, circuit-breaker state). I also configure automated diagnostics: capture current traces and recent logs when alert fires.
+A — Define alerting rules: e.g., error_rate > 2% for 5m or p95_latency > 500ms for 3m. Route alerts by severity (PagerDuty for P0, 
+Slack for P1) and include playbook link with runbook steps (check logs, traces, recent deploys, circuit-breaker state). I also
+configure automated diagnostics: capture current traces and recent logs when alert fires.
 
 Q — Detect & fix memory leaks in production
-A — Detect: memory trends in Prometheus (heap_used/heap_max), OOM events, GC pause increases; correlate with thread dumps and slow allocations via APM (async snapshot). Fix: capture heap dump (e.g., using jcmd or diagnostics agent), analyze with Eclipse MAT, identify leaking classes or cache growth, patch code (close resources, WeakReferences), add bounded caches, then redeploy with a fix and new resource limits.
+A — Detect: memory trends in Prometheus (heap_used/heap_max), OOM events, GC pause increases; correlate with thread dumps and slow 
+allocations via APM (async snapshot). Fix: capture heap dump (e.g., using jcmd or diagnostics agent), analyze with Eclipse MAT, 
+identify leaking classes or cache growth, patch code (close resources, WeakReferences), add bounded caches, then redeploy with a 
+fix and new resource limits.
 
 Q — Metrics to track for system health
-A — RED & USE combined: Requests (rate, error%, latency P50/P95/P99), CPU/memory, thread pool saturation, GC time, DB connections, DB QPS and latency, cache hit ratio, queue depth, consumer lag, disk I/O, and custom business metrics (reports generated/hr). Also SLO-focused metrics (error budget remaining).
+A — RED & USE combined: Requests (rate, error%, latency P50/P95/P99), CPU/memory, thread pool saturation, GC time, DB connections,
+DB QPS and latency, cache hit ratio, queue depth, consumer lag, disk I/O, and custom business metrics (reports generated/hr). 
+Also SLO-focused metrics (error budget remaining).
 
 Q — Implement distributed tracing in microservices
-A — Instrument services with OpenTelemetry SDK (Java auto-instrumentation + manual spans for business boundaries). Export to Jaeger/OTLP or APM backend, propagate context across HTTP (W3C Traceparent) and Kafka (inject trace headers). Use traces for root-cause (latency hotspots), link traces with logs and metrics (correlate trace-id in logs).
+A — Instrument services with OpenTelemetry SDK (Java auto-instrumentation + manual spans for business boundaries). 
+Export to Jaeger/OTLP or APM backend, propagate context across HTTP (W3C Traceparent) and Kafka (inject trace headers). 
+Use traces for root-cause (latency hotspots), link traces with logs and metrics (correlate trace-id in logs).
 
 ⚠️ Failures & Recovery
 
 Q — Deployment failed in production: rollback & mitigation
-A — Immediate actions: (1) Trigger automated rollback to previous stable release using ArgoCD/Helm rollback, (2) scale down faulty pods, (3) open incident channel and notify stakeholders, (4) run quick mitigation (circuit-breaker to dependent service, rate limit). Postmortem: capture timeline, root cause (bad migration, config change), add checks (smoke tests, canary), and add gating in pipeline.
+A — Immediate actions: (1) Trigger automated rollback to previous stable release using ArgoCD/Helm rollback, (2) scale down faulty pods,
+(3) open incident channel and notify stakeholders, (4) run quick mitigation (circuit-breaker to dependent service, rate limit). 
+Postmortem: capture timeline, root cause (bad migration, config change), add checks (smoke tests, canary), and add gating in pipeline.
 
 Q — Multi-region DR for Azure outage
-A — Active-passive or active-active approach: replicate DB (read-replicas + asynchronous multi-region replication or geo-replication for managed DBs), use multi-region storage (Geo-Redundant Storage), publish services in multiple regions behind Traffic Manager or Front Door with health probes. Use leader-election for writes (promote replica) or a regional write master with cross-region reconciliation. Plan for RTO/RPO, DB failover automation, DNS TTL and thorough failover runbooks.
+A — Active-passive or active-active approach: replicate DB (read-replicas + asynchronous multi-region replication or geo-replication 
+for managed DBs), use multi-region storage (Geo-Redundant Storage), publish services in multiple regions behind Traffic Manager or 
+Front Door with health probes. Use leader-election for writes (promote replica) or a regional write master with cross-region reconciliation.
+Plan for RTO/RPO, DB failover automation, DNS TTL and thorough failover runbooks.
 
 Q — Exactly-once processing / duplication recovery in Kafka + Spark
-A — Exactly-once: use Kafka transactions + idempotent producers; for stream processing, use Spark Structured Streaming with checkpointing and Kafka’s EOS features or Flink’s two-phase commit for sinks. Alternatively, design idempotent consumers using deduplication keys and state store (Kafka compacted topic to track processed message IDs) or dedupe with TTL'd processed-id store in Redis/DB.
+A — Exactly-once: use Kafka transactions + idempotent producers; for stream processing, use Spark Structured Streaming with
+checkpointing and Kafka’s EOS features or Flink’s two-phase commit for sinks. Alternatively, design idempotent consumers using 
+deduplication keys and state store (Kafka compacted topic to track processed message IDs) or dedupe with TTL'd processed-id store
+in Redis/DB.
 
 Q — Handling partial failures when a microservice in chain goes down
-A — Use fault-isolation patterns: circuit breaker (Resilience4j), bulkheads (separate thread pools or services), timeouts, and graceful degradation (return cached/stale data, partial responses). For longer outages, enqueue requests to queue for async processing and notify upstream. Also apply retries with backoff & jitter; ensure idempotency for safe retries.
+A — Use fault-isolation patterns: circuit breaker (Resilience4j), bulkheads (separate thread pools or services), timeouts,
+and graceful degradation (return cached/stale data, partial responses). For longer outages, enqueue requests to queue for 
+async processing and notify upstream. Also apply retries with backoff & jitter; ensure idempotency for safe retries.
 
 Q — Monitoring alerted late / failed: remedy
-A — Root cause: bad alert thresholds, missing instrumentation, or metric gaps. Fix: broaden data sources (traces + logs), implement synthetic health checks, add more meaningful SLO-based alerts, lower alert thresholds for critical endpoints, add alert correlation to reduce noise, and run periodic alerting QA (test alerting path) including on-call drills.
+A — Root cause: bad alert thresholds, missing instrumentation, or metric gaps. Fix: broaden data sources (traces + logs),
+implement synthetic health checks, add more meaningful SLO-based alerts, lower alert thresholds for critical endpoints, 
+add alert correlation to reduce noise, and run periodic alerting QA (test alerting path) including on-call drills.
 
 🔧 Java & Spring Boot APIs — design, security, testing, scaling
 
 Q — Backward compatibility for REST APIs
-A — Use semantic versioning at API gateway (v1/v2 paths), prefer additive changes (new fields), deprecate fields with warnings, and support content negotiation. Maintain compatibility by using tolerant deserialization and versioned DTOs; use consumer-driven contract tests (PACT) to avoid breaking changes.
+A — Use semantic versioning at API gateway (v1/v2 paths), prefer additive changes (new fields), deprecate fields with warnings,
+and support content negotiation. Maintain compatibility by using tolerant deserialization and versioned DTOs; use consumer-driven contract
+tests (PACT) to avoid breaking changes.
 
 Q — Validation & error handling
-A — Use @Valid + @ControllerAdvice to centralize exception handling, return RFC7807 problem details with error codes. Validate at DTO boundary, sanitize inputs, and map exceptions to user-friendly messages while logging full context.
+A — Use @Valid + @ControllerAdvice to centralize exception handling, return RFC7807 problem details with error codes. Validate at
+DTO boundary, sanitize inputs, and map exceptions to user-friendly messages while logging full context.
 
 Q — API security (JWT, OAuth2)
-A — Use OAuth2 (Auth server) for user auth, JWT access tokens for service calls, rotate secrets, validate tokens at gateway. For internal traffic, prefer mTLS or service-to-service short-lived tokens issued by identity provider.
+A — Use OAuth2 (Auth server) for user auth, JWT access tokens for service calls, rotate secrets, validate tokens at gateway. 
+For internal traffic, prefer mTLS or service-to-service short-lived tokens issued by identity provider.
 
 Q — High throughput & low latency API design
-A — Make services stateless, use connection pooling, async IO where possible (WebFlux for massive concurrency), cache aggressively (Redis), offload heavy work to async queues (Kafka), and use CDN/edge caching for static content. Profile and remove blocking I/O on hot paths.
+A — Make services stateless, use connection pooling, async IO where possible (WebFlux for massive concurrency), 
+cache aggressively (Redis), offload heavy work to async queues (Kafka), and use CDN/edge caching for static content. 
+Profile and remove blocking I/O on hot paths.
 
 Q — Sync vs Async APIs
-A — Use sync REST for request-response, async (Kafka, SSE, WebSockets, or callback URLs) for long-running or high-latency work. Choose async when you need resilience and scalability, and the client accepts eventual completion.
+A — Use sync REST for request-response, async (Kafka, SSE, WebSockets, or callback URLs) for long-running or high-latency work. 
+Choose async when you need resilience and scalability, and the client accepts eventual completion.
 
 Q — Pagination & filtering
-A — Cursor-based pagination for large sets (avoid OFFSET), use query param filters, expose stable cursors, and support projection to reduce payload size.
+A — Cursor-based pagination for large sets (avoid OFFSET), use query param filters, expose stable cursors, 
+and support projection to reduce payload size.
 
 Q — Spring Boot Actuator usage
 A — Expose health, metrics, and custom endpoints; secure actuator endpoints with role-based access; integrate with Prometheus exporter.
 
 Q — Rate limiting / throttling
-A — Implement at API gateway (Kong, Envoy) or use Redis token bucket for distributed rate limiting. Use per-tenant limits plus global protection and dynamic configuration for emergency throttles.
+A — Implement at API gateway (Kong, Envoy) or use Redis token bucket for distributed rate limiting. Use per-tenant limits plus global 
+protection and dynamic configuration for emergency throttles.
 
 Q — Testing: unit / integration / contract
-A — Unit tests with Mockito, integration tests with Spring Boot test slices and Testcontainers for DB, and contract tests (PACT) for consumer-provider compatibility; CI runs these per-commit.
+A — Unit tests with Mockito, integration tests with Spring Boot test slices and Testcontainers for DB, and contract tests (PACT) for 
+consumer-provider compatibility; CI runs these per-commit.
 
 Q — GraphQL / gRPC trade-offs
-A — gRPC for internal high-performance RPC (binary, streaming), GraphQL for client-driven queries (but caching, batching complexity). Choose based on client needs and cross-service semantics.
+A — gRPC for internal high-performance RPC (binary, streaming), GraphQL for client-driven queries (but caching, batching complexity). 
+Choose based on client needs and cross-service semantics.
 
 ⚙️ Spring Boot Deployment & Scaling
 
 Q — Config across environments / Spring Profiles
-A — Use Spring Profiles (application-{env}.yml) with secrets in K8s secrets or Key Vault, prefer externalized config via Spring Cloud Config or Kubernetes ConfigMaps + env vars. Avoid environment-specific code.
+A — Use Spring Profiles (application-{env}.yml) with secrets in K8s secrets or Key Vault, prefer externalized config via Spring Cloud
+Config or Kubernetes ConfigMaps + env vars. Avoid environment-specific code.
 
 Q — Containerizing Spring Boot best practices
-A — Use multi-stage Dockerfile, shrink JAR with spring-boot-layered, prefer jlink or native images if startup matters, set JAVA_TOOL_OPTIONS for container awareness, and avoid unnecessary layers.
+A — Use multi-stage Dockerfile, shrink JAR with spring-boot-layered, prefer jlink or native images if startup matters, 
+set JAVA_TOOL_OPTIONS for container awareness, and avoid unnecessary layers.
 
 Q — Kubernetes scaling
-A — Use HPA (CPU/custom metrics), PodDisruptionBudgets, readiness/liveness probes, resource requests/limits, and pod anti-affinity to spread across nodes. Use Istio for traffic shaping and canaries.
+A — Use HPA (CPU/custom metrics), PodDisruptionBudgets, readiness/liveness probes, resource requests/limits, 
+and pod anti-affinity to spread across nodes. Use Istio for traffic shaping and canaries.
 
 Q — Zero-downtime deployments
-A — Prefer canary or blue-green with Feature Flags and readiness probes so only healthy pods receive traffic. Use database migrations carefully (expand-then-migrate-then-consolidate) to avoid incompatible schemas.
+A — Prefer canary or blue-green with Feature Flags and readiness probes so only healthy pods receive traffic. 
+Use database migrations carefully (expand-then-migrate-then-consolidate) to avoid incompatible schemas.
 
 Q — Rolling updates vs blue-green vs canary
-A — Canary for incremental risk reduction (best for high-sensitivity changes), blue-green for quick rollback and zero-downtime, rolling updates for steady-state smaller clusters. Pick per-release risk profile.
+A — Canary for incremental risk reduction (best for high-sensitivity changes), blue-green for quick rollback and zero-downtime, 
+rolling updates for steady-state smaller clusters. Pick per-release risk profile.
 
 Q — Circuit breakers & retries
-A — Use Resilience4j for circuit breakers, rate limiters, retries with jitter. Keep retry counts low for user-facing flows and high for background jobs.
+A — Use Resilience4j for circuit breakers, rate limiters, retries with jitter. Keep retry counts low for user-facing
+flows and high for background jobs.
 
 🧩 Databases — SQL & NoSQL (modeling, tuning, migrations)
 
 Q — Schema design for high-write vs high-read
-A — High-write: normalize to minimize write amplification, use partitioning/append-only patterns, avoid cross-shard transactions. High-read: denormalize, use read replicas and materialized views, create projection tables optimized for queries.
+A — High-write: normalize to minimize write amplification, use partitioning/append-only patterns, avoid cross-shard transactions.
+High-read: denormalize, use read replicas and materialized views, create projection tables optimized for queries.
 
 Q — ACID & PostgreSQL
-A — PostgreSQL provides ACID via MVCC, WAL for durability, and transactional semantics. Use transactions for multi-step updates and tune isolation levels where needed.
+A — PostgreSQL provides ACID via MVCC, WAL for durability, and transactional semantics. Use transactions for multi-step updates 
+and tune isolation levels where needed.
 
 Q — Detect & fix slow queries
-A — Use EXPLAIN ANALYZE, pg_stat_statements to find hotspots, add indexes, rewrite joins, and consider partitioning or caching. Example: replaced correlated subquery with window function + index and reduced runtime from minutes to seconds.
+A — Use EXPLAIN ANALYZE, pg_stat_statements to find hotspots, add indexes, rewrite joins, and consider partitioning or caching.
+Example: replaced correlated subquery with window function + index and reduced runtime from minutes to seconds.
 
 Q — Row vs columnar (Postgres vs ClickHouse/Redshift)
-A — Row stores optimize OLTP (fast single-row operations); columnar stores optimize analytical queries with columnar compression and vectorized reads. Use ClickHouse for fast time-series analytics and Redshift/Snowflake for complex OLAP workloads.
+A — Row stores optimize OLTP (fast single-row operations); columnar stores optimize analytical queries with columnar compression 
+and vectorized reads. Use ClickHouse for fast time-series analytics and Redshift/Snowflake for complex OLAP workloads.
 
 Q — Indexing strategies (B-Tree, GIN, BRIN)
-A — B-Tree for equality/range, GIN for full-text and JSONB, BRIN for very large append-only tables with physical order. Choose based on query pattern and table size.
+A — B-Tree for equality/range, GIN for full-text and JSONB, BRIN for very large append-only tables with physical order. Choose
+based on query pattern and table size.
 
 Q — Schema migrations with zero downtime
-A — Expand-then-migrate approach: add new columns/tables (backwards-compatible), deploy code that writes both shapes, backfill data asynchronously, switch reads, then remove old schema. Use migration tools (Flyway, Liquibase) and run migrations in maintenance windows for risky ops.
+A — Expand-then-migrate approach: add new columns/tables (backwards-compatible), deploy code that writes both shapes, 
+backfill data asynchronously, switch reads, then remove old schema. Use migration tools (Flyway, Liquibase) and run migrations
+in maintenance windows for risky ops.
 
 Q — Partitioning & sharding
-A — Partition by time or tenant for large tables (Postgres native partitioning). Shard at application layer or use Citus for Postgres sharding in scale-out scenarios.
+A — Partition by time or tenant for large tables (Postgres native partitioning). Shard at application layer or use Citus for 
+Postgres sharding in scale-out scenarios.
 
 Q — Deadlocks
-A — Detect with PostgreSQL logs and pg_locks, avoid by consistent locking order, minimize transaction scope, and use SELECT FOR UPDATE SKIP LOCKED for queue workers.
+A — Detect with PostgreSQL logs and pg_locks, avoid by consistent locking order, minimize transaction scope, 
+and use SELECT FOR UPDATE SKIP LOCKED for queue workers.
 
 🔸 NoSQL (MongoDB, ClickHouse, Redis)
 
 Q — MongoDB schema choices (embed vs reference)
-A — Embed when related data is read together and size is bounded; reference when data grows independently or for many-to-many relations. Example: embed address in user doc, but reference large audit logs.
+A — Embed when related data is read together and size is bounded; reference when data grows independently or for many-to-many relations.
+Example: embed address in user doc, but reference large audit logs.
 
 Q — MongoDB transactions vs denormalization
-A — Use multi-document transactions for strong consistency on critical flows (e.g., payments). Prefer denormalization for read performance where eventual consistency is acceptable.
+A — Use multi-document transactions for strong consistency on critical flows (e.g., payments). Prefer denormalization for read performance
+where eventual consistency is acceptable.
 
 Q — ClickHouse optimization
-A — Use partitioning by time, materialized views for pre-aggregations, sampling for fast analytics, and primary key ordering for range queries. ClickHouse excels at large-scale OLAP with massive ingestion.
+A — Use partitioning by time, materialized views for pre-aggregations, sampling for fast analytics, and primary key ordering for range 
+queries. ClickHouse excels at large-scale OLAP with massive ingestion.
 
 Q — Redis caching strategies
-A — Use write-through for strong consistency or read-through with TTL for performance. To prevent stampede: use request coalescing (mutex/key-lock), early recompute, and randomized TTLs (jitter).
+A — Use write-through for strong consistency or read-through with TTL for performance. To prevent stampede: use request coalescing 
+(mutex/key-lock), early recompute, and randomized TTLs (jitter).
 
 Q — Prevent hot partitions
-A — Use even partitioning keys (hash prefixes), re-sharding, or bucketing techniques. For ClickHouse, set partitioning strategy by month/day and use distributed tables.
+A — Use even partitioning keys (hash prefixes), re-sharding, or bucketing techniques. For ClickHouse, set partitioning strategy by 
+month/day and use distributed tables.
 
 Q — Hybrid real-time + historical architecture
-A — Stream ingest to Kafka; route real-time to Redis and OLTP DB for transactions; mirror or batch to ClickHouse/Redshift for analytics. Use materialized views or change data capture (CDC) pipelines (Debezium) for consistent sync.
+A — Stream ingest to Kafka; route real-time to Redis and OLTP DB for transactions; mirror or batch to ClickHouse/Redshift for analytics. 
+Use materialized views or change data capture (CDC) pipelines (Debezium) for consistent sync.
 
 🔀 Cross-cutting DB + API scenarios
 
 Q — API fetching from Postgres, MongoDB, Redis — optimize
-A — Use aggregator service that queries Redis first (cache), then Postgres for transactional data and Mongo for document-heavy data in parallel (async futures). Merge results and return; time-box long calls and return partial with cacheStale flag if needed.
+A — Use aggregator service that queries Redis first (cache), then Postgres for transactional data and Mongo for document-heavy data
+in parallel (async futures). Merge results and return; time-box long calls and return partial with cacheStale flag if needed.
 
 Q — CQRS in Spring Boot
-A — Commands handled synchronously with transactional writes; queries served from read-models (denormalized) updated via events (Kafka). Implement with separate services, event handlers, and read-replicas.
+A — Commands handled synchronously with transactional writes; queries served from read-models (denormalized) updated via events (Kafka).
+Implement with separate services, event handlers, and read-replicas.
 
 Q — Transactional integrity across multiple DBs
-A — Prefer single-writer model for critical flows. If cross-store updates are necessary, use Sagas (choreography or orchestration) with compensating transactions for eventual consistency.
+A — Prefer single-writer model for critical flows. If cross-store updates are necessary, use Sagas (choreography or orchestration) with
+compensating transactions for eventual consistency.
 
 Q — Postgres write slow (500ms) — optimize response time
-A — Offload write to async queue if immediate response not required, add local cache to avoid blocking reads, batch writes where possible, add index tuning, or scale DB (vertical or read replicas). Also profile slow query and fix.
+A — Offload write to async queue if immediate response not required, add local cache to avoid blocking reads, batch writes where possible,
+add index tuning, or scale DB (vertical or read replicas). Also profile slow query and fix.
 
 Q — Connection pooling (HikariCP) config
-A — Tune max pool size to min(max_connections_db / (num_app_instances), desired_throughput); monitor pool wait times; set connectionTimeout and maxLifetime to avoid stale connections.
+A — Tune max pool size to min(max_connections_db / (num_app_instances), desired_throughput); monitor pool wait times; 
+set connectionTimeout and maxLifetime to avoid stale connections.
 
 Q — Read replicas & routing
-A — Use read-only replicas for analytics/read-heavy endpoints; route via application or proxy (PgBouncer, HAProxy). Ensure eventual consistency awareness (stale reads).
+A — Use read-only replicas for analytics/read-heavy endpoints; route via application or proxy (PgBouncer, HAProxy).
+Ensure eventual consistency awareness (stale reads).
 
 Q — Multi-region DB replication
-A — Use managed DB geo-replication where possible and asynchronous replication with conflict resolution. For strong write constraint, use region-affinity with reconciliation jobs.
+A — Use managed DB geo-replication where possible and asynchronous replication with conflict resolution. 
+For strong write constraint, use region-affinity with reconciliation jobs.
 
 Q — Backups & restores
-A — Regular physical and logical backups, test restores in staging, incremental backups, WAL archiving, snapshot-based backups for minimal RTO.
+A — Regular physical and logical backups, test restores in staging, incremental backups, WAL archiving, snapshot-based backups 
+for minimal RTO.
 
 Q — Data archival
-A — Move cold data to columnar OLAP (ClickHouse/Redshift) with retention policies; keep recent hot data in Postgres. Implement archival jobs and soft deletes for audit.
+A — Move cold data to columnar OLAP (ClickHouse/Redshift) with retention policies; keep recent hot data in Postgres.
+Implement archival jobs and soft deletes for audit.
 
 🛠 Failure & Recovery for DBs
 
 Q — Primary Postgres crashes
-A — Promote a replica to primary (automated if using Patroni/Citus or cloud managed failover), point application to new primary via failover routing, rollback last failed deployment if needed, and run integrity checks.
+A — Promote a replica to primary (automated if using Patroni/Citus or cloud managed failover), 
+point application to new primary via failover routing, rollback last failed deployment if needed, and run integrity checks.
 
 Q — Recover from replication lag
-A — Pause heavy reads to replicas, increase replica apply throughput, limit write hotspots, and re-balance load; if lag persists, consider throttling producers and backpressure.
+A — Pause heavy reads to replicas, increase replica apply throughput, limit write hotspots, and re-balance load; 
+if lag persists, consider throttling producers and backpressure.
 
 Q — Idempotent writes during retries
-A — Use unique idempotency keys persisted in DB or dedupe table, or use upserts with unique constraints to ensure single application of operation.
+A — Use unique idempotency keys persisted in DB or dedupe table, or use upserts with unique constraints to 
+ensure single application of operation.
 
 Q — Avoid data loss in MongoDB with sharding & replication
-A — Use replica sets with majority write concern for durability and configure proper chunk balancing/monitoring. Test failovers and backup regularly.
+A — Use replica sets with majority write concern for durability and configure proper chunk balancing/monitoring.
+Test failovers and backup regularly.
 
 Q — DB migration caused downtime — remediation
-A — If migration blocked, rollback schema change if possible, restore from backup, or apply fix-only migrations with smaller changes. Postmortem: improve migration CI (dry-run, online schema changes, expand-then-migrate).
+A — If migration blocked, rollback schema change if possible, restore from backup, 
+or apply fix-only migrations with smaller changes. Postmortem: improve migration CI (dry-run, online schema changes, expand-then-migrate).
 
 🏗 System design scenarios (short architectures & decisions)
 
 Q — Real-time credit card ingestion + fraud detection <200ms
-A — Ingest via Kafka; a lightweight stateless scoring microservice consumes transactions (low-latency model in-memory + Redis lookups for blacklists), respond sync with HTTP gateway if needed, and forward events for async deep analysis (Spark/ClickHouse). Use Redis for feature store, Kafka for decoupling, and model served via fast local endpoints (TrueFoundry/gRPC). Monitor p95 latency and use circuit-breaker to fail to allow-list when model is down.
+A — Ingest via Kafka; a lightweight stateless scoring microservice consumes transactions 
+(low-latency model in-memory + Redis lookups for blacklists), respond sync with HTTP gateway if needed, 
+and forward events for async deep analysis (Spark/ClickHouse). Use Redis for feature store, Kafka for decoupling, 
+and model served via fast local endpoints (TrueFoundry/gRPC). Monitor p95 latency 
+and use circuit-breaker to fail to allow-list when model is down.
 
 Q — Public API for partners (security, multi-tenancy, audit)
-A — Gateway enforces OAuth2 client credentials, rate limits per tenant, uses mutual TLS for critical partners. Multi-tenancy at app layer: token contains tenant id; use row-level tenant filters or separate schema per tenant. Persist audit logs per request (append-only) in an immutable store (S3 + ClickHouse).
+A — Gateway enforces OAuth2 client credentials, rate limits per tenant, uses mutual TLS for critical partners. 
+Multi-tenancy at app layer: token contains tenant id; use row-level tenant filters or separate schema per tenant.
+Persist audit logs per request (append-only) in an immutable store (S3 + ClickHouse).
 
 Q — Graceful degradation for slow downstream (payment gateway)
-A — Use fallback strategy: serve cached last known state, queue requests for later reconciliation, return informative partial responses with status=DEFERRED, and degrade non-essential functionality. Alert SRE and increase sampling.
+A — Use fallback strategy: serve cached last known state, queue requests for later reconciliation, 
+return informative partial responses with status=DEFERRED, and degrade non-essential functionality. Alert SRE and increase sampling.
 
 Q — API gateway for 100+ microservices
-A — Use Envoy/Ingress + centralized auth/claims injection, central config via Consul/Service Mesh, rate limiting, and per-route circuit-breakers. Offload auth/token validation at the gateway and route to services via service discovery. Use centralized logging and tracing integration.
+A — Use Envoy/Ingress + centralized auth/claims injection, central config via Consul/Service Mesh,
+rate limiting, and per-route circuit-breakers. Offload auth/token validation at the gateway and route to services via service discovery. 
+se centralized logging and tracing integration.
 
 Q — Notification service for dispute updates
-A — Use Kafka for event backbone, push notifications via WebSocket or SSE for live clients and push/callbacks for mobile/web; store delivery status in DB and retry with DLQ for failures. Use fan-out via pub/sub with backpressure handling.
+A — Use Kafka for event backbone, push notifications via WebSocket or SSE for live clients and push/callbacks for mobile/web; 
+store delivery status in DB and retry with DLQ for failures. Use fan-out via pub/sub with backpressure handling.
 
 Q — Reporting API aggregating Postgres + Mongo + Redshift
-A — Build a denormalized read-model updated via CDC (Debezium → Kafka → ETL into ClickHouse/Redshift). Serve low-latency queries from materialized read models (ClickHouse), and fall back to on-demand aggregation for rare queries. Use query federation only when necessary.
+A — Build a denormalized read-model updated via CDC (Debezium → Kafka → ETL into ClickHouse/Redshift). 
+Serve low-latency queries from materialized read models (ClickHouse), and fall back to on-demand aggregation for rare queries. 
+Use query federation only when necessary.
 
 Q — Migrating monolith to microservices
-A — Strangle pattern: extract vertical features one-by-one, create bounded contexts, separate DBs for services that require independence, keep shared DB read model where needed, route via API gateway, and add consumer-driven contract tests to preserve behavior. Start with non-critical features and iterate.
+A — Strangle pattern: extract vertical features one-by-one, create bounded contexts, separate DBs for services that require independence,
+keep shared DB read model where needed, route via API gateway, and add consumer-driven contract tests to preserve behavior. 
+Start with non-critical features and iterate.
