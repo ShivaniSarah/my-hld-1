@@ -53,7 +53,8 @@ identify leaking classes or cache growth, patch code (close resources, WeakRefer
 fix and new resource limits.
 
 Q — Metrics to track for system health
-A — RED & USE combined: Requests (rate, error%, latency P50/P95/P99), CPU/memory, thread pool saturation, GC time, DB connections,
+A — RED (Rate, Errors, Duration) and USE (Utilization, Saturation, Errors) combined: 
+Requests (rate, error%, latency P50/P95/P99), CPU/memory, thread pool saturation, GC time, DB connections,
 DB QPS and latency, cache hit ratio, queue depth, consumer lag, disk I/O, and custom business metrics (reports generated/hr). 
 Also SLO-focused metrics (error budget remaining).
 
