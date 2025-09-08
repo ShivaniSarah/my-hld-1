@@ -160,6 +160,17 @@ Q — Rolling updates vs blue-green vs canary
 A — Canary for incremental risk reduction (best for high-sensitivity changes), blue-green for quick rollback and zero-downtime, 
 rolling updates for steady-state smaller clusters. Pick per-release risk profile.
 
+A rolling update is a deployment strategy that replaces old versions of an application with new versions gradually, instance by instance, until the update is complete. It is the default deployment strategy in Kubernetes. 
+A new version of the application is released.
+
+Blue-green deployment uses two identical, parallel production environments: "blue" (the current live version) and "green" (the new version). All user traffic is switched from the blue environment to the green environment at once after the green environment is verified. 
+When the team is confident in the new version, traffic is instantly rerouted from the "blue" environment to the "green" environment, typically using a load balancer or DNS switch.
+
+Canary deployment is a gradual rollout strategy that sends a small portion of live production traffic to a new version of the application,
+while the majority of traffic continues to serve the stable, older version. The new version is the "canary.
+If the canary is stable, traffic is incrementally increased until it handles all production traffic.
+Can introduce state consistency issues if users are routed between different versions.
+
 Q — Circuit breakers & retries
 A — Use Resilience4j for circuit breakers, rate limiters, retries with jitter. Keep retry counts low for user-facing
 flows and high for background jobs.
