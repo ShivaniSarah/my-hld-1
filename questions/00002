@@ -75,12 +75,15 @@ A — Active-passive or active-active approach: replicate DB (read-replicas + as
 for managed DBs), use multi-region storage (Geo-Redundant Storage), publish services in multiple regions behind Traffic Manager or 
 Front Door with health probes. Use leader-election for writes (promote replica) or a regional write master with cross-region reconciliation.
 Plan for RTO(Recovery Time Objective) /RPO (Recovery Point Objective), DB failover automation, DNS TTL and thorough failover runbooks.
+RTO is the maximum acceptable duration of time that an application or service can be down 
+RPO (Recovery Point Objective) is the maximum amount of data, measured in time, that an organization can 
+tolerate losing from an outage or disaster. 
 
 Q — Exactly-once processing / duplication recovery in Kafka + Spark
-A — Exactly-once: use Kafka transactions + idempotent producers; for stream processing, use Spark Structured Streaming with
-checkpointing and Kafka’s EOS features or Flink’s two-phase commit for sinks. Alternatively, design idempotent consumers using 
-deduplication keys and state store (Kafka compacted topic to track processed message IDs) or dedupe with TTL'd processed-id store
-in Redis/DB.
+A — Exactly-once: use Kafka transactions + idempotent producers; for stream processing, use Spark Structured Streaming with checkpointing
+and Kafka’s EOS(Exactly Once Semantics) features or Flink’s two-phase commit for sinks (the final component in a dataflow job)
+Alternatively, design idempotent consumers using deduplication keys and state store (Kafka compacted topic to 
+track processed message IDs) or dedupe with TTL'd processed-id store in Redis/DB.
 
 Q — Handling partial failures when a microservice in chain goes down
 A — Use fault-isolation patterns: circuit breaker (Resilience4j), bulkheads (separate thread pools or services), timeouts,
