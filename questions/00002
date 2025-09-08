@@ -16,8 +16,9 @@ risky changes.
 
 Q — Docker & Kubernetes in production; autoscaling & resource optimization
 A — Containerize minimal Spring Boot images (multi-stage builds, JLink or distroless). Run on AKS with HPA (Horizontal Pod Autoscaler) 
-using CPU or custom metrics (request latency, queue depth) via metrics-server / Prometheus Adapter. Use VPA for safe resource tuning,
-pod priority/limit ranges, and node pools (spot for non-critical workloads). Optimize JVM startup by using smaller heap on container start
+using CPU or custom metrics (request latency, queue depth) via metrics-server / Prometheus Adapter. Use VPA ( Vertical Pod Autoscale)
+for safe resource tuning, pod priority/limit ranges, and node pools (spot for non-critical workloads).
+Optimize JVM startup by using smaller heap on container start
 and configure container-aware JVM flags (-XX:+UseContainerSupport, -Xmx from env).
 
 Q — Secrets management in cloud
