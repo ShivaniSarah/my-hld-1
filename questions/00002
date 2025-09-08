@@ -36,7 +36,9 @@ fine-grained control, observability, and enterprise-grade policies.
 
 Q — Monitoring a large-scale backend; tools & practices
 A — Observability stack: metrics (Prometheus), dashboards/alerts (Grafana), logs (ELK or EFK—Elasticsearch/Fluentd/Kibana), tracing 
-(Jaeger/OpenTelemetry). Add Application Performance Monitoring or APM (NewRelic/Datadog) for deep JVM profiling. Practice: define SLIs/SLOs, service-level dashboards, and
+(Jaeger/OpenTelemetry). Add Application Performance Monitoring or APM (NewRelic/Datadog) for deep JVM profiling. Practice: define SLIs/SLOs,
+service-level dashboards, (SLI (Service Level Indicator) and SLO (Service Level Objective) are foundational concepts in
+Site Reliability Engineering (SRE) used to define, measure, and track the reliability and performance of a service) and
 automated alerting with runbooks. Tag metrics by service, endpoint, and customer (when multi-tenant).
 
 Q — Example of alerting for API failures / high latency
