@@ -1,0 +1,33 @@
+biggest disadvantage of denormalising the tables in clickhouse db
+From Denormalization to Joins: Why ClickHouse Cannot Keep Up
+The biggest disadvantage of denormalizing tables in ClickHouse is the increased difficulty and cost of handling data updates and maintaining data consistency. Because ClickHouse is a columnar, append-only database, and denormalization creates redundant data, making changes requires re-writing entire, often massive, datasets, which is inefficient and resource-intensive. 
+
+
+Drawbacks of denormalizing tables in ClickHouse
+Costly and complex data updates: Unlike traditional databases that can perform efficient row-level updates,
+ClickHouse is optimized for high-volume, append-only writes. A denormalized table with redundant data is difficult to update.
+For example, if a customer's name changes, a denormalized table would require updating that name across every single order placed by that customer. In ClickHouse, this means you must rewrite or mutate all affected rows, which is a slow and resource-heavy operation.
+Risk of data inconsistency: When data is duplicated across a denormalized table, there is a higher risk of inconsistency. 
+If an update fails to propagate to all redundant instances of a data point, the dataset becomes unreliable.
+This makes maintaining data integrity a more challenging and manual process compared to a normalized schema.
+
+Bloated storage and less effective compression: While ClickHouse's columnar storage and compression are efficient,
+denormalization adds redundant data, increasing the overall storage footprint. 
+For example, storing a long product name hundreds of times for different orders is less efficient than storing a single product ID and 
+looking up the name from a smaller table. This bloating can reduce the effectiveness of ClickHouse's compression algorithms, 
+which work best on columns with many similar or repetitive values.
+Potential for slower queries on wide tables: Denormalized tables are often "wide," containing a large number of columns. 
+While ClickHouse can be faster by avoiding joins, a query that only needs a few columns may be slower on a very wide table. 
+This is because wider rows result in larger data parts, which must be read from disk, even if only a few columns are used in the query.
+Infrequent updates and complex ETL: Denormalization shifts the complexity from query time to ingestion time. 
+To handle data that changes, you must either tolerate some data staleness or build complex Extract, Transform, and Load (ETL) pipelines
+to process and re-ingest data. This can make real-time denormalization unrealistic,
+as a single source table change could trigger updates across many rows in a denormalized table. 
+
+Preferred alternatives in ClickHouse
+Instead of relying on denormalization, ClickHouse provides powerful, native features that offer superior performance and maintain data integrity. These include: 
+Materialized views: These can pre-aggregate or pre-join data automatically as new data is ingested, reducing the need for denormalized tables.
+Dictionary tables: For dimension tables that are small and frequently accessed, dictionaries provide lightning-fast, in-memory lookups, completely avoiding joins in queries.
+Nested data structures: ClickHouse supports complex data types like Nested and Array, which can store one-to-many relationships within a single row without the redundancy of a flat denormalized table.
+Projections: This feature allows you to define alternative data layouts for a table. ClickHouse automatically selects the right projection to speed up a query without you having to manage a separate, denormalized table. 
+
